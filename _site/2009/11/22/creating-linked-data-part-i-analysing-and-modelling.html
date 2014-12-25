@@ -1,0 +1,282 @@
+<p>One of the goals of the government&#39;s Data Project is to equip the people who own data with the capability to publish it as linked data. There&#39;s an overwhelming amount of work to do here from providing tool support to changing a culture that makes it hard to publish data. But we can start by taking some baby steps that simply explain what&#39;s involved in turning existing data into linked data.</p>
+
+<p>I&#39;m currently reworking the traffic count linked data that I first transformed back in September, and I thought it would be helpful to talk through that process for several reasons:</p>
+
+<ul>
+<li>to give people using the traffic count data more insight into how it fits together</li>
+<li>so that other people can follow it as they transform their own data</li>
+<li>so that tool providers can spot some of the places where tools might help</li>
+</ul>
+
+<p>Rather than creating one massive blog post, I&#39;m going to break it down into several steps. These are:</p>
+
+<ol>
+<li>analysing and modelling</li>
+<li>defining URIs</li>
+<li>defining concept schemes</li>
+<li>defining classes, properties and datatypes</li>
+<li>adding finishing touches</li>
+</ol>
+
+<p>This is the first instalment.</p>
+
+<!--break-->
+
+<hr>
+
+<p>The first thing to do is to work out what <em>things</em> the data we have contains information about. One way of thinking about this is to try to identify anything in the data that you can imagine wanting to get information about. This process is exactly the same as the process you would go through when designing a database or an XML format.</p>
+
+<p>It&#39;s worth noting that this is a design process rather than a discovery process. There is no inherent model in any set of data; I can guarantee you that someone else will break down a given set of data in a different way from you. That means you have to make decisions along the way.</p>
+
+<p>The column headers in the traffic count dataset are:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&quot;Country Name&quot;,&quot;Region Name&quot;,&quot;ONS Region Code&quot;,&quot;DfT LA Code&quot;,&quot;ONS LA Code&quot;,
+&quot;Local Authority Name&quot;,&quot;Count Point Number&quot;,&quot;Road Number&quot;,&quot;Road Sequence&quot;,
+&quot;Road Category&quot;,&quot;Road Name at CP&quot;,&quot;CP Location&quot;,&quot;Site coordinate easting&quot;,
+&quot;Site coordinate northin&quot;,&quot;Date of count&quot;,&quot;Direction of flow&quot;,&quot;Hour of count&quot;,
+&quot;Pedal cycles&quot;,&quot;Two wheeled motor vehicles&quot;,&quot;Cars and taxis&quot;,&quot;Buses and coaches&quot;,
+&quot;Light vans&quot;,&quot;HGVr2&quot;,&quot;HGVr3&quot;,&quot;HGVr4+&quot;,&quot;HGVa3/4&quot;,&quot;HGVa5&quot;,&quot;HGVa6&quot;,&quot;All HGV&quot;,
+&quot;All motor vehicles&quot;
+</code></pre></div>
+<p>A couple of example records are:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&quot;England&quot;,&quot;North West&quot;,&quot;B&quot;,4315.00,&quot;00BZ&quot;,&quot;St.Helens Metropolitan Borough Council&quot;,
+4,&quot;U&quot;,,&quot;Unclassified Urban&quot;,,
+,352100,398200,
+7/6/2001 00:00:00,&quot;N&quot;,7,1,0,5,1,0,0,0,0,0,0,0,0,6
+</code></pre></div>
+<p>and:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&quot;England&quot;,&quot;South West&quot;,&quot;K&quot;,1115.00,&quot;18&quot;,&quot;Devon County Council&quot;,
+13,&quot;B3178&quot;,,&quot;B Urban&quot;,&quot;Salterton Road&quot;,
+&quot;Salterton Road, EAST OF DINAN WAY, EXMOUTH&quot;,302600,81984,
+8/10/2001 00:00:00,&quot;E&quot;,17,2,2,400,5,41,0,2,0,0,0,0,2,450
+</code></pre></div>
+<p>After a bit of reading <a href="http://www.dft.gov.uk/matrix/forms/definitions.aspx">documentation</a> and poking around in the data, it emerges that we can group these together as follows:</p>
+
+<ul>
+<li>fields about <strong>countries</strong>
+
+<ul>
+<li><code>Country Name</code></li>
+</ul></li>
+<li>fields about <strong>regions</strong>
+
+<ul>
+<li><code>Region Name</code></li>
+<li><code>ONS Region Code</code> (ONS = Office of National Statistics)</li>
+</ul></li>
+<li>fields about <strong>local authorities</strong>
+
+<ul>
+<li><code>DfT LA Code</code> (DfT = Department for Transport)</li>
+<li><code>ONS LA Code</code></li>
+<li><code>Local Authority Name</code></li>
+</ul></li>
+<li>fields about <strong>roads</strong>
+
+<ul>
+<li><code>Road Number</code> (not available for unclassified roads)</li>
+</ul></li>
+<li>fields about <strong>count points</strong>
+
+<ul>
+<li><code>Count Point Number</code></li>
+<li><code>Road Sequence</code> (indicates order of count points on particular roads; only applicable to count points on those long roads)</li>
+<li><code>Road Category</code> (roads can have different categories at different points; for example the A1 is sometimes &quot;Trunk Motorway&quot; and sometimes &quot;Principal A Urban&quot;)</li>
+<li><code>Road Name at CP</code> (roads can have different names at different points; for example the A240 is sometimes &quot;Surbiton Hill Road&quot;, sometimes &quot;Reigate Road&quot;, sometimes something else)</li>
+<li><code>CP Location</code> (a description of the location, sometimes missing)</li>
+<li><code>Site coordinate easting</code></li>
+<li><code>Site coordinate northing</code></li>
+</ul></li>
+<li>fields about <strong>counts</strong>
+
+<ul>
+<li><code>Date of count</code></li>
+<li><code>Direction of flow</code> (one of the cardinal directions; observations at a particular count point will be made in both directions the road goes in)</li>
+<li><code>Hour of count</code> (observations each cover an hour of traffic, from 7am to 7pm)</li>
+</ul></li>
+<li>fields that are counts
+
+<ul>
+<li><code>Pedal cycles</code></li>
+<li><code>Two wheeled motor vehicles</code></li>
+<li><code>Cars and taxis</code></li>
+<li><code>Buses and coaches</code></li>
+<li><code>Light vans</code></li>
+<li><code>HGVr2</code> (HGVs with two rigid axles)</li>
+<li><code>HGVr3</code></li>
+<li><code>HGVr4+</code></li>
+<li><code>HGVa3/4</code> (articulated HGVs with three or four axles)</li>
+<li><code>HGVa5</code></li>
+<li><code>HGVa6</code></li>
+<li><code>All HGV</code></li>
+<li><code>All motor vehicles</code></li>
+</ul></li>
+</ul>
+
+<p>Some of the fields contain information about things (countries, regions etc), and some of them contain the actual data themselves, with the field names telling us about their type (ie the counts of various sorts). The <code>Road Category</code> field actually contains a whitespace-separated list of road categories about which we can imagine wanting to have more information (like what, exactly, is a &#39;principal&#39; road?). So as a first cut, the things in the data are:</p>
+
+<ul>
+<li>countries</li>
+<li>regions</li>
+<li>local authorities</li>
+<li>roads</li>
+<li>road categories</li>
+<li>count points</li>
+<li>counts</li>
+<li>vehicle types</li>
+</ul>
+
+<p>There are also implied relationships between the various things that are described within the dataset, that can be identified through the co-occurrence of things within the same record. For example, all records that contain <code>&quot;North West&quot;</code> as a value for <code>Region Name</code> have <code>&quot;England&quot;</code> as the value for <code>Country Name</code>, so we can tell from the data that England contains the North West.</p>
+
+<p>There&#39;s obviously some kind of relationship between local authorities and regions (eg a <code>Local Authority Name</code> of <code>&quot;Surrey County Council&quot;</code> implies a <code>Region Name</code> of <code>South East</code>), but it&#39;s hard to put a name to it. The relationship becomes more obvious if we introduce a new type of thing: a <strong>local authority district</strong>. Then we can say that a local authority covers a local authority district which is within a region.</p>
+
+<p>So a first cut at a model is:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">                    +---- country
+                    |        |
+                    |        | contains
+           contains |        v
+                    |     region
+                    |        |
+                    |        | contains
+                    v        v           covers
+              local authority district &lt;--------- local authority
+                         |
+                         | contains
+            on           v          category
+  road &lt;----------- count point -----------------&gt; road category
+                         ^
+                         | at
+                         |            of
+                       count --------------------&gt; vehicle type
+</code></pre></div>
+<p>This is how I modelled it the first time round. It&#39;s a pretty pure conceptual model: I haven&#39;t taken into consideration how the model&#39;s going to be represented (you could use the model to create some database tables, some XML or some RDF) or how it&#39;s going to be queried.</p>
+
+<p>But the fact is that it&#39;s going to be represented as linked data, using RDF and querying with SPARQL. Having had experience with querying the model as represented above, there are three changes that I&#39;m going to make:</p>
+
+<ol>
+<li><p>During a given hour at a given count point, the counts of all the different types of traffic are made by the same observer (be it human or electronic). It feels as if that set of counts (which are all represented within a single record in the CSV) belong together in some way. It also feels like it would be useful to be able to talk about that set of counts as a set, because they&#39;re all going to be affected by the same factors (eg faults in the machine recording the counts; traffic jams; roadworks), and even though it&#39;s not present in this dataset, we might want somewhere to hang that information. Pulling that duplicated data out into a separate <em>thing</em> will also help reduce the repetition and the number of triples needed in the RDF, which will speed up searching.</p></li>
+<li><p>The data itself records the actual date on which the observation was taken, and the hour on which it was done. This could be represented just by a start date time like <code>2001-06-07T07:00:00</code>, and that&#39;s how I did it initially. However, when you&#39;re trying to analyse the data the things that really matter, most of the time, about the observation are the year and the hour. SPARQL isn&#39;t very good at doing date/time processing, and anyway there are all sorts of things about a particular date that might be interesting (what day of the week is it? is it during the school summer holiday?) so it makes sense to pull these hour-long intervals out as separate <em>things</em> that we can talk about.</p></li>
+<li><p>In a similar way, although the cardinal direction associated with a particular count could be represented as a simple string, whenever there&#39;s a set of enumerated values it&#39;s a good idea to consider turning them into <em>things</em>, because to do so enables you to associate extra information about them. For example, it would let us say that the English word for North is North, and that North is the opposite direction to South, and so on.</p></li>
+</ol>
+
+<p>So here&#39;s what the revised model looks like:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">                   +---- country
+                   |        |
+                   |        | contains
+          contains |        v
+                   |     region
+                   |        |
+                   |        | contains
+                   v        v            covers
+             local authority district &lt;----------- local authority
+                        | 
+                        | contains
+            on          v           category
+ road &lt;----------- count point -------------------&gt; road category
+                        ^
+                        | at
+               in       |     at           during
+direction &lt;---------- count -----&gt; period --------&gt; year
+                        ^            +-----start--&gt; instant
+                        | at         +-----end----&gt; instant
+                        |              of
+                   observation -------------------&gt; vehicle type
+</code></pre></div>
+<p>and here&#39;s a list of the things with a rough set of properties; properties marked with a question mark (?) are ones that don&#39;t always have values in the data. Properties marked with an arrow (-&gt;) are ones that are pointers to other things.</p>
+
+<ul>
+<li>country
+
+<ul>
+<li>name</li>
+</ul></li>
+<li>region
+
+<ul>
+<li>name</li>
+<li>ONS code</li>
+<li>country -&gt;</li>
+</ul></li>
+<li>local authority district
+
+<ul>
+<li>name</li>
+<li>ONS code</li>
+<li>DfT code</li>
+<li>local authority -&gt;</li>
+<li>region -&gt;</li>
+<li>country -&gt;</li>
+</ul></li>
+<li>local authority
+
+<ul>
+<li>name</li>
+<li>ONS code</li>
+<li>DfT code</li>
+<li>local authority district -&gt;</li>
+</ul></li>
+<li>road
+
+<ul>
+<li>number ?</li>
+</ul></li>
+<li>count point
+
+<ul>
+<li>number</li>
+<li>road sequence ?</li>
+<li>road name ?</li>
+<li>description ?</li>
+<li>easting</li>
+<li>northing</li>
+<li>road -&gt;</li>
+<li>road category -&gt;</li>
+<li>local authority -&gt;</li>
+<li>local authority district -&gt;</li>
+</ul></li>
+<li>road category
+
+<ul>
+<li>name</li>
+<li>related categories -&gt;</li>
+</ul></li>
+<li>count
+
+<ul>
+<li>direction -&gt;</li>
+<li>count point -&gt;</li>
+<li>period -&gt;</li>
+</ul></li>
+<li>direction
+
+<ul>
+<li>name</li>
+<li>related directions</li>
+</ul></li>
+<li>observation
+
+<ul>
+<li>value</li>
+<li>count -&gt;</li>
+<li>vehicle type -&gt;</li>
+</ul></li>
+<li>vehicle type
+
+<ul>
+<li>name</li>
+<li>related types -&gt;</li>
+</ul></li>
+<li>period
+
+<ul>
+<li>start (instant) -&gt;</li>
+<li>end (instant) -&gt;</li>
+<li>year (period) -&gt;</li>
+</ul></li>
+<li>instant
+
+<ul>
+<li>year, month, day, hour, minute, second etc.</li>
+</ul></li>
+</ul>
+
+<p>This is the first part of the process done. More soon.</p>

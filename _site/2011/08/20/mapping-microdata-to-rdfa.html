@@ -1,0 +1,607 @@
+<p>This post is part of a three-part series that analyses the differences in features and syntax between microdata and RDFa. The series attempts:</p>
+
+<ul>
+<li>to identify the differences in approach and functionality of the two languages, which should help developers choose between them</li>
+<li>to identify any guidelines for developers of vocabularies for use with both languages</li>
+<li>to identify a subset of functionality that is common between the two languages, which developers might want to stick to to make switching and mixing easier</li>
+<li>to identify mapping rules that might be applied to automatically or manually map from one language to another if the simple subset is used</li>
+</ul>
+
+<p>I&#39;ve done this by looking at converting microdata examples to RDFa and vice versa, and the lessons to be drawn from that exercise. The three posts are on:</p>
+
+<ul>
+<li><a href="http://www.jenitennison.com/blog/node/163">converting microdata to RDFa</a></li>
+<li><a href="http://www.jenitennison.com/blog/node/164">converting RDFa to microdata</a></li>
+<li><a href="http://www.jenitennison.com/blog/node/165">lessons learned from this exercise</a></li>
+</ul>
+
+<p>This post is the first of these, which looks at how microdata might be mapped to RDFa, in terms of generating the same RDF according to the microdata-to-RDF mapping rules that I outlined in my post on <a href="http://www.jenitennison.com/blog/node/162">Microdata + RDF</a>.</p>
+
+<!--break-->
+
+<p>I have based what&#39;s written here on the latest specifications of both microdata (in its <a href="http://www.whatwg.org/specs/web-apps/current-work/multipage/microdata.html">WHAT WG</a> and <a href="http://dev.w3.org/html5/md/Overview.html">W3C</a> variants) and <a href="http://www.w3.org/2010/02/rdfa/drafts/2011/ED-rdfa-core-20110814/">RDFa Core</a> and <a href="http://dev.w3.org/html5/rdfa/">HTML+RDFa</a> but I haven&#39;t consulted with anyone involved in these efforts and may well have got things wrong. <a href="http://rdf.greggkellogg.net/distiller">Gregg Kellogg&#39;s Distiller service</a> has proved invaluable for testing, so many thanks to him for providing that service.</p>
+
+<p>The post is rather heavy going and you might want to just <a href="http://www.jenitennison.com/blog/node/165">skip to the summary</a> instead of reading the whole thing.</p>
+
+<p>The post goes through the examples from the microdata specification (most of them are in both versions, the only exceptions being those that use the vCard vocabulary). I haven&#39;t included examples that don&#39;t illustrate anything new, so there are some that are skipped. Other examples would be welcome.</p>
+
+<h2>Unidentified Items / Blank Node Subjects</h2>
+
+<blockquote>
+<p>Here there are two items, each of which has the property &quot;name&quot;:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;div itemscope&gt;
+ &lt;p&gt;My name is &lt;span itemprop=&quot;name&quot;&gt;Elizabeth&lt;/span&gt;.&lt;/p&gt;
+&lt;/div&gt;
+
+&lt;div itemscope&gt;
+ &lt;p&gt;My name is &lt;span itemprop=&quot;name&quot;&gt;Daniel&lt;/span&gt;.&lt;/p&gt;
+&lt;/div&gt;
+</code></pre></div></blockquote>
+
+<p>The first challenge is to map this into RDFa because the properties are tokens rather than URIs and there is no type for either of the items. What I&#39;ll assume here is that the <code>name</code> properties are local to the document itself and thus the equivalent RDF is:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">[ &lt;#name&gt; &quot;Elizabeth&quot; ] .
+[ &lt;#name&gt; &quot;Daniel&quot; ] .
+</code></pre></div>
+<p>This can be achieved in RDFa through either:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;div vocab=&quot;#&quot; about=&quot;_:elizabeth&quot;&gt;
+  &lt;p&gt;My name is &lt;span property=&quot;name&quot;&gt;Elizabeth&lt;/span&gt;.&lt;/p&gt;
+&lt;/div&gt;
+
+&lt;div vocab=&quot;#&quot; about=&quot;_:daniel&quot;&gt;
+  &lt;p&gt;My name is &lt;span property=&quot;name&quot;&gt;Daniel&lt;/span&gt;.&lt;/p&gt;
+&lt;/div&gt;
+</code></pre></div>
+<p>or:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;div vocab=&quot;#&quot; typeof&gt;
+  &lt;p&gt;My name is &lt;span property=&quot;name&quot;&gt;Elizabeth&lt;/span&gt;.&lt;/p&gt;
+&lt;/div&gt;
+
+&lt;div vocab=&quot;#&quot; typeof&gt;
+  &lt;p&gt;My name is &lt;span property=&quot;name&quot;&gt;Daniel&lt;/span&gt;.&lt;/p&gt;
+&lt;/div&gt;
+</code></pre></div>
+<p>Notes:</p>
+
+<ul>
+<li>The <code>vocab=&quot;#&quot;</code> sets the vocabulary to the location of the current document (plus an empty fragment identifier); this URI is then concatenated to the property token (<code>name</code>) to create a URI that is unique to the document. In a document such as this it would make sense to put the <code>vocab=&quot;#&quot;</code> attribute on the <code>&lt;html&gt;</code> element rather than on every single item.</li>
+<li>With no type in sight, blank nodes can either be created by having an empty <code>typeof</code> attribute or through an <code>about</code> attributes whose value starts with <code>_:</code>. The latter has the advantage of providing an identifier for the blank node that can be used elsewhere in the document, but the former is shorter so will be used where possible in the remaining examples of this post.</li>
+</ul>
+
+<h2>Values from the <code>src</code> Attribute</h2>
+
+<p>The next example introduces the use of the <code>src</code> attribute to set the value of the property.</p>
+
+<blockquote>
+<p>In this example, the item has one property, &quot;image&quot;, whose value is a URL:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;div itemscope&gt;
+ &lt;img itemprop=&quot;image&quot; src=&quot;google-logo.png&quot; alt=&quot;Google&quot;&gt;
+&lt;/div&gt;
+</code></pre></div></blockquote>
+
+<p>This should probably be mapped to the RDF:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">[ &lt;#image&gt; &lt;google-logo.png&gt; ] .
+</code></pre></div>
+<p>The difficulty with this is that in RDFa, the <code>src</code> attribute is used for the <em>subject</em> of a statement (equivalent to a microdata item) rather than the <em>object</em> (equivalent to a microdata value). So we have two choices for equivalent RDFa. One is to use a similar pattern to that used above, but introduce a wrapper element that provides the property:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;div vocab=&quot;#&quot; typeof&gt;
+ &lt;span rel=&quot;image&quot;&gt;&lt;img src=&quot;google-logo.png&quot; alt=&quot;Google&quot;&gt;&lt;/span&gt;
+&lt;/div&gt;
+</code></pre></div>
+<p>Another is to provide what would normally be an <em>object</em> through a <code>resource</code> attribute and then use a <code>rev</code> attribute (rather than the usual <code>rel</code>) attribute to reverse the relationship:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;div vocab=&quot;#&quot;&gt;
+ &lt;img resource=&quot;_:thing&quot; rev=&quot;image&quot; src=&quot;google-logo.png&quot; alt=&quot;Google&quot;&gt;
+&lt;/div&gt;
+</code></pre></div>
+<p>This has three disadvantages over the first option:</p>
+
+<ul>
+<li>the <code>resource</code> attribute that creates the item is on the <code>&lt;img&gt;</code> element rather than on the wrapper <code>&lt;div&gt;</code> which makes it hard to create other properties for that item</li>
+<li>we have to use a <code>rev</code> attribute, reversing the normal flow of relationships; I (at least) find this hard to figure out when there&#39;s not a <code>rel</code> attribute as well</li>
+<li><ins>we have to make up an id for the blank node we want to generate</ins></li>
+</ul>
+
+<p>I&#39;ll note that it took me five or six failed attempts to generate the above options. If I hadn&#39;t had the <a href="http://rdf.greggkellogg.net/distiller">RDF Distiller</a> to test with, I would have got it wrong. <del>Note that at least through the RDF Distiller, to be recognised, the <code>resource</code> attribute has to have an (empty) value -- it is not enough for it to simply be present, unlike with the <code>typeof</code> attribute.</del> <ins>Note that the <code>resource</code> attribute has to explicitly point to a blank node to create a blank node rather than having the property be associated with the document in which this appears.</ins></p>
+
+<h2>Values from the <code>datetime</code> Attribute</h2>
+
+<p>The next example illustrates the use of the <code>&lt;time&gt;</code> element to provide a date/time value for a property.</p>
+
+<blockquote>
+<p>In this example, the item has one property, &quot;birthday&quot;, whose value is a date:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;div itemscope&gt;
+ I was born on &lt;time itemprop=&quot;birthday&quot; datetime=&quot;2009-05-10&quot;&gt;May 10th 2009&lt;/time&gt;.
+&lt;/div&gt;
+</code></pre></div></blockquote>
+
+<p>I&#39;m assuming this should map to the RDF:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">[ &lt;#birthday&gt; &quot;2009-05-10&quot;^^&lt;http://www.w3.org/2001/XMLSchema#date&gt; ]
+</code></pre></div>
+<p>There is an open issue (<a href="http://www.w3.org/2010/02/rdfa/track/issues/97">ISSUE-97</a>) about this on RDFa, which currently requires the use of the <code>content</code> attribute to provide the value as follows:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;div vocab=&quot;#&quot; typeof&gt;
+ I was born on &lt;time property=&quot;birthday&quot; content=&quot;2009-05-10&quot; datatype=&quot;xsd:date&quot; datetime=&quot;2009-05-10&quot;&gt;May 10th 2009&lt;/time&gt;.
+&lt;/div&gt;
+</code></pre></div>
+<p>Note that the <code>xsd:</code> prefix is built-in within RDFa so there&#39;s on need for any declaration for it, which makes it fairly easy to specify the standard date/time datatypes.</p>
+
+<p>If ISSUE-97 were resolved nicely it would be possible to instead do:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;div vocab=&quot;#&quot; typeof&gt;
+ I was born on &lt;time property=&quot;birthday&quot; datetime=&quot;2009-05-10&quot;&gt;May 10th 2009&lt;/time&gt;.
+&lt;/div&gt;
+</code></pre></div>
+<p>Notes:</p>
+
+<ul>
+<li>To make this work, RDFa processors would have to look at the syntax of the <code>datetime</code> attribute to work out what datatype the value should be matched to.</li>
+<li>The syntax permitted in the <code>datetime</code> attribute isn&#39;t exactly the same as that permitted by the XML Schema <code>time</code> and <code>dateTime</code> types usually used in RDF (and XML), in that the seconds component is optional within HTML. The resolution to ISSUE-97 will need to take this into account. Otherwise, anyone mapping from microdata to RDFa manually will need to ensure that the <code>content</code> attribute includes the seconds component.</li>
+</ul>
+
+<h2>Nested Items / Object Properties</h2>
+
+<blockquote>
+<p>In this example, the outer item represents a person, and the inner one represents a band:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;div itemscope&gt;
+ &lt;p&gt;Name: &lt;span itemprop=&quot;name&quot;&gt;Amanda&lt;/span&gt;&lt;/p&gt;
+ &lt;p&gt;Band: &lt;span itemprop=&quot;band&quot; itemscope&gt; &lt;span itemprop=&quot;name&quot;&gt;Jazz Band&lt;/span&gt; (&lt;span itemprop=&quot;size&quot;&gt;12&lt;/span&gt; players)&lt;/span&gt;&lt;/p&gt;
+&lt;/div&gt;
+</code></pre></div>
+<p>The outer item here has two properties, &quot;name&quot; and &quot;band&quot;. The &quot;name&quot; is &quot;Amanda&quot;, and the &quot;band&quot; is an item in its own right, with two properties, &quot;name&quot; and &quot;size&quot;. The &quot;name&quot; of the band is &quot;Jazz Band&quot;, and the &quot;size&quot; is &quot;12&quot;.</p>
+</blockquote>
+
+<p>The equivalent RDF for this example would be:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">[
+  &lt;#name&gt; &quot;Amanda&quot; ;
+  &lt;#band&gt; [
+    &lt;#name&gt; &quot;Jazz Band&quot; ;
+    &lt;#size&gt; &quot;12&quot;
+  ]
+]
+</code></pre></div>
+<p>Note that the <code>size</code> property is just a plain literal value; unlike with date/times, there&#39;s no way to tell from the microdata that the value is a number.</p>
+
+<p>In RDFa this could be done with:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;div vocab=&quot;#&quot; typeof&gt;
+ &lt;p&gt;Name: &lt;span property=&quot;name&quot;&gt;Amanda&lt;/span&gt;&lt;/p&gt;
+ &lt;p&gt;Band: &lt;span rel=&quot;band&quot;&gt; &lt;span property=&quot;name&quot;&gt;Jazz Band&lt;/span&gt; (&lt;span property=&quot;size&quot;&gt;12&lt;/span&gt; players)&lt;/span&gt;&lt;/p&gt;
+&lt;/div&gt;
+</code></pre></div>
+<p>This follows the microdata fairly closely but note that the nested resource doesn&#39;t need an empty <code>typeof</code> attribute: it&#39;s only the top-level items that do. It might be easier, for consistency and extensibility, to always include an explicit nested element (with an empty <code>typeof</code> attribute in this case) to represent the nested resource:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;div vocab=&quot;#&quot; typeof&gt;
+ &lt;p&gt;Name: &lt;span property=&quot;name&quot;&gt;Amanda&lt;/span&gt;&lt;/p&gt;
+ &lt;p&gt;Band: &lt;span rel=&quot;band&quot;&gt;&lt;span typeof&gt; &lt;span property=&quot;name&quot;&gt;Jazz Band&lt;/span&gt; (&lt;span property=&quot;size&quot;&gt;12&lt;/span&gt; players)&lt;/span&gt;&lt;/span&gt;&lt;/p&gt;
+&lt;/div&gt;
+</code></pre></div>
+<p>The other thing that people have to watch out for is that because the value of the <code>band</code> property is a resource rather than a literal, we have to use the <code>rel</code> attribute rather than the <code>property</code> attribute as we do elsewhere.</p>
+
+<h2>Itemref</h2>
+
+<blockquote>
+<p>This example is the same as the previous one, but all the properties are separated from their items:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;div itemscope id=&quot;amanda&quot; itemref=&quot;a b&quot;&gt;&lt;/div&gt;
+&lt;p id=&quot;a&quot;&gt;Name: &lt;span itemprop=&quot;name&quot;&gt;Amanda&lt;/span&gt;&lt;/p&gt;
+&lt;div id=&quot;b&quot; itemprop=&quot;band&quot; itemscope itemref=&quot;c&quot;&gt;&lt;/div&gt;
+&lt;div id=&quot;c&quot;&gt;
+ &lt;p&gt;Band: &lt;span itemprop=&quot;name&quot;&gt;Jazz Band&lt;/span&gt;&lt;/p&gt;
+ &lt;p&gt;Size: &lt;span itemprop=&quot;size&quot;&gt;12&lt;/span&gt; players&lt;/p&gt;
+&lt;/div&gt;
+</code></pre></div></blockquote>
+
+<p>This should create the same RDF as the previous example:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">[
+  &lt;#name&gt; &quot;Amanda&quot; ;
+  &lt;#band&gt; [
+    &lt;#name&gt; &quot;Jazz Band&quot; ;
+    &lt;#size&gt; &quot;12&quot;
+  ]
+]
+</code></pre></div>
+<p>changing the markup as little as possible. The RDFa equivalent is:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;div id=&quot;amanda&quot;&gt;&lt;/div&gt;
+&lt;p vocab=&quot;#&quot; about=&quot;_:amanda&quot;&gt;Name: &lt;span property=&quot;name&quot;&gt;Amanda&lt;/span&gt;&lt;/p&gt;
+&lt;div vocab=&quot;#&quot; about=&quot;_:amanda&quot; rel=&quot;band&quot; resource=&quot;_:c&quot;&gt;&lt;/div&gt;
+&lt;div vocab=&quot;#&quot; about=&quot;_:c&quot;&gt;
+ &lt;p&gt;Band: &lt;span property=&quot;name&quot;&gt;Jazz Band&lt;/span&gt;&lt;/p&gt;
+ &lt;p&gt;Size: &lt;span property=&quot;size&quot;&gt;12&lt;/span&gt; players&lt;/p&gt;
+&lt;/div&gt;
+</code></pre></div>
+<p>In microdata, the <code>itemref</code> attribute is a method of an item adopting name/value pairs described in a separate location within the page. In RDFa, the equivalent is to say that the name/value pairs are all related to the same resource by consistently referring to the resource as the subject of the statements. In the above case, there are two blank nodes labelled <code>_:amanda</code> and <code>_:c</code>, and the <code>about</code> attribute is used on the same elements that provide the properties (or a wrapper element) to indicate the identity of the subject of the statements.</p>
+
+<p>Notes:</p>
+
+<ul>
+<li>The <code>resource</code> attribute has to be used to indicate the blank node for the band.</li>
+<li>As before, the <code>rel</code> attribute has to be used for the <code>band</code> property, rather than the <code>property</code> attribute, because the object of the statement is a resource. The rule is that if you&#39;re using <code>resource</code>, you should use <code>rel</code>. (I used <code>property</code> erroneously the first time I tried to write this mapping. I will never learn.)</li>
+</ul>
+
+<p>There is another example of <code>itemref</code> in use later in the microdata specification:</p>
+
+<blockquote>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;!DOCTYPE HTML&gt;
+&lt;html&gt;
+ &lt;head&gt;
+  &lt;title&gt;Photo gallery&lt;/title&gt;
+ &lt;/head&gt;
+ &lt;body&gt;
+  &lt;h1&gt;My photos&lt;/h1&gt;
+  &lt;figure itemscope itemtype=&quot;http://n.whatwg.org/work&quot; itemref=&quot;licenses&quot;&gt;
+   &lt;img itemprop=&quot;work&quot; src=&quot;images/house.jpeg&quot; alt=&quot;A white house, boarded up, sits in a forest.&quot;&gt;
+   &lt;figcaption itemprop=&quot;title&quot;&gt;The house I found.&lt;/figcaption&gt;
+  &lt;/figure&gt;
+  &lt;figure itemscope itemtype=&quot;http://n.whatwg.org/work&quot; itemref=&quot;licenses&quot;&gt;
+   &lt;img itemprop=&quot;work&quot; src=&quot;images/mailbox.jpeg&quot; alt=&quot;Outside the house is a mailbox. It has a leaflet inside.&quot;&gt;
+   &lt;figcaption itemprop=&quot;title&quot;&gt;The mailbox.&lt;/figcaption&gt;
+  &lt;/figure&gt;
+  &lt;footer&gt;
+   &lt;p id=&quot;licenses&quot;&gt;All images licensed under the &lt;a itemprop=&quot;license&quot;
+   href=&quot;http://www.opensource.org/licenses/mit-license.php&quot;&gt;MIT
+   license&lt;/a&gt;.&lt;/p&gt;
+  &lt;/footer&gt;
+ &lt;/body&gt;
+&lt;/html&gt;
+</code></pre></div></blockquote>
+
+<p>This is equivalent to the RDF:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">[
+  a &lt;http://n.whatwg.org/work&gt; ;
+  &lt;http://n.whatwg.org/license&gt; &lt;http://www.opensource.org/licenses/mit-license.php&gt; ;
+  &lt;http://n.whatwg.org/work&gt; &lt;images/house.jpeg&gt; ;
+  &lt;http://n.whatwg.org/title&gt; &quot;The house I found.&quot; ;
+] .
+[
+  a &lt;http://n.whatwg.org/work&gt; ;
+  &lt;http://n.whatwg.org/license&gt; &lt;http://www.opensource.org/licenses/mit-license.php&gt; ;
+  &lt;http://n.whatwg.org/work&gt; &lt;images/mailbox.jpeg&gt; ;
+  &lt;http://n.whatwg.org/title&gt; &quot;The mailbox.&quot; ;
+] .
+</code></pre></div>
+<p>Note that the <code>license</code> property is adopted by both the items in the microdata. In this particular example, the two items have the same type, and thus the <code>license</code> property has the same meaning in each item. It&#39;s also possible for <code>itemref</code> to be used on two items that have different types, pointing to the same element, in which case the shared properties defined within that element could mean different things for the two items.</p>
+
+<p>There is no way that I am aware of within RDFa to support shared use of portions of content. There could be a rough equivalent that would work in the case where the shared properties had the same semantics if RDFa allowed the <code>about</code> attribute to take multiple values (<strong>note: invalid example</strong>):</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;!DOCTYPE HTML&gt;
+&lt;html&gt;
+ &lt;head&gt;
+  &lt;title&gt;Photo gallery&lt;/title&gt;
+ &lt;/head&gt;
+ &lt;body vocab=&quot;http://n.whatwg.org/&quot;&gt;
+  &lt;h1&gt;My photos&lt;/h1&gt;
+  &lt;figure about=&quot;_:house&quot; typeof=&quot;work&quot;&gt;
+   &lt;span rel=&quot;work&quot;&gt;&lt;img src=&quot;images/house.jpeg&quot; alt=&quot;A white house, boarded up, sits in a forest.&quot;&gt;&lt;/span&gt;
+   &lt;figcaption property=&quot;title&quot;&gt;The house I found.&lt;/figcaption&gt;
+  &lt;/figure&gt;
+  &lt;figure about=&quot;_:mailbox&quot; typeof=&quot;work&quot;&gt;
+   &lt;span rel=&quot;work&quot;&gt;&lt;img src=&quot;images/mailbox.jpeg&quot; alt=&quot;Outside the house is a mailbox. It has a leaflet inside.&quot;&gt;&lt;/span&gt;
+   &lt;figcaption property=&quot;title&quot;&gt;The mailbox.&lt;/figcaption&gt;
+  &lt;/figure&gt;
+  &lt;footer&gt;
+   &lt;p about=&quot;_:house _:mailbox&quot;&gt;All images licensed under the &lt;a rel=&quot;license&quot;
+   href=&quot;http://www.opensource.org/licenses/mit-license.php&quot;&gt;MIT
+   license&lt;/a&gt;.&lt;/p&gt;
+  &lt;/footer&gt;
+ &lt;/body&gt;
+&lt;/html&gt;
+</code></pre></div>
+<p>but this wouldn&#39;t support the possibility of the same property having different semantics (and therefore different URIs) for the separate resources.</p>
+
+<p>It&#39;s also worth noting in this example that the mapping to RDF that I&#39;m assuming results, in this example, in <code>http://n.whatwg.org/work</code> being both a class and a property. The creators of RDF vocabularies tend to name classes with an Uppercase initial letter and properties with a lowercase initial letter, and thus avoid these kinds of clashes. Vocabulary designers who are mindful of mappings to RDF may want to take the same approach.</p>
+
+<h2>Multiple Values</h2>
+
+<blockquote>
+<p>This example describes an ice cream, with two flavors:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;div itemscope&gt;
+ &lt;p&gt;Flavors in my favorite ice cream:&lt;/p&gt;
+ &lt;ul&gt;
+  &lt;li itemprop=&quot;flavor&quot;&gt;Lemon sorbet&lt;/li&gt;
+  &lt;li itemprop=&quot;flavor&quot;&gt;Apricot sorbet&lt;/li&gt;
+ &lt;/ul&gt;
+&lt;/div&gt;
+</code></pre></div>
+<p>This thus results in an item with two properties, both &quot;flavor&quot;, having the values &quot;Lemon sorbet&quot; and &quot;Apricot sorbet&quot;.</p>
+</blockquote>
+
+<p>This example highlights one of the real nightmares of RDF: lists. In microdata, the order of the values &#39;Lemon sorbet&#39; and &#39;Apricot sorbet&#39; is naturally retained. There are three possible mappings to RDF.</p>
+
+<h3>Creating Multiple Statements</h3>
+
+<p>If the order of the flavours of ice cream in this example don&#39;t actually matter, the equivalent RDF is:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">[ &lt;#flavor&gt; &quot;Lemon sorbet&quot; , &quot;Apricot sorbet&quot; ]
+</code></pre></div>
+<p>which is equivalent to:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">[ &lt;#flavor&gt; &quot;Apricot sorbet&quot; , &quot;Lemon sorbet&quot; ]
+</code></pre></div>
+<p>In this case, the RDFa is straight-forward:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;div vocab=&quot;#&quot; typeof&gt;
+ &lt;p&gt;Flavors in my favorite ice cream:&lt;/p&gt;
+ &lt;ul&gt;
+  &lt;li property=&quot;flavor&quot;&gt;Lemon sorbet&lt;/li&gt;
+  &lt;li property=&quot;flavor&quot;&gt;Apricot sorbet&lt;/li&gt;
+ &lt;/ul&gt;
+&lt;/div&gt;
+</code></pre></div>
+<p>It&#39;s surprising how common it is that order doesn&#39;t actually matter when there are multiple values for a property, such that this mapping is quite sufficient. But I&#39;m absolutely not going to pretend that order is never important...</p>
+
+<h3>Creating an <code>rdf:Seq</code></h3>
+
+<p>If the order of the flavours does matter, there are two ways of representing that order using RDF. The first is to use an <code>rdf:Seq</code> resource. This method was the original method of representing lists in RDF and is very natural to do in RDF/XML, but has largely fallen out of favour for the second method which I&#39;ll describe below.</p>
+
+<p>Using the <code>rdf:Seq</code> method, the equivalent RDF for the microdata would be:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">@prefix rdf: &lt;http://www.w3.org/1999/02/22-rdf-syntax-ns#&gt; .
+[
+  &lt;#flavor&gt; [
+    a rdf:Seq ;
+    rdf:_1 &quot;Lemon sorbet&quot; ;
+    rdf:_2 &quot;Apricot sorbet&quot;
+  ]
+]
+</code></pre></div>
+<p>which can be generated with:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;div vocab=&quot;#&quot; typeof&gt;
+ &lt;p&gt;Flavors in my favorite ice cream:&lt;/p&gt;
+ &lt;div rel=&quot;flavor&quot;&gt;
+  &lt;ul typeof=&quot;rdf:Seq&quot;&gt;
+   &lt;li property=&quot;rdf:_1&quot;&gt;Lemon sorbet&lt;/li&gt;
+   &lt;li property=&quot;rdf:_2&quot;&gt;Apricot sorbet&lt;/li&gt;
+  &lt;/ul&gt;
+ &lt;/div&gt;
+&lt;/div&gt;
+</code></pre></div>
+<p>Notes:</p>
+
+<ul>
+<li>There are various other ways in which the namespace for the <code>rdf:Seq</code> could be created, but since the <code>rdf:</code> prefix is built-in to RDFa 1.1, it seems easier to use that than anything that explicitly writes out the full (ugly) RDF namespace.</li>
+<li>The <code>&lt;div&gt;</code> wrapper for the <code>&lt;ul&gt;</code> is needed in the same way as the wrapper <code>&lt;span&gt;</code> element was needed in the <code>&lt;img&gt;</code> example above. Whereas in microdata, the property element also describes the value of that property, in RDFa when the object of a statement is a resource the description of that resource is nested inside the property element (in a similar way to RDF/XML).</li>
+</ul>
+
+<h3>Creating a <code>rdf:List</code></h3>
+
+<p>The current recommended way to create a list in RDF is to use a <code>rdf:List</code> resource. This essentially uses a <a href="http://en.wikipedia.org/wiki/Linked_list">linked list</a> model to represent lists, with the <code>rdf:first</code> item of a list being a value and the <code>rdf:rest</code> being either another <code>rdf:List</code> or <code>rdf:nil</code>. Spelled out, the RDF would look like:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">@prefix rdf: &lt;http://www.w3.org/1999/02/22-rdf-syntax-ns#&gt; .
+[ 
+  &lt;#flavor&gt; [
+    a rdf:List ;
+    rdf:first &quot;Lemon sorbet&quot; ;
+    rdf:rest [
+      rdf:first &quot;Apricot sorbet&quot; ;
+      rdf:rest rdf:nil
+    ]
+  ]
+]
+</code></pre></div>
+<p>but of course Turtle lets you write it:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">[] &lt;#flavor&gt; ( &quot;Lemon sorbet&quot; &quot;Apricot sorbet&quot; ) .
+</code></pre></div>
+<p>Unfortunately, RDFa has no such syntax sugar. Which means:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;div vocab=&quot;#&quot; typeof&gt;
+ &lt;p&gt;Flavors in my favorite ice cream:&lt;/p&gt;
+ &lt;div rel=&quot;flavor&quot;&gt;
+  &lt;ul typeof=&quot;rdf:List&quot;&gt;
+   &lt;li property=&quot;rdf:first&quot;&gt;Lemon sorbet&lt;/li&gt;
+   &lt;li rel=&quot;rdf:rest&quot;&gt;
+    &lt;span typeof=&quot;rdf:List&quot;&gt;
+     &lt;span property=&quot;rdf:first&quot;&gt;Apricot sorbet&lt;/span&gt;
+     &lt;a rel=&quot;rdf:rest&quot; href=&quot;rdf:nil&quot;&gt;&lt;/a&gt;
+    &lt;/span&gt;
+   &lt;/li&gt;
+  &lt;/ul&gt;
+ &lt;/div&gt;
+&lt;/div&gt;
+</code></pre></div>
+<p>Yep, horrific. Verbose and easy to get wrong, and that&#39;s just for two items. If a third is added, the pattern is to add an <code>about</code> attribute on the middle items of the list so that the <code>rdf:rest</code> property which covers the next item in the list can be assigned to it. For example:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;div vocab=&quot;#&quot; typeof&gt;
+ &lt;p&gt;Flavors in my favorite ice cream:&lt;/p&gt;
+ &lt;div rel=&quot;flavor&quot;&gt;
+  &lt;ul typeof=&quot;rdf:List&quot;&gt;
+   &lt;li property=&quot;rdf:first&quot;&gt;Lemon sorbet&lt;/li&gt;
+   &lt;li rel=&quot;rdf:rest&quot;&gt;
+    &lt;span about=&quot;_:2&quot; typeof=&quot;List&quot;&gt;
+     &lt;span property=&quot;rdf:first&quot;&gt;Apricot sorbet&lt;/span&gt;
+    &lt;/span&gt;
+   &lt;/li&gt;
+   &lt;li about=&quot;_:2&quot; rel=&quot;rdf:rest&quot;&gt;
+     &lt;span typeof=&quot;rdf:List&quot;&gt;
+     &lt;span property=&quot;rdf:first&quot;&gt;Raspberry sorbet&lt;/span&gt;
+     &lt;a rel=&quot;rdf:rest&quot; href=&quot;http://www.w3.org/1999/02/22-rdf-syntax-ns#nil&quot;&gt;&lt;/a&gt;
+     &lt;/span&gt;
+   &lt;/li&gt;
+  &lt;/ul&gt;
+ &lt;/div&gt;
+&lt;/div&gt;
+</code></pre></div>
+<p>Note:</p>
+
+<ul>
+<li>I&#39;ve used an empty <code>&lt;a&gt;</code> element with a <code>href</code> attribute to point to the <code>rdf:nil</code> resource. An alternative would be to use the <code>resource</code> attribute, which would have the advantage of not having to spell out the full URI for <code>rdf:nil</code>, but I&#39;m trying to stick to using as few attributes as possible.</li>
+<li>Using an empty <code>&lt;a&gt;</code> element for a link isn&#39;t ideal; it would be neater to use a <code>&lt;link&gt;</code> element, but these aren&#39;t allowed in flow content within HTML5 (<code>&lt;link&gt;</code> and <code>&lt;meta&gt;</code> are only permitted within the microdata specification, and then only if they have an <code>itemprop</code> attribute). The RDFa specification could likewise allow them.</li>
+</ul>
+
+<h2>Multiple Properties Sharing a Value</h2>
+
+<blockquote>
+<p>Here we see an item with two properties, &quot;favorite-color&quot; and &quot;favorite-fruit&quot;, both set to the value &quot;orange&quot;:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;div itemscope&gt;
+ &lt;span itemprop=&quot;favorite-color favorite-fruit&quot;&gt;orange&lt;/span&gt;
+&lt;/div&gt;
+</code></pre></div></blockquote>
+
+<p>This should map to the RDF:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">[
+  &lt;#favorite-color&gt; &quot;orange&quot; ;
+  &lt;#favorite-fruit&gt; &quot;orange&quot;
+]
+</code></pre></div>
+<p>Like <code>itemprop</code>, <code>property</code> can take multiple values, so the RDFa equivalent is simply:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;div vocab=&quot;#&quot; typeof&gt;
+ &lt;span property=&quot;favorite-color favorite-fruit&quot;&gt;orange&lt;/span&gt;
+&lt;/div&gt;
+</code></pre></div>
+<h2>Types</h2>
+
+<blockquote>
+<p>Here, the item&#39;s type is &quot;http://example.org/animals#cat&quot;:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;section itemscope itemtype=&quot;http://example.org/animals#cat&quot;&gt;
+ &lt;h1 itemprop=&quot;name&quot;&gt;Hedral&lt;/h1&gt;
+ &lt;p itemprop=&quot;desc&quot;&gt;Hedral is a male american domestic
+ shorthair, with a fluffy black fur with white paws and belly.&lt;/p&gt;
+ &lt;img itemprop=&quot;img&quot; src=&quot;hedral.jpeg&quot; alt=&quot;&quot; title=&quot;Hedral, age 18 months&quot;&gt;
+&lt;/section&gt;
+</code></pre></div>
+<p>In this example the &quot;http://example.org/animals#cat&quot; item has three properties, a &quot;name&quot; (&quot;Hedral&quot;), a &quot;desc&quot; (&quot;Hedral is...&quot;), and an &quot;img&quot; (&quot;hedral.jpeg&quot;).</p>
+</blockquote>
+
+<p>I&#39;ll assume that this should be mapped to the RDF:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">[
+  a &lt;http://example.org/animals#cat&gt; ;
+  &lt;http://example.org/animals#name&gt; &quot;Hedral&quot; ;
+  &lt;http://example.org/animals#desc&gt; &quot;Hedral is a male american domestic shorthair, with a fluffy black fur with white paws and belly.&quot; ;
+  &lt;http://example.org/animals#img&gt; &lt;hedral.jpeg&gt;
+]
+</code></pre></div>
+<p>In this case, the <code>vocab</code> can be set to <code>http://example.org/animals#</code> and both the <code>itemtype</code> and the various <code>property</code> and <code>rel</code> attributes will use that as the basis for their identifying URIs:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;section vocab=&quot;http://example.org/animals#&quot; typeof=&quot;cat&quot;&gt;
+ &lt;h1 property=&quot;name&quot;&gt;Hedral&lt;/h1&gt;
+ &lt;p property=&quot;desc&quot;&gt;Hedral is a male american domestic
+ shorthair, with a fluffy black fur with white paws and belly.&lt;/p&gt;
+ &lt;div rel=&quot;img&quot;&gt;&lt;img src=&quot;hedral.jpeg&quot; alt=&quot;&quot; title=&quot;Hedral, age 18 months&quot;&gt;&lt;/div&gt;
+&lt;/section&gt;
+</code></pre></div>
+<h2>Global Identifiers</h2>
+
+<blockquote>
+<p>Here, an item is talking about a particular book:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;dl itemscope
+    itemtype=&quot;http://vocab.example.net/book&quot;
+    itemid=&quot;urn:isbn:0-330-34032-8&quot;&gt;
+ &lt;dt&gt;Title
+ &lt;dd itemprop=&quot;title&quot;&gt;The Reality Dysfunction
+ &lt;dt&gt;Author
+ &lt;dd itemprop=&quot;author&quot;&gt;Peter F. Hamilton
+ &lt;dt&gt;Publication date
+ &lt;dd&gt;&lt;time itemprop=&quot;pubdate&quot; datetime=&quot;1996-01-26&quot;&gt;26 January 1996&lt;/time&gt;
+&lt;/dl&gt;
+</code></pre></div></blockquote>
+
+<p>Here, the item has an identifier so unlike the previous examples, the subject of the statements in the RDF is no longer a blank node:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">@prefix xsd: &lt;http://www.w3.org/2001/XMLSchema#&gt; .
+&lt;urn:isbn:0-330-34032-8&gt;
+  a &lt;http://vocab.example.net/book&gt; ;
+  &lt;http://vocab.example.net/title&gt; &quot;The Reality Dysfunction\n &quot; ;
+  &lt;http://vocab.example.net/author&gt; &quot;Peter F. Hamilton\n &quot; ;
+  &lt;http://vocab.example.net/pubdate&gt; &quot;1996-01-26&quot;^^xsd:date ;
+  .
+</code></pre></div>
+<p>In RDFa, the subject is provided using the <code>about</code> attribute:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;dl vocab=&quot;http://vocab.example.net/&quot;
+    typeof=&quot;book&quot;
+    about=&quot;urn:isbn:0-330-34032-8&quot;&gt;
+ &lt;dt&gt;Title
+ &lt;dd property=&quot;title&quot;&gt;The Reality Dysfunction
+ &lt;dt&gt;Author
+ &lt;dd property=&quot;author&quot;&gt;Peter F. Hamilton
+ &lt;dt&gt;Publication date
+ &lt;dd&gt;&lt;time property=&quot;pubdate&quot; content=&quot;1996-01-26&quot; datatype=&quot;xsd:date&quot; datetime=&quot;1996-01-26&quot;&gt;26 January 1996&lt;/time&gt;
+&lt;/dl&gt;
+</code></pre></div>
+<h2>Global Property Names</h2>
+
+<blockquote>
+<p>Here, an item is an &quot;http://example.org/animals#cat&quot;, and most of the properties have names that are words defined in the context of that type. There are also a few additional properties whose names come from other vocabularies.</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;section itemscope itemtype=&quot;http://example.org/animals#cat&quot;&gt;
+ &lt;h1 itemprop=&quot;name http://example.com/fn&quot;&gt;Hedral&lt;/h1&gt;
+ &lt;p itemprop=&quot;desc&quot;&gt;Hedral is a male american domestic
+ shorthair, with a fluffy &lt;span
+ itemprop=&quot;http://example.com/color&quot;&gt;black&lt;/span&gt; fur with &lt;span
+ itemprop=&quot;http://example.com/color&quot;&gt;white&lt;/span&gt; paws and belly.&lt;/p&gt;
+ &lt;img itemprop=&quot;img&quot; src=&quot;hedral.jpeg&quot; alt=&quot;&quot; title=&quot;Hedral, age 18 months&quot;&gt;
+&lt;/section&gt;
+</code></pre></div></blockquote>
+
+<p>The RDF equivalent to this is:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">[
+  a &lt;http://example.org/animals#cat&gt; ;
+  &lt;http://example.org/animals#name&gt; &quot;Hedral&quot; ;
+  &lt;http://example.com/fn&gt; &quot;Hedral&quot; ;
+  &lt;http://example.org/animals#desc&gt; &quot;Hedral is a male american domestic shorthair, with a fluffy black fur with white paws and belly.&quot; ;
+  &lt;http://example.com/color&gt; &quot;black&quot; , &quot;white&quot; ;
+  &lt;http://example.org/animals#img&gt; &lt;hedral.jpeg&gt;
+]
+</code></pre></div>
+<p>To create this, we need the RDFa:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;section vocab=&quot;http://example.org/animals#&quot; typeof=&quot;cat&quot;&gt;
+ &lt;h1 property=&quot;name http://example.com/fn&quot;&gt;Hedral&lt;/h1&gt;
+ &lt;p property=&quot;desc&quot;&gt;Hedral is a male american domestic
+ shorthair, with a fluffy &lt;span
+ property=&quot;http://example.com/color&quot;&gt;black&lt;/span&gt; fur with &lt;span
+ property=&quot;http://example.com/color&quot;&gt;white&lt;/span&gt; paws and belly.&lt;/p&gt;
+ &lt;span rel=&quot;img&quot;&gt;&lt;img src=&quot;hedral.jpeg&quot; alt=&quot;&quot; title=&quot;Hedral, age 18 months&quot;&gt;&lt;/span&gt;
+&lt;/section&gt;
+</code></pre></div>
+<h2>Link Relations</h2>
+
+<blockquote>
+<p>Here is an example of a page that uses the vEvent vocabulary to mark up an event:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;body itemscope itemtype=&quot;http://microformats.org/profile/hcalendar#vevent&quot;&gt;
+ ...
+ &lt;h1 itemprop=&quot;summary&quot;&gt;Bluesday Tuesday: Money Road&lt;/h1&gt;
+ ...
+ &lt;time itemprop=&quot;dtstart&quot; datetime=&quot;2009-05-05T19:00:00Z&quot;&gt;May 5th @ 7pm&lt;/time&gt;
+ (until &lt;time itemprop=&quot;dtend&quot; datetime=&quot;2009-05-05T21:00:00Z&quot;&gt;9pm&lt;/time&gt;)
+ ...
+ &lt;a href=&quot;http://livebrum.co.uk/2009/05/05/bluesday-tuesday-money-road&quot;
+    rel=&quot;bookmark&quot; itemprop=&quot;url&quot;&gt;Link to this page&lt;/a&gt;
+ ...
+ &lt;p&gt;Location: &lt;span itemprop=&quot;location&quot;&gt;The RoadHouse&lt;/span&gt;&lt;/p&gt;
+ ...
+ &lt;p&gt;&lt;input type=button value=&quot;Add to Calendar&quot;
+           onclick=&quot;location = getCalendar(this)&quot;&gt;&lt;/p&gt;
+ ...
+ &lt;meta itemprop=&quot;description&quot; content=&quot;via livebrum.co.uk&quot;&gt;
+&lt;/body&gt;
+</code></pre></div></blockquote>
+
+<p>This example is interesting because it contains, in the natural markup of the page, a <code>rel</code> attribute with the value <a href="http://www.w3.org/TR/html5/links.html#link-type-bookmark"><code>bookmark</code></a>, which is used for links that go to the page or section of the page within which the link is found. In this case, it&#39;s the page. The RDF that should be generated from the page is:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">[
+  a &lt;http://microformats.org/profile/hcalendar#vevent&gt; ;
+  &lt;http://microformats.org/profile/hcalendar#summary&gt; &quot;Bluesday Tuesday: Money Road&quot; ;
+  &lt;http://microformats.org/profile/hcalendar#dtstart&gt; &quot;2009-05-05T19:00:00Z&quot;^^xsd:dateTime ;
+  &lt;http://microformats.org/profile/hcalendar#dtend&gt; &quot;2009-05-05T21:00:00Z&quot;^^xsd:dateTime ;
+  &lt;http://microformats.org/profile/hcalendar#url&gt; &lt;http://livebrum.co.uk/2009/05/05/bluesday-tuesday-money-road&gt; ;
+  &lt;http://microformats.org/profile/hcalendar#location&gt; &quot;The RoadHouse&quot; ;
+  &lt;http://microformats.org/profile/hcalendar#description&gt; &quot;via livebrum.co.uk&quot;
+] .
+</code></pre></div>
+<p>The following statement could legitimately be generated as well:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;&gt; 
+  &lt;http://www.w3.org/1999/xhtml/vocab#bookmark&gt; &lt;http://livebrum.co.uk/2009/05/05/bluesday-tuesday-money-road&gt; ;
+  .
+</code></pre></div>
+<p>but the item representing the event should definitely not have the <code>http://www.w3.org/1999/xhtml/vocab#bookmark</code> property.</p>
+
+<p>Achieving this without significantly changing the HTML markup is problematic in RDFa because RDFa uses the <code>rel</code> attribute to provide properties for the resources that it describes within the page, overloading its standard use in HTML which is to describe properties of the page or sections within the page. The following involves the least amount of repetition:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;body vocab=&quot;http://microformats.org/profile/hcalendar#&quot;&gt;
+ &lt;div typeof=&quot;vevent&quot;&gt;
+  ...
+  &lt;h1 property=&quot;summary&quot;&gt;Bluesday Tuesday: Money Road&lt;/h1&gt;
+  ...
+  &lt;time property=&quot;dtstart&quot; content=&quot;2009-05-05T19:00:00Z&quot; datatype=&quot;xsd:dateTime&quot; 
+        datetime=&quot;2009-05-05T19:00:00Z&quot;&gt;May 5th @ 7pm&lt;/time&gt;
+  (until &lt;time property=&quot;dtend&quot; content=&quot;2009-05-05T21:00:00Z&quot; datatype=&quot;xsd:dateTime&quot; 
+               datetime=&quot;2009-05-05T21:00:00Z&quot;&gt;9pm&lt;/time&gt;)
+  ...
+  &lt;a rel=&quot;url&quot; href=&quot;http://livebrum.co.uk/2009/05/05/bluesday-tuesday-money-road&quot;&gt;&lt;/a&gt;
+  &lt;a about href=&quot;http://livebrum.co.uk/2009/05/05/bluesday-tuesday-money-road&quot;
+     rel=&quot;bookmark&quot;&gt;Link to this page&lt;/a&gt;
+  ...
+  &lt;p&gt;Location: &lt;span property=&quot;location&quot;&gt;The RoadHouse&lt;/span&gt;&lt;/p&gt;
+  ...
+  &lt;p&gt;&lt;input type=button value=&quot;Add to Calendar&quot;
+            onclick=&quot;location = getCalendar(this)&quot;&gt;&lt;/p&gt;
+  ...
+  &lt;span property=&quot;description&quot; content=&quot;via livebrum.co.uk&quot;&gt;&lt;/span&gt;
+ &lt;/div&gt;
+&lt;/body&gt;
+</code></pre></div>
+<p>Notes:</p>
+
+<ul>
+<li>In the above, the <code>typeof</code> attribute has been moved onto a wrapper <code>&lt;div&gt;</code> that encompasses the entirety of the page because if it resides on the <code>&lt;body&gt;</code> element, it&#39;s assumed to apply to the document itself rather than a blank node. An alternative mapping would use <code>about=&quot;_:event&quot;</code> to create a blank node for the event.</li>
+<li>There&#39;s no way to avoid creating a statement for the <code>rel=&quot;bookmark&quot;</code> link, so the best we can do is make sure that the statement is accurate, and relates the current document to the provided URI. Unfortunately, that means creating a separate element for the <code>url</code> property, repeating that URL within the page, and adding an empty <code>about</code> attribute; here I&#39;ve used an empty <code>&lt;a&gt;</code> element to express the relationship; a <code>&lt;link&gt;</code> element would do the same job if it were allowed in flow content.</li>
+<li>The <code>&lt;meta&gt;</code> element in the original has been mapped to an empty <code>&lt;span&gt;</code> element as it isn&#39;t allowed in flow content without an <code>itemprop</code> attribute.</li>
+</ul>

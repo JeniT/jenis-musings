@@ -1,0 +1,306 @@
+<p>As part of the ongoing discussion about how to reconcile RDFa and microdata (if at all), <a href="http://webr3.org/blog/">Nathan Rixham</a> has put together a suggested <a href="http://www.w3.org/wiki/Microdata_RDFa_Merge">Microdata RDFa Merge</a> which brings together parts of <a href="http://www.whatwg.org/specs/web-apps/current-work/multipage/microdata.html">microdata</a> and parts of <a href="http://www.w3.org/TR/rdfa-core/">RDFa</a>, creating a completely new set of attributes, but a parsing model that more or less follows microdata&#39;s.</p>
+
+<p>I want here to put forward another possibility to the debate. I should say that this is just some noodling on my part as a way of exploring options, not any kind of official position on the behalf of the W3C or the TAG or any other body that you might associate me with, nor even a decided position on my part.</p>
+
+<!--break-->
+
+<h2>Simplifying RDFa</h2>
+
+<p>As <a href="http://www.jenitennison.com/blog/node/103">I&#39;ve said before</a>, RDFa, in my experience, is complicated not primarily because of the whole namespaces/CURIEs issue but because its processing model tries to be too clever. RDFa was designed to largely fit in with existing markup and turn it into embedded data &quot;just&quot; by adding a few attributes here and there. Thus a simple image like:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;img src=&quot;photo1.jpg&quot;&gt;
+</code></pre></div>
+<p>is first marked up to indicate that it&#39;s an image:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;img src=&quot;photo1.jpg&quot; typeof=&quot;foaf:Image&quot;&gt;
+</code></pre></div>
+<p>then to provide its license:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;img src=&quot;photo1.jpg&quot; typeof=&quot;foaf:Image&quot;
+  rel=&quot;license&quot; resource=&quot;http://creativecommons.org/licenses/by/2.0/&quot;&gt;
+</code></pre></div>
+<p>and finally to add a title:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;img src=&quot;photo1.jpg&quot; typeof=&quot;foaf:Image&quot;
+  rel=&quot;license&quot; resource=&quot;http://creativecommons.org/licenses/by/2.0/&quot;
+  property=&quot;dc:title&quot; content=&quot;A Pretty Picture&quot;&gt;
+</code></pre></div>
+<p>all by adding attributes to the one <code>&lt;img&gt;</code> element. The trouble with this approach is that the rules about how statements are made become extremely complex, dependent on context (eg what other attributes are present, what the parent element has on it, what content it has) and default in ways that are hard to remember.</p>
+
+<p>Even having written an RDFa parser, having written code to mark up documents with RDFa, having <em>taught</em> it, I still cannot write RDFa past a trivial example and be 100% sure that it will produce what I was aiming to produce.</p>
+
+<p>If we were to look at really simplifying RDFa, rather than making cosmetic changes, we need to address this complexity. It would certainly mean backwards-incompatible changes, such as dropping the use of particular attributes and revising the way the processing model works, such that future RDFa processors couldn&#39;t be used on RDFa 1.0. There are two possible ways of approaching this:</p>
+
+<ol>
+<li>retaining some backwards compatibility, and aiming for a simplified subset of RDFa 1.0 such that RDFa 1.0 processor will still get the intended triples out of data marked up with RDFa 1.1</li>
+<li>dropping backwards compatibility entirely and using completely different attributes, essentially creating a new language</li>
+</ol>
+
+<p>I do not know which of these routes is the best one to take.</p>
+
+<p>My instinct is that the first will be hard to do. For example, there are already certain simplifications in RDFa 1.1 -- such as assuming an element with no <code>datatype</code> attribute is giving a string value rather than looking to see if there are any non-text-nodes in the content of the element -- which lead to markup that will not be processed correctly by RDFa 1.0 processors. Perhaps that could be addressed by rewriting history: creating a RDFa 1.0 Second Edition that includes any changes that are needed to make a simple subset viable.</p>
+
+<p>What I want to explore here is what the second route -- using entirely different attributes from those currently used in RDFa 1.0 -- might mean. I think that in this case the substantial difference between microdata and this new language would be support for that much-derided requirement: decentralised extensibility.</p>
+
+<h2>Adding Decentralised Extensibility to Microdata</h2>
+
+<p>As I discussed <a href="http://www.jenitennison.com/blog/node/161">earlier in the week</a>, microdata is simply not designed for use in a web where publishers might want to use multiple vocabularies to mark up the same thing for different consumers. This focus is very probably the right one for the majority of uses, where publishers address single consumers or everyone has standardised on a single vocabulary. It&#39;s certainly an assumption that keeps the markup simple.</p>
+
+<p>However, there is a larger data web out there. It&#39;s not just browsers and search engines who might look for and process data embedded within a page. Unlike with HTML, those few, large consumers don&#39;t have to understand a particular vocabulary for other consumers to get valuable information from it. If you operate in a world of multiple consumers with different requirements, you need decentralised extensibility. And support for decentralised extensibility is RDF&#39;s niche as a data model, its unique selling point.</p>
+
+<p>Given that a new language would have to use a different processing model from RDFa 1.0, I would suggest that it simply uses microdata&#39;s as a starting point. Using attributes from RDFa 1.0 would only cause conflicts with RDFa 1.0 processors. Microdata processing is there, already defined, already implemented. It isn&#39;t going to go away. And you know, <em>it&#39;s pretty good</em>.</p>
+
+<p>The &#39;new language&#39; would then not so much a &#39;new language&#39; as an enhancement on something that already exists. It would be a set of additions that augment the data that is generated from normal microdata processing with a few extra features that are useful in a world where there are multiple vocabularies for the same domain, where publishers have to provide data to multiple consumers, where an RDF view of data is useful. Call it microdata+RDF.</p>
+
+<p>So what would we need to add? Well, there are three things, I think, that make microdata hard to use in a decentralised world, and make it hard to generate good RDF from microdata markup:</p>
+
+<ol>
+<li>lack of support for multiple types</li>
+<li>scoping of properties by type</li>
+<li>lack of datatypes</li>
+</ol>
+
+<p>We would need to find a way to add these for use within the RDF extracted from the microdata markup such that a basic microdata parser would still generate the same JSON, and such that microdata&#39;s DOM API would work as specified in the microdata spec. So we can&#39;t change the types of values that are possible in microdata&#39;s attributes or how they&#39;re interpreted in the DOM API.</p>
+
+<h3>Multiple Types</h3>
+
+<p>Because of the restrictions I just mentioned in not touching microdata itself, we can&#39;t simply make <code>itemtype</code> take multiple URLs. We could rely on <code>itemprop=&quot;http://www.w3.org/1999/02/22-rdf-syntax-ns#type&quot;</code> as a mechanism of providing types for use by RDF processors, but I think that the types of something is such a fundamental property that it makes sense to have a dedicated attribute.</p>
+
+<p>I suggest <code>itemclass</code>. It would only be allowed on elements with an <code>itemscope</code> attribute and would take a space-separated set of values in exactly the same way as the <code>itemprop</code> attribute. The values would be turned into URIs in the same way as for the <code>itemprop</code> attribute, which I&#39;ll describe below.</p>
+
+<p>Microdata+RDF would add a method to the existing microdata DOM API to enable people to access items by class rather than their single type. So:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">document . getItemsByClass( classes )
+Returns a NodeList of the elements in the Document that create items, that are not 
+part of other items, and that have one or more of the types or classes given in the 
+argument.
+
+The classes argument is interpreted as a space-separated list of classes.
+</code></pre></div>
+<p>Note that for simplicity, because they are interpreted in the same way within the RDF model, this returns items whose <code>itemtype</code> is listed in the argument list of classes as well as those whose <code>itemclass</code> is listed.</p>
+
+<p>Within the DOM API, the <code>itemClass</code> IDL attribute on HTML elements would reflect the <code>itemclass</code> attribute.</p>
+
+<p>The <code>itemclass</code> attribute would be ignored for the purpose of creating JSON from microdata, and only be used when creating RDF.</p>
+
+<p>An example would be:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;li class=&quot;conference&quot; itemscope itemid=&quot;/2011/oscon/&quot;
+    itemtype=&quot;http://schema.org/Event&quot;
+    itemclass=&quot;http://microformats.org/profile/hcalendar#vevent /vocab/Conference&quot;&gt;
+  ...
+&lt;/li&gt;
+</code></pre></div>
+<p>The JSON generated from this would look like:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">{
+  &quot;type&quot;: &quot;http://schema.org/Event&quot; ,
+  &quot;id&quot;: &quot;http://lanyrd.com/2011/oscon/&quot;,
+  &quot;properties&quot;: {}
+}
+</code></pre></div>
+<p>The RDF would look like:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;http://lanyrd.com/2011/oscon&gt;
+  a &lt;http://schema.org/Event&gt; ,
+    &lt;http://microformats.org/profile/hcalendar#vevent&gt; ,
+    &lt;http://lanyrd.com/vocab/Conference&gt; ;
+  .
+</code></pre></div>
+<h3>Disambiguating Properties</h3>
+
+<p>To work with the RDF model, properties have to have URIs. We need to have a way of easily creating the URIs for the short-name properties without people changing their existing microdata markup.</p>
+
+<blockquote>
+<p>Note: I&#39;ve substantially revised this section following discussion with <a href="http://blog.foolip.org/">Philip Jägenstedt</a>. Old text is struck through, new text underlined.</p>
+</blockquote>
+
+<p>The way that this is done in RDFa 1.1 is through a <code>vocab</code> attribute, which provides a URI prefix that is concatenated to any short-name properties or types. <strike>We could use the same approach here, but call the attribute <code>itemvocab</code> to fit in with the general method of naming attributes in microdata.</strike> <u>Using this with microdata would be tedious for users however, and it would be easy for the <code>itemtype</code> and <code>itemvocab</code> to get out of sync in weird ways.</u></p>
+
+<p><strike><code>itemvocab</code> would only be allowed on elements with an <code>itemscope</code>. The scope of <code>itemvocab</code> would be limited to the item itself, so that it&#39;s not forgotten when it&#39;s needed, particularly in copy-and-paste scenarios. However, to make it easier to use I think it should probably be given a default value if it isn&#39;t present, as follows:</strike></p>
+
+<p><u>Instead, the vocabulary for the properties could be identified as follows:</u></p>
+
+<ol>
+<li>set <em>vocab</em> to the <code>itemtype</code> of the item if it is present, and the URL of the document if not</li>
+<li>use a substring of <em>vocab</em>:
+
+<ol>
+<li>if <em>vocab</em> contains a <code>#</code>, the substring of <em>vocab</em> up to and including the <code>#</code></li>
+<li>otherwise, the substring of <em>vocab</em> up to and including its final <code>/</code></li>
+</ol></li>
+</ol>
+
+<p>For example, if you have:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;li class=&quot;conference&quot; itemscope itemid=&quot;/2011/oscon/&quot;
+    itemtype=&quot;http://schema.org/Event&quot;
+    itemclass=&quot;http://microformats.org/profile/hcalendar#vevent /vocab/Conference&quot;&gt;
+  ...
+&lt;/li&gt;
+</code></pre></div>
+<p>then <strike><code>itemvocab</code></strike> <u>the item vocabulary</u> would default to <code>http://schema.org/</code>.</p>
+
+<p><strike>There could be an extra restriction that if <code>itemtype</code> is specified, <code>itemvocab</code> must be in the same domain as that type; that could help prevent the weird situation where in the generated RDF the properties would be interpreted as being in a completely different vocabulary from the <code>itemtype</code>.</strike></p>
+
+<p><strike>Within the DOM API, the <code>itemVocab</code> IDL attribute on HTML elements would reflect the <code>itemvocab</code> attribute.</strike></p>
+
+<p><u>Note: the following example has been altered in place.</u></p>
+
+<p>For example, take the following markup:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;li class=&quot;conference&quot; itemscope itemid=&quot;/2011/oscon/&quot;
+    itemtype=&quot;http://schema.org/Event&quot; 
+    itemclass=&quot;SocialEvent BusinessEvent EducationEvent&quot;&gt;
+  &lt;h3&gt;
+    &lt;a itemprop=&quot;url&quot; href=&quot;/2011/oscon/&quot;&gt;
+      &lt;span itemprop=&quot;name&quot;&gt;OSCON 2011&lt;/span&gt;
+    &lt;/a&gt;
+  &lt;/h3&gt;
+  &lt;p itemprop=&quot;location&quot; itemscope itemid=&quot;/places/portland/&quot;
+     itemtype=&quot;http://schema.org/Place&quot;&gt;
+    &lt;span itemprop=&quot;name&quot;&gt;&lt;a href=&quot;/places/usa/&quot;&gt;United States&lt;/a&gt; / &lt;a itemprop=&quot;url&quot; href=&quot;/places/portland/&quot;&gt;Portland&lt;/a&gt;&lt;/span&gt;
+  &lt;/p&gt;
+  &lt;p class=&quot;date&quot;&gt;
+    &lt;time itemprop=&quot;startDate&quot; datetime=&quot;2011-07-25&quot;&gt;25th&lt;/time&gt;–
+    &lt;time itemprop=&quot;endDate&quot; datetime=&quot;2011-07-29&quot;&gt;29th July 2011&lt;/time&gt;
+  &lt;/p&gt;
+  ...
+&lt;/li&gt;
+</code></pre></div>
+<p>The vocabulary for the <code>&lt;li&gt;</code> element defaults to <code>http://schema.org/</code> based on the value of the <code>itemtype</code>. The short-named properties and classes within that item are turned into URIs by pre-pending <code>http://schema.org/</code> to their name. Similarly, the properties on the nested <code>http://schema.org/Place</code> are pre-pended with <code>http://schema.org/Place/</code>. The resulting RDF would be:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">@prefix s: &lt;http://schema.org/&gt;
+
+&lt;/2011/oscon/&gt;
+  a s:Event ,
+    s:SocialEvent ,
+    s:BusinessEvent ,
+    s:EducationEvent ;
+  s:url &lt;http://lanyrd.com/2011/oscon/&gt; ;
+  s:name &quot;OSCON 2011&quot; ;
+  s:location &lt;/places/portland/&gt; ;
+  s:startDate &quot;2011-07-25&quot;^^xsd:date ;
+  s:endDate &quot;2011-07-29&quot;^^xsd:date ;
+  .
+
+&lt;/places/portland/&gt;
+  a s:Place ;
+  s:url &lt;http://lanyrd.com/places/portland/&gt; ;
+  s:name &quot;United States / Portland&quot; ;
+  .
+</code></pre></div>
+<p>Note: see below for how the values are created in this example.</p>
+
+<p>The JSON would be just the same as from a standard microdata processor; there&#39;s no mapping to URIs for that output:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">{
+  &quot;type&quot;: &quot;http://schema.org/Event&quot;,
+  &quot;id&quot;: &quot;http://lanyrd.com/2011/oscon/&quot;,
+  &quot;properties&quot;: {
+    &quot;url&quot;: [
+      &quot;http://lanyrd.com/2011/oscon/&quot;
+    ],
+    &quot;name&quot;: [
+      &quot;OSCON 2011&quot;
+    ],
+    &quot;location&quot;: [
+      {
+        &quot;type&quot;: &quot;http://schema.org/Place&quot;,
+        &quot;id&quot;: &quot;http://lanyrd.com/places/portland/&quot;,
+        &quot;properties&quot;: {
+          &quot;name&quot;: [
+            &quot;United States / Portland&quot;
+          ],
+          &quot;url&quot;: [
+            &quot;http://lanyrd.com/places/portland/&quot;
+          ]
+        }
+      }
+    ],
+    &quot;startDate&quot;: [
+      &quot;2011-07-25&quot;
+    ],
+    &quot;endDate&quot;: [
+      &quot;2011-07-29&quot;
+    ]
+  }
+}
+</code></pre></div>
+<h3>Adding Datatypes</h3>
+
+<p>How to manage datatypes in RDF generated from microdata is something where the best approach is not at all clear to me. A couple of years ago I talked about some <a href="http://www.jenitennison.com/blog/node/120">frustrations with RDF datatyping</a>, and datatypes in RDF still frustrate me by being hard to use in sensible ways throughout the RDF toolchain. Nevertheless, it&#39;s what we have. </p>
+
+<p>The possibilities I can see for microdata+RDF are:</p>
+
+<ol>
+<li>Use plain literals for everything, including URIs, equivalent to using strings as microdata does. This makes things simple for the publisher and keeps the markup in the page clean, but makes it difficult for consumers who are using RDF toolchains: they will <em>usually</em> have to do some kind of processing of the RDF generated from microdata+RDF to add appropriate datatypes to the values. There are two issues with this approach:</li>
+</ol>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">* I have a feeling that microdata+RDF processors will make up their own rules to add datatypes to the data extracted from a page (using rules like those described below and/or sniffing of values and/or using information from known built-in vocabularies), in an effort to add value for their users. But if different processors do that in different ways, we have an interoperability problem.
+* In some vocabularies, the datatype of a value is not derivable from the property. The most important/common example of this is [`skos:notation`](http://www.w3.org/TR/skos-reference/#notations), which uses values with different datatypes to supply different identifiers from different identification schemes for a given concept.
+</code></pre></div>
+<ol>
+<li><p>Assign datatypes based on the element type in the HTML. If the property value has come from a URL attribute, assume that it&#39;s a resource rather than a literal; if the element is a <code>&lt;time&gt;</code> element, work out the datatype based on the syntax of the <code>datetime</code> attribute; otherwise assume it&#39;s a string and give it a language in the case that one is specified. This gives some information but leads to a somewhat strange situation where you can mark up something as a date/time but not as a number.</p></li>
+<li><p>Supplement the processing described in 2. with some basic datatype sniffing. Basically, if the value looks like a number or a boolean value then assign it a numeric or boolean datatype based on its syntax. This could reuse the <a href="http://www.w3.org/TeamSubmission/turtle/#literal">rules for recognising different literals from Turtle</a>. This wouldn&#39;t be perfect; in particular, it would guess that strings that consist purely of numbers such as zip codes were numbers. I&#39;m inclined not to go down this path.</p></li>
+<li><p>Supplement the processing described in 2. with a <code>itemvaltype</code> attribute that takes a token from the list of <a href="http://www.w3.org/TR/xmlschema-2/#built-in-datatypes">built-in XML Schema Datatypes</a> or the token &#39;<code>literal</code>&#39;. The &#39;<code>literal</code>&#39; token would be used to override the normal processing of URL attributes in the case where those really should be literals rather than resources. In this design, it would be easy to create literals using one of the most usual datatypes, but not possible to use datatypes that are specific to a given vocabulary.</p></li>
+<li><p>Supplement the processing described in 4. by allowing the <code>itemvaltype</code> to take either a token or a URL. The thing I don&#39;t like about this design is that the token would be interpreted as being within the XML Schema Datatypes vocabulary rather than the vocabulary specified for <code>itemvocab</code> (used for tokens in <code>itemprop</code> and <code>itemclass</code>). This seems like it might turn into a source of confusion, but if we went the other way and had <code>itemvaltype</code> being interpreted based on <code>itemvocab</code>, it would be harder to give a value the more common datatypes such as numbers and boolean values.</p></li>
+</ol>
+
+<p>My inclination, somewhat reluctantly as it&#39;s the most complex, would be to use the last of these, because it provides for decentralised extensibility of datatypes, and support for decentralised extensibility is the core aim of these extensions. In other words, have a <code>itemvaltype</code> attribute that can hold either a token, which must be one of <code>literal</code> or the local name of an XML Schema datatype, or a URL. On a <code>&lt;time&gt;</code> element, this would default to the appropriate type based on the syntax of the value of the <code>datetime</code> attribute.</p>
+
+<p>To be conformant, the <code>itemvaltype</code> would have to be an allowed value type for the properties given in <code>itemprop</code> and the value of the property must be a legal value for the datatype. (In keeping with the style of the microdata specification, the mechanisms for working out what value types are allowed and what the legal values are for non-XML Schema datatypes would be left undefined -- a consuming application would look at the definition of the vocabulary.)</p>
+
+<p>Within the DOM API, the <code>itemValType</code> IDL attribute on HTML elements would reflect the <code>itemvaltype</code> attribute. The value of <code>itemvaltype</code> <em>wouldn&#39;t</em> change the types of the values returned by <code>element.itemValue</code> or in the JSON mapping from microdata; it would purely be used when generating RDF from that data.</p>
+
+<p>For example, if someone started with some markup like:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;div itemscope itemtype=&quot;http://schema.org/AggregateOffer&quot;&gt;
+  Priced from: &lt;span itemprop=&quot;lowPrice&quot;&gt;$35&lt;/span&gt;
+  &lt;span itemprop=&quot;offerCount&quot;&gt;1938&lt;/span&gt; tickets left
+&lt;/div&gt;
+</code></pre></div>
+<p>it might be supplemented with some type information like:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;div itemscope itemtype=&quot;http://schema.org/AggregateOffer&quot;&gt;
+  Priced from: &lt;span itemprop=&quot;lowPrice&quot; itemvaltype=&quot;http://schema.org/Price&quot;&gt;$35&lt;/span&gt;
+  &lt;span itemprop=&quot;offerCount&quot; itemvaltype=&quot;integer&quot;&gt;1938&lt;/span&gt; tickets left
+&lt;/div&gt;
+</code></pre></div>
+<p>which would generate RDF like:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">@prefix s: &lt;http://schema.org/&gt;
+
+[] a s:AggregateOffer ;
+  s:lowPrice &quot;$35&quot;^^s:Price ;
+  s:offerCount 1938 ;
+  .
+</code></pre></div>
+<p>(Note: Here I&#39;m assuming that schema.org defines a <code>http://schema.org/Price</code> datatype which includes a currency and a number. They don&#39;t currently.)</p>
+
+<p>The JSON would still be:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">{
+  &quot;type&quot;: &quot;http://schema.org/AggregateOffer&quot;,
+  &quot;properties&quot;: {
+    &quot;lowPrice&quot;: [
+      &quot;$35&quot;
+    ],
+    &quot;offerCount&quot;: [
+      &quot;1938&quot;
+    ]
+  }
+}
+</code></pre></div>
+<h3>Non-Additions</h3>
+
+<p>When I wrote a couple of years ago about <a href="http://www.jenitennison.com/blog/node/103">what microdata can&#39;t do</a>, one of the things that I identified was not being able to express XML Literals. Having thought about this more, what&#39;s actually missing isn&#39;t to do with RDF, but is the ability to use the <a href="http://www.whatwg.org/specs/web-apps/current-work/multipage/content-models.html#innerhtml"><code>innerHTML</code></a> of an element to provide a value for a property rather than its <a href="http://www.whatwg.org/specs/web-apps/current-work/multipage/infrastructure.html#textcontent"><code>textContent</code></a>.</p>
+
+<p>For example, the description of an event might run over several paragraphs, or even in a single paragraph include other markup such as emphasised text, ruby markup, or links to additional information. People who are working from the DOM API can capture this information when they need it by getting the <code>innerHTML</code> of the element rather than its <code>itemValue</code>, but in the JSON mapping, the value is always the <code>itemValue</code> -- the text content of the element.</p>
+
+<p>So this is a general microdata simplifying limitation. I&#39;d argue that we shouldn&#39;t add any special handling to plug this hole at the microdata+RDF level. If it turns out that having values that contain markup is useful then it will be added to microdata, and the microdata+RDF mapping would then be extended to create <code>rdf:XMLLiteral</code>s or HTML literals (for which there is no defined datatype in RDF at the moment) for such values.</p>
+
+<p>Similarly, I haven&#39;t said anything in this post about providing machine-readable values to override the text content of an element. There is <a href="http://www.w3.org/Bugs/Public/show_bug.cgi?id=13240">an open bug</a> about whether and how that capability might be added to HTML/microdata. I happen to think that it&#39;s useful, but that utility isn&#39;t limited to RDF processing. Whichever route is chosen there, I think it&#39;s important to keep the property values used by basic microdata and microdata+RDF aligned.</p>
+
+<h2>Summary</h2>
+
+<p>To summarise, one direction that we could take in aligning microdata and RDFa would be to define an extension to microdata to add support for decentralised extensibility and the RDF data model. I think that would entail adding attributes such as:</p>
+
+<ul>
+<li><code>itemclass</code> to make it easy to define multiple types for an item</li>
+<li><code>itemvocab</code> and some default processing to provide nice mappings for short-name properties into URIs</li>
+<li><code>itemvaltype</code> and some default processing to assign datatypes to values</li>
+</ul>
+
+<p>For publishers and consumers, a single language with optional extensions greatly simplifies the use of embedded data. Property names don&#39;t have to be repeated or balancing acts made between different processing models.</p>
+
+<p>RDFa proponents get a syntax that can be used to generate a natural RDF model against which they can build RDF-oriented APIs and map to other formats such as JSON-LD.</p>
+
+<p>For microdata proponents, this approach doesn&#39;t pollute microdata with requirements that they see as superfluous, and doesn&#39;t change the behaviour of core microdata processors. Browsers, search engines and other consumers can continue to use the JSON output and only those who really want to support RDF need to do so.</p>
+
+<p>I&#39;m sure that there are things that I&#39;ve missed in my outline above, issues that I haven&#39;t thought of. But if there is to be any kind of convergence between microdata/RDFa, this layered approach seems to me to be the kind of convergence that is most likely to eventually result in one language for embedding data in HTML rather than two or three.</p>
+
+<p><strong>Note: if you prefer to comment on Google+, please add your comment to <a href="https://plus.google.com/u/0/112095156983892490612/posts/aUqGQSLzDPv">my announcement post there</a></strong></p>

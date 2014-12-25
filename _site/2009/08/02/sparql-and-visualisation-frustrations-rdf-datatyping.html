@@ -1,0 +1,36 @@
+<p>My <a href="http://www.jenitennison.com/blog/node/119">last post</a> showed a visualisation of the <a href="http://mps-expenses.guardian.co.uk/">Guardian&#39;s MP&#39;s Expenses data</a>, ported into a <a href="http://guardian.dataincubator.org/">Talis triplestore</a>. Here&#39;s a screenshot of <a href="/visualisation/mp-expenses.html">another one</a> (follow the link for the interactive version). The files that are used to create it are attached to this post.</p>
+
+<p><img alt="Graphs of highest 25 expense claims in each party" src="/blog/files/mps-expenses.jpg" width="100%" /></p>
+
+<p>There are several things that are frustrating about creating these visualisations, which I want to discuss because I think they lead to some lessons about what data publilshers and members of the semantic web community should do to make these things easy. The first thing I want to talk about is datatyping.</p>
+
+<!--break-->
+
+<p>In RDF, literal values can be plain literals, in which case they may have an associated language; XML literals, in which case they have structure; or typed literals, which have a particular datatype, usually one of the ones <a href="http://www.w3.org/TR/xmlschema-2/">defined by XML Schema</a>.</p>
+
+<p>The easiest kinds of literals to create, especially in RDF/XML, are plain literals. Indeed <a href="http://www.jenitennison.com/blog/node/103">some formats</a> don&#39;t even support the creation of typed literals. So RDF often contains values that are <em>actually</em> numbers or dates, but that are plain literals rather than being typed with an appropriate datatype.</p>
+
+<p>In the <a href="http://guardian.dataincubator.org/person/charles-kennedy">RDF for the MP&#39;s expenses data</a>, many of the figures are typed as <code>xsd:int</code> but some (such as salary and total claim) are untyped. Which means that:</p>
+
+<ul>
+<li>sorting on them within the SPARQL query is done alphabetically rather than numerically</li>
+<li>automated conversions into, say, JSON, will usually convert them into strings rather than numbers, or have to take a stab in the dark and assume that they are numeric based on their format</li>
+</ul>
+
+<p>When I created the visualisation shown above, for example, I did a sort on the total-claim property to get the top 25 claimants, but that wasn&#39;t what I actually got because I wasn&#39;t sorting on a number.</p>
+
+<p>Now the question of whether an element&#39;s value intrinsically has a particular type or is merely given a type for the purposes of processing is something that has caused religious wars within the XML community. And in those wars I have always come down firmly on the side of typing being a matter of interpretation.</p>
+
+<p>But with RDF I think it&#39;s different, for two reasons:</p>
+
+<p>First, unless I&#39;m mistaken (and excepting extensions that may have been made by individual processors) the main mechanism that we have for processing RDF -- SPARQL -- does not support casting a plain literal into a typed literal. So there is simply no way of sorting numerically based on a plain literal. This could be viewed as a deficiency of SPARQL which might be addressed in a <a href="http://www.w3.org/TR/sparql-features/">future version</a>.</p>
+
+<p>Second, one of the much-cited advantages of RDF is that it is <em>self-describing</em>. You can make requests to the URIs used for properties and classes to find out more information about them. But self-describing should apply to literal values too. If a value is a date, it should be labelled as a date; if it&#39;s a number it should be labelled as a number.</p>
+
+<p>So how about these as guidelines for creating RDF that would make processing RDF easier:</p>
+
+<ul>
+<li>if the literal is XML, it should be an XML literal (obviously)</li>
+<li>if the literal is in a particular language (such as a description or a name), it should be a plain literal with that language</li>
+<li>otherwise it should be given an appropriate datatype</li>
+</ul>

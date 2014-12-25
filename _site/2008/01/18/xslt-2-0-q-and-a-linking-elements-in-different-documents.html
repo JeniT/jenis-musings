@@ -1,0 +1,78 @@
+<p>The first of what will probably become a series of posts where I answer publicly questions that people post me privately (with permission, of course)...</p>
+
+<blockquote>
+<p>How should I model (and store) data for Courses, while being able to pull info about a Course into a particular context (a Semester or Curriculum)?</p>
+
+<p>I&#39;m not quite sure how to do this in terms of writing the schema (and consequently the XML), and/or how to connect it with XSL (if that is appropriate).  My experience with XSLT is limited to pretty much straight templates, and I&#39;ve never cross-referenced two nodesets and used the result to provide a different output before.</p>
+</blockquote>
+
+<p>The important thing is that within whatever XML you use, you have identifiers of some description that you can use to work out what a particular element means. The simplest and most general purpose identifiers are <code>xml:id</code> attributes, but they&#39;re a bit limited because they have to be legal IDs.</p>
+
+<p>If you have something like a course that&#39;s identified by a number then it makes more sense to use the number of the course as the identifier; that can&#39;t live in an xml:id attribute, so you have to use some other attribute (eg <code>number</code> for it). (You can use an element instead of an attribute, of course, but identifiers are usually metadata, and metadata should usually be an attribute unless it&#39;s structured.)</p>
+
+<p>You might have something that is actually uniquely identified by a combination of values. For example, a course might be identified by the department that offers the course plus the number identifying the course; it might be possible for two courses to have the same number, but be different courses, offered by different departments. Again, ultimately all that&#39;s really important is that it&#39;s possible to identify the department from the course, but the identifier itself might be on the element representing the course or on one of its ancestors, it doesn&#39;t really matter.</p>
+
+<p>In the XSLT, the first task is to pull in all the documents that hold the information you want to use and store them as global variables:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;xsl:variable name=&quot;curriculum&quot; as=&quot;document-node()&quot;
+  select=&quot;document(&#39;curriculum.xml&#39;)&quot; /&gt;
+&lt;xsl:variable name=&quot;transcript&quot; as=&quot;document-node()&quot;
+  select=&quot;document(&#39;transcript.xml&#39;)&quot; /&gt;
+&lt;xsl:variable name=&quot;database&quot; as=&quot;document-node()&quot;
+  select=&quot;document(&#39;database.xml&#39;)&quot; /&gt;
+</code></pre></div>
+<p>Then you should set up keys that will create indexes of the information in your documents based on their identifier(s). A simple key would look like:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;xsl:key name=&quot;departments&quot; match=&quot;dept&quot; use=&quot;@xml:id&quot; /&gt;
+</code></pre></div>
+<p>The <code>name</code> attribute is a name for the key; you can call it anything you like, but for identifiers I usually just use the plural of a noun for the thing I&#39;m identifying. The <code>match</code> attribute is a pattern that matches the elements that you&#39;re indexing (don&#39;t forget namespaces, if you have them). The <code>use</code> attribute holds an XPath that should return a value for a given node that you&#39;re indexing, in the above case it&#39;s the value of the <code>xml:id</code> attribute on the <code>&lt;dept&gt;</code> element.</p>
+
+<p>For elements that use a combination of values as an identifier, you can use the <code>concat()</code> function to create a unique value that combines the identifying values. For example, if your XML looks like:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;courses dept=&quot;CMSC&quot;&gt;
+  &lt;course number=&quot;131&quot;&gt;...&lt;/course&gt;
+  &lt;course number=&quot;198W&quot;&gt;...&lt;/course&gt;
+  &lt;course number=&quot;434&quot;&gt;...&lt;/course&gt;
+&lt;/courses&gt;
+</code></pre></div>
+<p>then you could index each course by its department and number with:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;xsl:key name=&quot;courses&quot; match=&quot;course&quot; use=&quot;concat(../@dept, &#39;:&#39;, @number)&quot; /&gt;
+</code></pre></div>
+<p>It&#39;s not really necessary in this case, but I&#39;ve put a separator in the <code>concat()</code> call out of habit as it helps prevent problems such as something identified as <code>&#39;a&#39; + &#39;bc&#39;</code> being given the same identifier as something identified through <code>&#39;ab&#39; + &#39;c&#39;</code>.</p>
+
+<p>Note that the keys don&#39;t indicate which document the information is held in. It&#39;s only when you <em>call</em> the key that you say which document you want to use. For example:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">key(&#39;courses&#39;, &#39;CMSC:198W&#39;, $curriculum)
+</code></pre></div>
+<p>would pull out the <code>&lt;course&gt;</code> element whose parent had a <code>dept</code> attribute equal to <code>&#39;CMSC&#39;</code> and  a <code>number</code> attribute with the value <code>&#39;198W&#39;</code> from the document held in the <code>$curriculum</code> variable. (This used to be harder to manage in XSLT 1.0, when there wasn&#39;t a third argument; without the third argument, the XSLT processor looks in the document you&#39;re currently in.)</p>
+
+<p>You can just call the <code>key()</code> function directly, but if you&#39;re using XSLT 2.0 then I&#39;d suggest wrapping it in a function like this:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;xsl:function name=&quot;my:course&quot; as=&quot;element(course)&quot;&gt;
+  &lt;xsl:param name=&quot;dept&quot; as=&quot;xs:string&quot; /&gt;
+  &lt;xsl:param name=&quot;number&quot; as=&quot;xs:string&quot; /&gt;
+  &lt;xsl:variable name=&quot;identifier&quot; select=&quot;concat($dept, &#39;:&#39;, $number)&quot; /&gt;
+  &lt;xsl:sequence select=&quot;key(&#39;courses&#39;, $identifier, $curriculum)&quot; /&gt;
+&lt;/xsl:function&gt;
+</code></pre></div>
+<p>This means you can use</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">my:course(&#39;CMSC&#39;, &#39;198W&#39;)
+</code></pre></div>
+<p>to locate the <code>&lt;course&gt;</code> element you&#39;re after.</p>
+
+<p>Of course, most of the time you won&#39;t have fixed values for the arguments for that function: you&#39;ll have some XML that refers to the course in its own way. For example, you might have:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;semester season=&quot;fall&quot; year=&quot;2007&quot;&gt;
+  &lt;course dept=&quot;ARTT&quot; number=&quot;210&quot; /&gt;
+  &lt;course dept=&quot;INFM&quot; number=&quot;210&quot; /&gt;
+&lt;/semester&gt;
+</code></pre></div>
+<p>and want to make a list of the titles of the courses. You could do this with:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;xsl:template match=&quot;course&quot;&gt;
+  &lt;li&gt;
+    &lt;xsl:apply-templates select=&quot;my:course(@dept, @number)/title&quot; /&gt;
+  &lt;/li&gt;
+&lt;/xsl:template&gt;
+</code></pre></div>
+<p>Just a final thought: if you have control over it, it&#39;s useful to make a clear distinction between elements that define information and elements that reference those definitions. One way of doing that is to name them differently (eg <code>&lt;course&gt;</code> and <code>&lt;courseRef&gt;</code>) or make sure that they have different sets of attributes (eg <code>number</code> and <code>numberRef</code>). Using the name of an element can be more useful because you can use that when you&#39;re defining the types of parameters and return values. For example:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;xsl:function name=&quot;my:courses&quot; as=&quot;element(course)+&quot;&gt;
+  &lt;xsl:param name=&quot;semester&quot; as=&quot;element(semester)&quot; /&gt;
+  &lt;xsl:variable name=&quot;courseRefs&quot; as=&quot;element(courseRef)+&quot;
+    select=&quot;$semester/courseRef&quot; /&gt;
+  &lt;xsl:sequence select=&quot;$courseRefs/my:course(@dept, @number)&quot; /&gt;
+&lt;/xsl:function&gt;
+</code></pre></div>

@@ -1,0 +1,52 @@
+<p>I&#39;ll start with the problem. To create the graphs I showed in <a href="http://www.jenitennison.com/blog/node/120">my last post</a>, I wanted to split MPs into groups based on their party affiliation. Ideally, I wanted the Google Visualisation query to look like:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">select mp, additionalCosts, totalTravel, totalBasic 
+where party = &#39;Conservative&#39; 
+order by totalClaim desc 
+limit 25
+</code></pre></div>
+<p>because this is reasonably easy to understand and for a developer to create without having to know any magic URIs.</p>
+
+<p>The party affiliation for an MP is given in the RDF supplied within the <a href="http://guardian.dataincubator.org/">Talis store</a> as a pointer to one of the resources:</p>
+
+<ul>
+<li><code>http://dbpedia.org/resource/Labour_Party_(UK)</code></li>
+<li><code>http://dbpedia.org/resource/Conservative_Party_(UK)</code></li>
+<li><code>http://dbpedia.org/resource/Liberal_Democrats</code></li>
+</ul>
+
+<p>Now, if you visit <a href="http://dbpedia.org/resource/Conservative_Party_(UK)">http://dbpedia.org/resource/Conservative_Party_(UK)</a> then you&#39;ll see precious few properties and none of them give you access to the string &#39;Conservative&#39;. If you look at <a href="http://dbpedia.org/resource/Liberal_Democrats">http://dbpedia.org/resource/Liberal_Democrats</a>, you&#39;ll see plenty of properties, one of which is <code>dbpprop:partyName</code>. But trying to query on <code>dbpprop:partyName</code> within the Talis data store gives me nothing, because that information hasn&#39;t been imported into the particular store that this SPARQL query is running on.</p>
+
+<!--break-->
+
+<p>What I did in <code>utils.php</code> was extend the parsing of the <code>tq</code> parameter, which is supposed to be in the Google Visualisation query language, to understand <code>&lt;URI&gt;</code> as a reference to a resource. In other words, you can create a query like:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">select mp, additionalCosts, totalTravel, totalBasic 
+where rParty = &lt;http://dbpedia.org/resource/Conservative_Party_(UK)&gt; 
+order by totalClaim desc 
+limit 25
+</code></pre></div>
+<p>and this will be mapped to a SPARQL query that looks like:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">SELECT ?mp ?additionalCosts ?totalTravel ?totalBasic 
+WHERE {
+  ...
+  FILTER (?rParty = &lt;http://dbpedia.org/resource/Conservative_Party_(UK)&gt;)
+}
+ORDER BY desc(?totalClaim)
+LIMIT 25
+</code></pre></div>
+<p>I don&#39;t like having done this, because I don&#39;t want Data Sources that happen to be SPARQL queries to look any different from other Data Sources. Introducing a new syntax for URI literals isn&#39;t really on.</p>
+
+<p>The superficial fix is to <strong>always provide basic labelling information for the resources referenced within a triplestore</strong>. In this case, Leigh actually did include an <code>rdfs:label</code> property for each of the party URIs within the Guardian store, so it was possible to use the query I wanted to use after all (though it took some experimentation to find this out).</p>
+
+<p>But underlying this is a bigger issue. Much is made of linked data -- that you can find out more about a particular thing by resolving the link to that thing -- but the best illustrations of the power and benefits of the semantic web tend to revolve around analysis and visualisations of moderately large amounts of data using SPARQL. And SPARQL (as yet) only runs on individual triplestores, which do not contain the entire semantic web. Every SPARQL query is limited by what has been loaded into the particular triplestore that is queried.</p>
+
+<p>Now, one of the &quot;time-permitting&quot; requirements for SPARQL 1.1 is <a href="http://www.w3.org/TR/sparql-features/#Basic_federated_query">Federated Queries</a>:</p>
+
+<blockquote>
+<p>Federated query is the ability to take a query and provide solutions based on information from many different sources. It is a hard problem in its most general form and is the subject of continuing (and continuous) research. A building block is the ability to have one query be able to issue a query on another SPARQL endpoint during query execution.</p>
+
+<p>Time-permitting, the SPARQL Working Group will define the syntax and semantics for handling a basic class of federated queries in which the SPARQL endpoints to use in executing portions of the query are explicitly given by the query author.</p>
+</blockquote>
+
+<p>That&#39;s certainly &quot;a building block&quot;, but it can&#39;t be the only method. For many data publishers, it&#39;s going to be far far simpler to publish their data as linked data in RDF/XML than it is to provide a SPARQL endpoint for that data. We can ask organisations like <a href="http://www.talis.com/platform">Talis</a> to crawl our data and provide a SPARQL endpoint for it, and hope that the SPARQL Working Group have time to address federated search, but really we need tools that make it easy to aggregate, analyse and visualise linked data directly rather than through a triplestore silo.</p>
+
+<p>So how about it?</p>

@@ -1,0 +1,78 @@
+<p>When <a href="http://www.ldodds.com/">Leigh Dodds</a> presented about Linked Data at the <a href="http://www.xmlsummerschool.com/">XML Summer School</a> this year, one of the things he suggested was that when you have a controlled vocabulary, you should define resources for the terms in that vocabulary rather than having a fixed set of literal values.</p>
+
+<p>For example, if you&#39;re saying that the topic of a page is elephants you should use a triple like:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;&gt; dc:subject &lt;http://example.com/id/concept/animal/elephant&gt; .
+</code></pre></div>
+<p>rather than one like:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;&gt; dc:subject &quot;elephant&quot;^^xsd:token .
+</code></pre></div>
+<p>There are two advantages of using a resource here rather than a literal value:</p>
+
+<ul>
+<li><p>You can associate other metadata with the term. For example, you can use <a href="http://www.w3.org/2004/02/skos/">SKOS</a> to describe it and its associations with terms from other controlled vocabularies, giving it multiple labels in different languages, providing a description and examples and so on.</p></li>
+<li><p>You can more accurately and easily associate multiple documents that use the same term. Of course you could always use string-based matching to pull together documents using the same subject, but that&#39;s much more prone to error, and would leave you with less certainty about the results of your query.</p></li>
+</ul>
+
+<p>What struck me, though, was that these arguments apply just as well to other typed values that we use within RDF. For example, say I wanted to describe the colour of my eyes. I could say something like:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;#me&gt; eg:eyeColour &quot;#695C3E&quot;^^eg:colour .
+</code></pre></div>
+<p>But wouldn&#39;t it be better to use:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;#me&gt; eg:eyeColour &lt;http://example.com/id/concept/colour/rgb/695C3E&gt; .
+</code></pre></div>
+<p>The colour resource could have properties associated with it:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;http://example.com/id/concept/colour/rgb/695C3E&gt;
+  a eg:Colour ;
+  skos:prefLabel &quot;#695C3E&quot; ;
+  eg:red &quot;69&quot;^^eg:hex ;
+  eg:green &quot;5C&quot;^^eg:hex ;
+  eg:blue &quot;3E&quot;^^eg:hex ;
+  eg:hue 42 ;
+  eg:saturation 41 ;
+  eg:brightness 41 ;
+  eg:pantone ... ;
+  ... .
+</code></pre></div>
+<p>and so on. And if other people pointed to the same resource, a semantic search engine could give you a list of things of that colour.</p>
+
+<p>And what about those numbers? Would it be better if I said:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;http://example.com/id/concept/colour/rgb/695C3E&gt;
+  eg:red &lt;http://example.com/id/concept/number/hex/69&gt; .
+</code></pre></div>
+<p>and there was information about that resource:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;http://example.com/id/concept/number/hex/69&gt;
+  owl:sameAs &lt;http://example.com/id/concept/number/105&gt; .
+
+&lt;http://example.com/id/concept/number/105&gt;
+  a eg:Integer ;
+  rdf:value 105 ;
+  eg:divisor
+    &lt;http://example.com/id/concept/number/3&gt; ,
+    &lt;http://example.com/id/concept/number/5&gt; ,
+    &lt;http://example.com/id/concept/number/7&gt; ;
+  ... .
+</code></pre></div>
+<p>and so on.</p>
+
+<p>In fact, we already have identifiers for some of these resources. <a href="http://www.dbpedia.org">DBPedia</a> inherits from <a href="http://www.wikipedia.org">Wikipedia</a> information about (many) numbers and (some) dates. For example, check out what it says about <a href="http://dbpedia.org/resource/720_%28number%29">the number 720</a> or the rather less helpful page on <a href="http://dbpedia.org/resource/1914">the year 1914</a>.</p>
+
+<p>What we lose is a certain level of ease of querying because the values that can be compared by SPARQL (say) are an extra step away. But it&#39;s still doable so long as the resource has a <code>rdf:value</code> property holding the primitive literal for the type (one recognised by SPARQL). If I wanted to find married couples where the husband is younger than the wife, I could do something like:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">SELECT ?husband ?wife
+WHERE {
+  ?husband eg:age ?husbandAgeResource .
+  ?husbandAgeResource rdf:value ?husbandAge .
+  ?wife eg:age ?wifeAgeResource .
+  ?wifeAgeResource rdf:value ?wifeAge .
+  FILTER (?husbandAge &lt; ?wifeAge)
+}
+</code></pre></div>
+<p>One interesting aspect of these kinds of resources (and something Leigh promised to blog about too) is that they&#39;re either infinite or have a large enough value space that it would be impractical to store all the information about them within a traditional triplestore. They could be made available as linked data easily enough since much of the interesting information about a colour or number would be derivable. But it might be difficult to provide a SPARQL end point for them. For example, consider:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">SELECT ?number
+WHERE {
+  ?number eg:divisor &lt;http://example.com/id/concept/number/3&gt; .
+}
+ORDER BY ?number
+LIMIT 10
+</code></pre></div>
+<p>There are already linked data spaces a bit like this floating around. The URIs defined by <a href="http://linkedgeodata.org/">LinkedGeoData</a> are infinite, given that it accepts any number of decimal places for latitude and longitude (technically it defines resources for circular areas rather than points). The RDF/XML that we&#39;re producing for <a href="http://www.legislation.gov.uk/">UK Legislation</a> is generated on demand based on a date which, for each item, can be any date between 1st February 1991 and the current date.</p>
+
+<p>What do you think? Is it mad to use resources instead of literal values? Where do you stop? How can queries be carried out over these infinite (or extremely large) sets of resources?</p>

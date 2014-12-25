@@ -1,0 +1,57 @@
+<p>The new <a href="http://alpha.gov.uk/">alpha.gov.uk</a> website was launched recently, as a prototype for the &quot;single Government website&quot; described in Martha Lane Fox&#39;s report <a href="http://download.cabinetoffice.gov.uk/digital/directgov-2010-and-beyond.pdf">Directgov 2010 and Beyond: Revolution Not Evolution</a>. Apparently <a href="http://www.guardian.co.uk/government-computing-network/2011/may/11/cabinet-office-launches-alphagovuk">the real deal could go live &quot;in about a year&quot;</a>.</p>
+
+<p>The site is lovely, a far cry from the standard government fare. But this isn&#39;t exactly surprising: it&#39;s been developed using <a href="http://twitter.com/jystewart/status/68343015407763456">modern technologies</a> by a <a href="http://alpha.gov.uk/humans.txt">top team</a> with a set of <a href="http://blog.alpha.gov.uk/blog/alpha-gov-uk-design-rules">design rules</a> far removed from those usually applied to government websites, a <a href="http://twitter.com/alphagov/status/68225799282634752">budget that&#39;s not exactly tight</a> and using an Agile methodology. These factors mark it out from the majority (<a href="http://blog.alpha.gov.uk/blog/shoulders-of-giants">though not all</a>) government websites. And this is part of the point, to illustrate the gap between what we have and what a revolution could bring.</p>
+
+<p>There are three challenges where I am and have been particularly interested to see the alpha.gov.uk approach. These are in balancing:</p>
+
+<ul>
+<li>simplicity and complexity</li>
+<li>centralisation and distribution</li>
+<li>end-user and data re-user</li>
+</ul>
+
+<p>It is not currently clear to me whether alpha.gov.uk has decided an approach on any of these -- whether the way the site works currently is the way that they have decided it should work -- or whether these are areas that are still up in the air at the moment. I&#39;m hoping it&#39;s the latter.</p>
+
+<!--break-->
+
+<p><em>Disclaimer: What I write here is largely coloured by having worked on <a href="http://www.legislation.gov.uk/">legislation.gov.uk</a> for the last few years, both in terms of the difficulties that we face and the question at the back of my mind of how legislation.gov.uk fits in this brave new world.</em></p>
+
+<h2>Simplicity vs Complexity</h2>
+
+<p>alpha.gov.uk does a great job at providing the simple message that is needed by the majority of people. The first challenge, I think, lies in also addressing the complex situations that are faced by the minority. For example, alpha.gov.uk provides information about <a href="http://alpha.gov.uk/does-my-child-need-car-seat/">child car seats</a> but what if my child is disabled? What if I want to check whether it&#39;s OK to go without in a taxi? Similarly, there&#39;s a tool for <a href="http://alpha.gov.uk/calculate-holiday-pay">calculating holiday entitlement</a>, but what if I work part time and my days include Mondays; how do bank holidays fit in?</p>
+
+<p>Does a single Government website need to address all these complexities? I can see arguments both ways. On the one hand, handling minority cases can mean making things unnecessarily complex for everyone -- this is the trap that DirectGov falls into too much of the time. On the other hand, if people can&#39;t find this information from the single Government website, what other authoritative source is there? Can we even assume that non-authoritative third parties will fill the gaps? Will people trust the information if it isn&#39;t from a government source?</p>
+
+<p>My feeling is that, unlike conventional websites, a single Government website has an additional responsibility to provide complex content, and that this includes helping people find information as well as perform tasks. For example, if I&#39;m writing a holiday travel guide and want to include a page describing what to do when you&#39;ve lost your passport, including contact details for common countries, I want a description and a list, not a tool.</p>
+
+<p>One of the alpha.gov.uk design rules was &quot;optimise for the common case&quot;, and the emphasis on clear content and straightforward tools is admirable. But optimisation for a common situation shouldn&#39;t mean completely ignoring the uncommon one. The challenge -- which I think is primarily a design challenge and handled pretty nicely in the Guides -- is to make a website that contains complex information appear simple.</p>
+
+<h2>Centralisation vs Distribution</h2>
+
+<p>In her report, Martha Lane-Fox laid out a number of advantages to a single government website, including providing consistency in user experience, ensuring that there is no &quot;wrong part&quot; of the government web estate from which to start your search for government information, and saving money by building on shared platforms. These imply a high level of centralisation.</p>
+
+<p>Against that is the fact that there is no single owner of government content. Departments have the best understanding of their policies. HMRC collects taxes. DVLA licenses drivers. The Identity and Passport Service issues passports. The greater the distance between the website and the people who understand the area, the more likely the content and tools are to be simply wrong or out of date and ultimately worthless. To completely centralise all government websites runs counter to the way the web works and the advantages that it gives in distributing control over content. If Google is your front page, then what does it matter how many domains the content is distributed across?</p>
+
+<p>So this is what I see as the second challenge for a single government website. It is a question of governance and of technology. How does a single Government website enable the people that own information to keep control of it while providing a consistent user experience? </p>
+
+<p>While there are very likely large swathes of government content that could be perfectly well served by a Wordpress or Drupal installation with some custom templates, other content really couldn&#39;t fit into that kind of content management system (yes, I&#39;m thinking of legislation), and need custom solutions which are best owned and updated by those that understand the content. What does the &quot;single Government website&quot; mean for these sites? Do they continue running their own sites with a common set of styles and links? Do they only run a service with an API that is skinned centrally?</p>
+
+<p>In my opinion, alpha.gov.uk should be trying out the different ways in which different content could be brought together from distributed sources, learning lessons from experience at the BBC and beyond, to find approaches that work within government.</p>
+
+<h2>End User vs Data Reuser</h2>
+
+<p>The third challenge is particularly important for those of us who care about freeing government data. We don&#39;t want information locked within government&#39;s web pages, but available for us to re-present, mash together and build into our own products. The balancing act here is between the end-user who really doesn&#39;t care at all about the data underlying the pages they see, and the citizen developer who wants to reuse that information.</p>
+
+<p>There is some evidence of the idea of providing access to underlying data in some of the alpha.gov.uk Guides, such as the <a href="http://alpha.gov.uk/guides-redundancy/">An employee&#39;s guide to Redundancy</a>, which include a &quot;Syndication API&quot; box with (not yet working) links to JSON, XML and Atom versions of the content. But there&#39;s no provision of a feed on the search results page, no RDFa or microdata markup, or separate data versions, on pages that contain data such as <a href="http://alpha.gov.uk/how-much-minimum-wage/">What is the minimum wage?</a>, and the tools such as that used to <a href="http://alpha.gov.uk/calculate-holiday-pay">Calculate holiday pay</a> are provided as client-side scripts rather than server-side APIs which could be called from other applications.</p>
+
+<p>As we&#39;ve found with legislation.gov.uk, building websites based on data and API access to that data is very possible, but doing so can change your approach to both site design and technology use. I&#39;d love to see alpha.gov.uk being built around making reuse easy rather than retrofitting it as a secondary concern.</p>
+
+<h2>Other Challenges</h2>
+
+<p>There are undoubtedly other challenging balancing acts for alpha.gov.uk.</p>
+
+<p>Steph talks about <a href="http://www.helpfultechnology.com/helpful-blog/2011/05/10-things-alpha-gov-uk-gets-wrong-part-2/">lack of community</a>; I view this as something to balance against the need to provide authoritative set of information, which is hard to do when you let just anyone participate in a site.</p>
+
+<p>There&#39;s also the balance between the need for small-g government to provide a persistent and consistent website while big-g Government wants to create short-lived special-case sites to tout particular policies, such as <a href="http://www.redtapechallenge.cabinetoffice.gov.uk/">Red Tape Challenge</a> or <a href="http://yourfreedom.hmg.gov.uk/">Your Freedom</a>. How do these sites fit within the single Government website?</p>
+
+<p>Navigating a way through these challenges will require making hard decisions, reaching difficult compromises and finding imaginative third ways. I for one am very interested to see the directions alpha.gov.uk chooses to take.</p>

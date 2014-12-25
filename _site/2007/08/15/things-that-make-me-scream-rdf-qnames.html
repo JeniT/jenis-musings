@@ -1,0 +1,61 @@
+<p>Having avoided <a href="http://en.wikipedia.org/wiki/Resource_Description_Framework" title="Wikipedia: Resource Description Framework">RDF</a> like the veritable plague for years, I have been forced to look at it properly for my latest &quot;put <a href="http://en.wikipedia.org/wiki/RDFa" title="Wikipedia: RDFa">RDFa</a> on our web pages&quot; project. So the other day I came across this weirdness surrounding &quot;QNames&quot; in <a href="http://www.dajobe.org/2004/01/turtle/" title="Turtle: notation for RDF">Turtle</a>, <a href="http://www.w3.org/TR/rdf-sparql-query/" title="W3C: SPARQL: queries over RDF">SPARQL</a> and RDFa (and so on)...</p>
+
+<p>As we all know, RDF is about making statements about resources, and resources are identified by URI. And the predicates/properties that you use to make statements about resources are <em>also</em> identified by URI. So I can say things like (in Turtle syntax):</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;http://www.lmnl.org/wiki/Creole&gt;
+  &lt;http://purl.org/dc/elements/1.1/creator&gt;
+    [&lt;http://xmlns.com/foaf/0.1/weblog&gt;
+     &lt;http://www.jenitennison.com/blog&gt;] .
+</code></pre></div>
+<p>and it means that the creator (as defined by <a href="http://www.dublincore.org/" title="Dublin Core Metadata Initiative">Dublin Core</a>) of the page <code>&lt;http://www.lmnl.org/wiki/Creole&gt;</code> is someone whose weblog (as defined by <a href="http://www.foaf-project.org/" title="Friend of a Friend Project Page">FOAF</a>) is <code>&lt;http://www.jenitennison.com/blog/&gt;</code>.</p>
+
+<!--break-->
+
+<p>The trouble with URIs is that they&#39;re so <em>long</em>. Turtle, SPARQL and RDFa, and all of these technologies want to make it easy to write RDF, so they want to provide a shorthand. The shorthand they provide looks similar to, and is even sometimes called, a &quot;QName&quot;.</p>
+
+<p>Here&#39;s how &quot;QNames&quot; work in these RDF technologies. You associate a prefix with a URI like so (this from Turtle):</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">@prefix dc: &lt;http://purl.org/dc/elements/1.1/&gt; .
+</code></pre></div>
+<p>Then when you write the prefix followed by a <code>:</code>, followed by a local part, it&#39;s equivalent to concatenating the URI with the local part; the result is the URI represented by the &quot;QName&quot;. So having defined the <code>dc</code> prefix as above, I can use <code>dc:creator</code> in place of the URI <code>&lt;http://purl.org/dc/elements/1.1/creator&gt;</code>.</p>
+
+<p>Seems simple enough, right? I mean, I know how QNames work in XML, and these look the same, just with some behind-the-scenes assumptions about how to resolve QNames to get to further information about them.</p>
+
+<p>My first double-take was when I wanted to add a datatype to a literal. I wanted to indicate that the value was a date, which you can do in Turtle or SPARQL with the syntax:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&quot;2007-08-13&quot;^^xs:date
+</code></pre></div>
+<p>I can write the namespace for XML Schema on auto-pilot, so I started writing it <code>&lt;http://www.w3.org/2001/XMLSchema&gt;</code>, then wondered whether they just used the datatypes URI so went to check. What URI is used in the examples? <code>&lt;http://www.w3.org/2001/XMLSchema#&gt;</code>. Huh? What&#39;s that <code>#</code> doing there? Well, it&#39;s because the full URI is then <code>&lt;http://www.w3.org/2001/XMLSchema#date&gt;</code>, which looks a whole lot better than <code>&lt;http://www.w3.org/2001/XMLSchemadate&gt;</code>. It doesn&#39;t matter that <code>&lt;http://www.w3.org/2001/XMLSchema#date&gt;</code> doesn&#39;t resolve to anything (or does it?), so long as we all use the same URI to mean date-as-defined-in-XML-Schema. The small matter that the RDF &quot;namespace&quot; for XML Schema is different from the normal XML namespace for XML Schema is by-the-by. Boggle.</p>
+
+<p>My second double-take was when I wanted to write an example that used numbers as identifiers. My last post was about URL design, and used the URL <code>&lt;http://www.statutelaw.gov.uk/legislation/3032571&gt;</code> as an illustration. Now say I want to use a QName to represent that URI. I can do</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">@prefix leg: &lt;http://www.statutelaw.gov.uk/legislation/&gt; .
+</code></pre></div>
+<p>but if I then do <code>leg:3032571</code> that&#39;s not a legal (XML) QName: the local part isn&#39;t an XML Name because it begins with a number. Turtle doesn&#39;t allow it, SPARQL kinda does (it&#39;s an &quot;at risk feature&quot;), and who knows what RDFa will do (there&#39;s not enough of a spec to tell as yet).</p>
+
+<p>Then there&#39;s the weirdnesses of &quot;QNames&quot; with no prefix, which still have a colon. And QNames with an underscore as the prefix, which of course mean a blank node with a specified ID, but let&#39;s leave that to one side.</p>
+
+<p>Really, the whole mess started with <a href="http://www.w3.org/TR/rdf-syntax-grammar/" title="W3C: RDF/XML">RDF/XML</a> which allows you to give elements the &quot;QName&quot; equivalent of the class that you&#39;re talking about. So <code>&lt;rdf:Description&gt;</code> can be replaced by <code>&lt;foaf:Person&gt;</code>. Indeed, properties pretty much <em>have</em> to be represented by elements whose name is equivalent to the property URI in RDF/XML. That doesn&#39;t usually matter so much because, unlike instances, which could be pretty much any URI, properties and classes are likely to have sensible names (<code>rdf:_1</code>, <code>rdf:_2</code> and so on being notable, but illustrative, exceptions: it really shouldn&#39;t be necessary to add underscores just to satisfy the QName naming rules which don&#39;t apply in the abstract RDF model).</p>
+
+<p>Fundamentally, using &quot;QNames&quot; as abbreviations for URIs is a bad idea. QNames have a number of restrictions on them because they are built to be legal XML Names: the kinds of things that you  can call elements and attributes. URIs <em>don&#39;t</em> have these restrictions: it&#39;s perfectly possible for the last part of a URI to consist purely of numbers, or to have a slash at the end, or even to have request parameters. Fair enough that meaningful QNames can be used for <em>some</em> URIs, but if you can&#39;t use them properly for <em>all</em> URIs, then there has to be a better way.</p>
+
+<p>The way that you usually create short URIs is to use a <em>relative</em> URI, which is resolved against a <em>base</em> URI to produce an <em>absolute</em> URI. And that&#39;s the mechanism that should be used in RDF. The only difficulty is that in most RDF documents, you&#39;ll have lots of URIs with completely different base URIs, so having just one base URI (like normal) doesn&#39;t cut it.</p>
+
+<p>You need to be able to associate shorthands (I won&#39;t call them prefixes, because doing so is confusing) with base URIs -- a <code>@base</code> directive will do -- and have a simple syntax for resolving relative URIs against a given base. You could use a <em>shorthand</em>:&lt;<em>relativeURI</em>&gt; syntax, I think, and allow the <code>&lt;&gt;</code>s to be dropped if the relative URI happens to be a legal Name. So with</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">@base leg: &lt;http://www.statutelaw.gov.uk/legislation/&gt; .
+</code></pre></div>
+<p>you could use <code>leg:&lt;3032571&gt;</code> to mean the URI <code>&lt;http://www.statutelaw.gov.uk/legislation/3032571&gt;</code> or <code>leg:&lt;wine/2007/-/&gt;</code> to mean the URI <code>&lt;http://www.statutelaw.gov.uk/legislation/wine/2007/-/&gt;</code>.</p>
+
+<p>SPARQL already has a <code>BASE</code> directive to define a <em>single</em> base URI that&#39;s used when resolving relative URIs in URI references; really all I&#39;m suggesting is allowing several base URIs to operate at the same time (using shorthands to distinguish between them), and dropping <code>PREFIX</code>. Turtle doesn&#39;t have a <code>@base</code> directive, though there&#39;s a suggestion that one might be added, so there the changes are a little more major.</p>
+
+<p>In RDFa, &quot;QNames&quot; are used in attribute values to indicate class URIs, property URIs, and datatype URIs. And normal namespace declarations are used to make the prefixes, which means training yourself to write</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">xmlns:xs=&quot;http://www.w3.org/2001/XMLSchema#&quot;
+</code></pre></div>
+<p>when you&#39;re writing RDFa, while everywhere else (schemas, stylesheets, etc.) you write</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">xmlns:xs=&quot;http://www.w3.org/2001/XMLSchema&quot;
+</code></pre></div>
+<p>XML namespace declarations really shouldn&#39;t be used here. Instead, you could extend the <code>&lt;base&gt;</code> element-as-was to provide bindings</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;base short=&quot;xs&quot; href=&quot;http://www.w3.org/2001/XMLSchema#&quot; /&gt;
+&lt;base short=&quot;leg&quot; href=&quot;http://www.statutelaw.gov.uk/legislation/&quot; /&gt;
+</code></pre></div>
+<p>and then use <em>those</em> bindings when interpreting the attribute values (the <em>shorthand</em>:&lt;<em>relativeURI</em>&gt; syntax won&#39;t work here, because of having to escape the <code>&lt;</code>s in attribute values, but you get the idea).</p>
+
+<p>Meanwhile, if you have free reign over your URL space and you&#39;re thinking of using RDF, URLs should be designed such that the last part (be it fragment or path segment) is a legal XML local name. Doing so will make it a lot easier to express statements in Turtle or RDFa and queries in SPARQL. What&#39;s more, the last part of the URI should be the unique identifier for the resource in question; if your URLs look like <code>&lt;http://www.example.com/collection/5326/view&gt;</code> then you should consider dropping the <code>/view</code> part to provide the canonical URI, or swapping the last two parts of the path (oh and adding a prefix to the numeric identifier) to give <code>&lt;http://www.example.com/collection/view/i5326&gt;</code>.</p>
+
+<p>And this is <em>particularly</em> true, indeed fairly essential, for any URLs that you might want to use to represent classes or properties.</p>

@@ -1,0 +1,19 @@
+<p>I used to know how to arrange my XSLT modules. Each module had to be self-contained, and any common code imported into all the modules that used it. The reason? Because when you have on-going validation of your XSLT stylesheets, if the module can&#39;t stand alone then you get all sorts of spurious errors. For example, if you define a variable in module A, which includes module B which uses that variable, then although the application as a whole will work fine, when you&#39;re editing module B you&#39;ll get errors because the variable isn&#39;t defined in that module.</p>
+
+<p>That rationale just got blown out of the water.</p>
+
+<!--break-->
+
+<p>Yes, it&#39;s another <a href="http://www.oxygenxml.com/" title="Oxygen XML Editor">&lt;oXygen/&gt;</a> release! Back in the 90s, the release of a new web browser would set my heart racing (yes, I was that much of a geek). Nowadays I get my thrills from new versions of &lt;oXygen/&gt; (yes, I&#39;m still that much of a geek). &lt;oXygen/&gt;&#39;s already packed with features that make my life easier, but somehow each release seems to come up with something that I never knew I needed but find I can&#39;t live without.</p>
+
+<p>It&#39;s as if George Cristian Bina and the team are spying on me. I&#39;ve been dealing recently with some large XSLT applications, written by someone else, that <em>haven&#39;t</em> been designed with standalone modules. And it&#39;s such a headache, not knowing whether an error that&#39;s been reported is a <em>real</em> error (like a mis-spelled variable reference) or something that will be fine when the module is used in context. I&#39;ve had to resort to running the transformation to identify static errors in the stylesheet, which is tedious and time-consuming.</p>
+
+<p>New &lt;oXygen/&gt; release to the rescue! &lt;oXygen/&gt; 8.2 has &quot;Validation Scenarios&quot;, which means you can tell &lt;oXygen/&gt; to validate particular files starting from other modules. Suddenly the only errors that are reported are the ones that you really have to do something about. And the same technique works for schema files, or any document that needs to be validated in context!</p>
+
+<p>There are a couple of other new things that are handy too. Just the other day I was thinking &quot;Hmm, this Outline view is really useful but I wish it would show me the name attribute rather than the id attribute for these elements.&quot; Now I can configure it to show whichever attributes I want. And multi-line search &amp; replace: what a godsend! (There are lots more new features; these are just the ones that I&#39;ve used in the day since I installed it.)</p>
+
+<p>There were a couple of things that came up in the last version of &lt;oXygen/&gt; that I reported and have been fixed. One was a problem opening files with long lines: now if you try to open such a file you get asked if you want to format &amp; indent it on opening. I think that being responsive to users (whether bug reports or requests for features) is a real indication of the development of great software. It makes a huge difference that George Cristian Bina (like Michael Kay) is approachable and active in the community: their applications are better for it, and their users much more loyal!</p>
+
+<p>So now I have to go re-think my rules of thumb on how to organise modules...</p>
+
+<p>[Disclosure: I get a free license for &lt;oXygen/&gt;, and they&#39;ve made it easy for me to provide temporary licenses when I run training courses, so I&#39;m in their debt. But honestly, I&#39;d pay for it if I didn&#39;t get it for free. I really couldn&#39;t live without it.]</p>

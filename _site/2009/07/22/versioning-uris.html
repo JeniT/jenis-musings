@@ -1,0 +1,112 @@
+<p>Yesterday I went along to a workshop on developing URI guidelines for the UK public sector. Because of the current drive to get more UK public sector information online, and the fact that <a href="http://blogs.cabinetoffice.gov.uk/digitalengagement/post/2009/06/09/Data-So-what-happens-now.aspx">we have Tim Berners-Lee on board</a>, there&#39;s a growing recognition of the fact that we need URIs for the real-world and conceptual things that we talk about in the public sector: schools, roads, hospitals, services, councils, and so on.</p>
+
+<p>One of the particular points of contention at the meeting was whether URIs for non-information resources (ie for real-world and conceptual things) should contain dates or version numbers, or not.</p>
+
+<!--break-->
+
+<p>Let&#39;s get some of the argument out of the way first. We are not talking about documents here. Documents will almost always have multiple versions, and if you care at all about maintaining a historical record you will want to refer to the previous version of a document. So dates or version numbers within URIs that refer to documents are often a really good idea. Even better if you have one URI <em>without</em> a date that consistently redirects (through a <code>307 Temporary Redirect</code>) to the current version of the document.</p>
+
+<p>Documents (that people read) are just one form of <strong>&quot;information resource&quot;</strong>: things that are information and therefore can be transmitted electronically. Other things in the world are <strong>&quot;non-information resources&quot;</strong>: things that are more than simple information and therefore cannot be transmitted electronically, such as schools, roads, hospitals and so on. A lot of things that we want to talk about (make RDF assertions about) are non-information resources. We give them URIs to name them, so that we can talk about them unambiguously, and we give them HTTP URIs so that we have a way of finding information resources (documents) that give us information <em>about</em> them.</p>
+
+<p>Does the information that you get when you resolve a non-information resource URI change? Absolutely. A request to a non-information resource URI will respond with a <code>303 See Other</code> that redirects to an information resource (probably without a version number) that itself redirects (<code>307 Temporary Redirect</code>) to a URI for a particular version of information about the resource. For example an identifier that means a particular school such as:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">http://id.example.org/education/school/78
+</code></pre></div>
+<p>can 303 redirect to the current version of a document that contains information about that school, such as:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">http://www.example.org/education/school/78
+</code></pre></div>
+<p>which will 307 redirect to a particular version of information about that school, such as:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">http://www.example.org/education/school/78/2008-09-01
+</code></pre></div>
+<p>The date is in the URI for the information resource (the information about the school), and therefore it doesn&#39;t need to be in the URI for the non-information resource (the school).</p>
+
+<p>OK, but say that the identifier for a school changes over time. Let&#39;s say that you&#39;ve designed your URIs for schools like:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">http://id.example.org/school/bracknell-forest/broadmoor-primary
+</code></pre></div>
+<p>and the name of the school changes. Now the above identifier isn&#39;t applicable any more, and any RDF statements out there on the web that have used this identifier are now talking about something that no longer exists. How do you deal with this?</p>
+
+<p>Well, the first rule is that <strong>non-information resource URIs must not include information that is likely to change</strong>. That&#39;s why a lot of URIs contain numbers rather than names. So we shouldn&#39;t have included the name of the school in the URI? OK, we&#39;ll use a number instead:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">http://id.example.org/school/bracknell-forest/78
+</code></pre></div>
+<p>Hang on. Bracknell Forest is a council, and historically it&#39;s been known for councils to change, either in their boundaries (which would mean that a school would move council) or in its name, or they are merged, or... well, there are lots of things that could happen to a council. So in the face of all these possibilities, and given that we no longer need the council name to disambiguate the school name (because we have a number instead), we can employ a second rule: <strong>non-information resource URIs must not include unnecessary hierarchy</strong>. We can eliminate part of the path and still identify the school:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">http://id.example.org/school/78
+</code></pre></div>
+<p>And so we come to the final thing that could change: &quot;school&quot;. Now surely, you might say, the concept of a school cannot change. And maybe you&#39;re right, maybe it won&#39;t. On the other hand, in the UK we have in the past had things called <a href="http://en.wikipedia.org/wiki/Polytechnic_(United_Kingdom">polytechnics</a>), which are now known as universities, so the types of educational establishments that we have do change over time.</p>
+
+<p>We could do a bunch of things to help prevent a conceptual change like this from requiring a change to the URI:</p>
+
+<ul>
+<li>we keep the number of concepts named within the URI to a minimum (eg don&#39;t have both &#39;education&#39; and &#39;school&#39;)</li>
+<li>we use wide terms rather than narrow terms (eg use a generic &#39;school&#39; rather than having separate &#39;grammar-school&#39;, &#39;primary-school&#39; and so on)</li>
+<li>we could change the term &#39;school&#39; to a code (eg use &#39;C3X0&#39; instead of &#39;school&#39;), but I don&#39;t think this will help: you&#39;ll still have problems if &#39;C3X0&#39; and &#39;F9R2&#39; mean the same thing in the future, whatever they&#39;re called.</li>
+<li>we could eliminate the concept term from the URI altogether, and label everything under one flat naming scheme, using something that has billions and billions of possible combinations. I know, a UUID! No, I&#39;m not serious.</li>
+</ul>
+
+<p>And so we come to the question of versioning the URIs themselves. This is what Tim Berners-Lee says in <a href="http://www.w3.org/Provider/Style/URI">Cool URIs don&#39;t change</a>:</p>
+
+<blockquote>
+<p>I&#39;ll go into this danger in more detail as it is one of the more difficult things to avoid. Typically, topics end up in URIs when you classify your documents according to a breakdown of the work you are doing. That breakdown will change. Names for areas will change. At W3C we wanted to change &quot;MarkUp&quot; to &quot;Markup&quot; and then to &quot;HTML&quot; to reflect the actual content of the section. Also, beware that this is often a flat name space. In 100 years are you sure you won&#39;t want to reuse anything? We wanted to reuse &quot;History&quot; and &quot;Stylesheets&quot; for example in our short life.</p>
+
+<p>This is a tempting way of organizing a web site - and indeed a tempting way of organizing anything, including the whole web. It is a great medium term solution but has serious drawbacks in the long term</p>
+
+<p>Part of the reasons for this lie in the philosophy of meaning. every term in the language it a potential clustering subject, and each person can have a different idea of what it means. Because the relationships between subjects are web-like rather than tree-like, even for people who agree on a web may pick a different tree representation. These are my (oft repeated) general comments on the dangers of hierarchical classification as a general solution.</p>
+
+<p>Effectively, when you use a topic name in a URI you are binding yourself to some classification. You may in the future prefer a different one. Then, the URI will be liable to break.</p>
+
+<p>A reason for using a topic area as part of the URI is that responsibility for sub-parts of a URI space is typically delegated, and then you need a name for the organizational body - the subdivision or group or whatever - which has responsibility for that sub-space. This is binding your URIs to the organizational structure. It is typically safe only when protected by a date further up the URI (to the left of it): 1998/pics can be taken to mean for your server &quot;what we meant in 1998 by pics&quot;, rather than &quot;what in 1998 we did with what we now refer to as pics.&quot;</p>
+</blockquote>
+
+<p>Let&#39;s spell out the danger with some examples. Let&#39;s say that in 20 year&#39;s time, nurseries and primary schools merge into &#39;schools&#39; and secondary schools, sixth-form colleges and universities merge into &#39;academies&#39;. A particular primary school currently known as:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">http://id.example.org/school/78
+</code></pre></div>
+<p>will continue to be known by that URI. A particular university currently known as:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">http://id.example.org/university/307
+</code></pre></div>
+<p>is now known as:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">http://id.example.org/academy/79
+</code></pre></div>
+<p>To support these changes, we have to set up some <code>301 Moved Permanently</code> redirects;  <code>http://id.example.org/university/307</code> has to redirect to <code>http://id.example.org/academy/79</code>. The RDF found at the end of the new URIs has to include <code>owl:sameAs</code> triples that link the new URIs back to the old ones, to indicate they are talking about the same institution:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;http://id.example.org/academy/79&gt; owl:sameAs &lt;http://id.example.org/university/307&gt;
+</code></pre></div>
+<p>or this would be <a href="http://www.ldodds.com/blog/2007/03/the-semantics-of-301-moved-permanently/">derived from the 301 response</a>.</p>
+
+<p>Similar changes may or may not happen within the RDF hosted elsewhere that talks about these institutions. Since it can be discovered that they are identical, there&#39;s no real reason for anyone to start using the new URIs unless they want to.</p>
+
+<p>Then 30 years later, the government of the time decide to create a new kind of institution which they call a &#39;university&#39;. The university of 50 years hence isn&#39;t actually the same as the &#39;university&#39; as we mean it -- they are virtual meeting places for independent researchers, each centered on a particular topic of study rather than a physical location -- but they need URIs. And since they are called &#39;university&#39; that is the name that should be used in the URI. Now someone mints the URI:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">http://id.example.org/university/307
+</code></pre></div>
+<p>But disaster! This University 307 is not at all the same as the old University 307, now known as Academy 79. The same URI has been used for two different things. Redirections halt, graphs are smushed, distinctions are lost and fallacies haunt the web.</p>
+
+<p>TimBL&#39;s solution to this possibility is for every URI that includes a topic to include the year in which the topic was minted. So we would have:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">http://id.example.org/2009/school/78
+</code></pre></div>
+<p>that remains the same, and then:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">http://id.example.org/2009/university/307
+</code></pre></div>
+<p>redirecting to:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">http://id.example.org/2029/academy/79
+</code></pre></div>
+<p>and the introduction of:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">http://id.example.org/2059/university/307
+</code></pre></div>
+<p>which can be guaranteed to be distinct from <code>http://id.example.org/2009/university/307</code>.</p>
+
+<p>This, to me, is the crux of the argument for including a version inside the URIs that you use for non-information resources. It means that you can reuse old terms with new meanings within URIs without breaking the web.</p>
+
+<p>On the other hand, many people, myself among them, really dislike the use of years or version numbers within URIs for non-information resources (unless, I should say, they are used as part of the identification of the resource). I think there are four main reasons:</p>
+
+<ul>
+<li>they are additional cruft that add to the length of a URI but provide no information about the thing being identified</li>
+<li>they can give a misleading impression about the relevance of a concept; for example <a href="http://xmlns.com/foaf/spec/">FOAF</a> is stuck at version 0.1 (<code>http://xmlns.com/foaf/0.1/</code>) despite being widely used, while <code>http://www.w3.org/1998/Math/MathML</code> is feeling distinctly old (in internet time) despite being under active development</li>
+<li>it leads to a proliferation of URIs and creates additional work for people who want to keep their URIs up to date, even when the concepts themselves don&#39;t change (such as for the primary school&#39;s URI above)</li>
+</ul>
+
+<p>In essence, the likelihood of a term being reused with a different meaning seems low enough that the cost (in readability, understandability and maintainability) of supporting URIs that contain versions or years doesn&#39;t seem worthwhile. We can keep the likelihood low by using terms that are unlikely to change their meaning (particularly avoiding those that have more than one meaning) and by disambiguating them (for example by using &#39;train-station&#39; rather than just &#39;station&#39;).</p>
+
+<p>There is also, perhaps, a middle way here that can keep the majority of URIs clean without leading to overlapping names. That&#39;s to start with a URI scheme that does not include a version number or year, and only to start introducing them when it becomes necessary due to the reuse of previous terms. In the example above, in 2059 we might have:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">http://id.example.org/school/78
+http://id.example.org/academy/79
+http://id.example.org/university2.0/307
+</code></pre></div>
+<p>In other words, we make a decision now that our future selves will have to act upon. All we have to worry about is our future selves caring as much about persisting historical URIs as we do about persisting our current ones.</p>
+
+<p>What do you think? Should versioning be avoided in URIs at all costs, or always be included just in case? Are there other arguments for or against including versions or years in URIs? What other design considerations are there that help prevent changes to URIs over (long periods of) time?</p>

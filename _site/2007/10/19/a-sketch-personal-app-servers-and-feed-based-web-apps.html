@@ -1,0 +1,36 @@
+<p>OK, so I can&#39;t remain a Luddite for long. What&#39;s a technological solution to the <a href="http://www.jenitennison.com/blog/node/59" title="Jeni&#39;s Musings: Posterity">posterity problem</a>, in particular in regard to web applications that tuck away all your data in their databases, just waiting to be forgotten?</p>
+
+<p>Well, what if web applications accepted information as feeds rather than through forms? The original data would be distributed rather than centralised. Web applications would use the web as more than a distribution medium: they would be <a href="http://www.25hoursaday.com/weblog/2007/10/20/IfYouFightTheWebYouWillLose.aspx" title="Dare Obasanjo: If You Fight the Web You Will Lose"><em>of</em> the web rather than simply <em>on</em> the web</a>.</p>
+
+<!--break-->
+
+<p>How it would work:</p>
+
+<ul>
+<li><p>Keep your data on your computer (in XML where possible). Use whatever tool you like to create and edit it (by hand, using a dedicated standalone application, using a browser-based application in the manner of <a href="http://www.tiddlywiki.com/" title="TiddlyWiki">TiddlyWiki</a>, or however), in some common markup language.</p></li>
+<li><p>Serve your data through a web server that supports <a href="http://www.ietf.org/rfc/rfc5023.txt" title="The Atom Publishing Protocol">APP</a>, and provide a feed that exposes the data. I&#39;m not saying that this is easy for <a href="http://en.wikipedia.org/wiki/Placeholder_name#People" title="Wikipedia: Placeholder names for people">Joe Bloggs</a> to do now, but if we&#39;re talking about having <a href="http://dubinko.info/blog/2006/06/04/would-you-run-a-web-server-on-your-phone/" title="Micah Dubinko:  Would you run a web server on your phone?">web servers on mobile phones</a> then surely it&#39;s not long before having a personal web server is a matter of course, and why not with APP support? Feeds could be generated based on directory structures, or simply created as the main file format for a particular application.</p></li>
+<li><p>Visit the web application that you want to use and point them at your data feed. They access, store and index your data, and relate it to the other data that they have stored from other people&#39;s feeds. It&#39;s their responsibility to keep their database up to date by doing a regular crawl of the feeds they know about; they don&#39;t have to store <em>all</em> your data, just the bits that enable them to do their job.</p></li>
+<li><p>Edit your data through the web application&#39;s interface; it can update your data for you using APP. (The web application is a APP <em>client</em>, and you host an APP <em>server</em>.) That can include adding comments or whatever other community-level annotations you might expect.</p></li>
+</ul>
+
+<p>Why bother?</p>
+
+<ol>
+<li>You have all your data locally (although it might be mirrored elsewhere).</li>
+<li>You can edit your data in whatever tool you want to use, but still use a funky &quot;rich internet application&quot; to view it and share it.</li>
+<li>You can provide the same data feed to any number of web applications; you&#39;re not locked in.</li>
+<li>Because it&#39;s stored locally, your data is available for viewing and editing even when you&#39;re offline.</li>
+<li>Because the important parts are cached by a web application, your data is available for viewing and editing even when you&#39;re away from your normal computer.</li>
+<li>Your friends can access your data directly in a peer-to-peer network.</li>
+</ol>
+
+<p>The obvious problems:</p>
+
+<ul>
+<li><p>Setup: Web servers aren&#39;t that easy to set up and maintain at the moment, because they&#39;re designed for the use of sysadmins who are quite happy hacking text-based configuration files. That could change (look at WiFi router setup nowadays compared to how it was a few years ago).</p></li>
+<li><p>Security: you might not want everyone to be able to access the data you keep on your personal web server. So you&#39;ll need a way of assigning user names and passwords to feeds, and only handing those over to web applications that you trust.</p></li>
+<li><p>Server load: it&#39;s not so much DoS attacks (which tend to have big juicy targets), but the fact you&#39;re more likely to experience large volumes of requests if, say, a picture you host suddenly gets popular, and might not be able to respond to them, or might have to start paying heavily for the bandwidth. So sites that offer hosting will still be really useful, particularly for media that&#39;s (a) large and (b) likely to be embedded in other people&#39;s pages.</p></li>
+<li><p>Schemas: you can&#39;t split creation of XML from processing of XML unless you have some kind of mutual understanding about the markup language that&#39;s used. This used to seem like a major stumbling block to me, but in fact people seem to be sensible enough to use standards where there are standards, write stylesheets to convert between languages, extend what exists with what they need in more-or-less acceptable ways and generally muddle through without spending years in meetings thrashing out a single consensual model. And Atom and APP are pretty good at supporting extensions and so on that would make that work.</p></li>
+</ul>
+
+<p>My hope is that we&#39;ll get round to trying some of these ideas out in our <a href="http://www.jenitennison.com/blog/node/54" title="Jeni&#39;s Musings: Web 2.0 Project">genealogy-based Web 2.0 project</a>.</p>

@@ -1,0 +1,220 @@
+<p>I&#39;m sure that you&#39;ve noticed that my recent posts have been somewhat obsessed with publishing and using public sector information. It&#39;s because I&#39;ve somehow been sucked into the work going on within the UK government, <a href="http://blogs.cabinetoffice.gov.uk/digitalengagement/post/2009/06/09/Data-So-what-happens-now.aspx">with Tim Berners-Lee and Nigel Shadbolt advising</a>, to publish its data as linked data.</p>
+
+<p>My <a href="http://www.jenitennison.com/blog/node/109">recent</a> <a href="http://www.jenitennison.com/blog/node/110">blog</a> <a href="http://www.jenitennison.com/blog/node/111">posts</a> about publishing data using <a href="http://www.talis.com/platform/">Talis</a> have actually been a front for much more complex work that I&#39;ve been doing with a different data set.</p>
+
+<!--break-->
+
+<p>As an early demonstration of how existing government data sets might be turned into linked data, a few weeks ago I was given a CSV file containing road traffic counts; the raw data that lies behind the <a href="http://www.dft.gov.uk/matrix/">traffic flow information</a> available on the Department for Transport website. The data is really interesting and ripe for visualisations and analysis. For each hour of particular days each year, at particular points on many roads within the UK, the Department for Transport measures the number of bicycles, motorbikes, cars, vans, buses and HGVs of various types that roll past in each direction. The data contains information about:</p>
+
+<ul>
+<li>the count of each of the various classes of traffic that pass the point in a particular direction on a particular hour of a particular day</li>
+<li>the points at which these measurements were taken</li>
+<li>the roads on which the points are situated</li>
+<li>the areas in which the points are situated</li>
+<li>the local authority that is in charge of these areas</li>
+<li>the region that the area is in</li>
+<li>the country that the region is in </li>
+</ul>
+
+<p>The challenge was to turn the 386Mb CSV file into linked data. The result is up and available for you to look at; a good starting point is <a href="http://geo.data.gov.uk/0/country">http://geo.data.gov.uk/0/country</a>. Just follow the links from there.</p>
+
+<p>With a few false starts and mis-steps, this is the process that I went through:</p>
+
+<ol>
+<li>Tidied the CSV file so that it could be processed using awk. That meant replacing the commas that were delimiters with <code>|</code>s. It also meant removing a couple of weird ^M characters that had snuck into the file.</li>
+<li>Examined the data and came up with an informal ontology and prototype URI scheme.</li>
+<li>Created a bunch of awk scripts to extract different data from the files and create RDF/XML from it.</li>
+<li>Ran the scripts to create RDF/XML.</li>
+<li>Uploaded the data into a Talis store.</li>
+<li>Created appropriate PHP for the data and put it into a proxy server.</li>
+</ol>
+
+<p>Some of this has been covered by my recent posts, so I&#39;m just going to talk about a few of these steps in a bit more detail.</p>
+
+<p>First, the URIs. Frankly, they&#39;re an experiment to see how it plays. The templates are:</p>
+
+<ul>
+<li>countries: <code>http://geo.data.gov.uk/0/id/country/{name}</code>, eg <a href="http://geo.data.gov.uk/0/id/country/england">http://geo.data.gov.uk/0/id/country/england</a></li>
+<li>regions: <code>http://geo.data.gov.uk/0/id/region/{name}</code>, eg <a href="http://geo.data.gov.uk/0/id/region/north-west">http://geo.data.gov.uk/0/id/region/north-west</a></li>
+<li>areas: <code>http://geo.data.gov.uk/0/id/area/{ONS code}</code>, eg <a href="http://geo.data.gov.uk/0/id/area/00KA">http://geo.data.gov.uk/0/id/area/00KA</a></li>
+<li>local authorities: <code>http://local-government.data.gov.uk/0/id/local-authority/{ONS code for area}</code>, eg <a href="http://local-government.data.gov.uk/0/id/local-authority/00KA">http://local-government.data.gov.uk/0/id/local-authority/00KA</a></li>
+<li>roads: <code>http://transport.data.gov.uk/0/id/road/{name}</code> or <code>http://transport.data.gov.uk/0/id/road/U-{random number}</code>, eg <a href="http://transport.data.gov.uk/0/id/road/M5">http://transport.data.gov.uk/0/id/road/M5</a></li>
+<li>traffic count points: <code>http://transport.data.gov.uk/0/id/traffic-count-point/{number}</code>, eg <a href="http://transport.data.gov.uk/0/id/traffic-count-point/36195">http://transport.data.gov.uk/0/id/traffic-count-point/36195</a></li>
+<li>traffic counts: <code>http://transport.data.gov.uk/0/id/traffic-count/{point number}/{direction}/{date}/{hour}/{traffic type}</code>, eg <a href="http://transport.data.gov.uk/0/id/traffic-count/4/N/2008-06-05/08:00:00/HGVr2">http://transport.data.gov.uk/0/id/traffic-count/4/N/2008-06-05/08:00:00/HGVr2</a></li>
+</ul>
+
+<p>The subdomains are one way of subdividing the vast set of public sector information into vague categories that might be handled by different departments, without using the (highly changeable) department names in the URI. The <code>/0</code> portion of each URI is a version number: these URIs are experimental and liable to be unsupported in the future so they&#39;re marked with a version 0. The <code>/id</code> portion of each URI indicates that these are URIs for non-information resources; the response is a <code>303 See Other</code> redirect to the same URIs but without the <code>/id</code>.</p>
+
+<p>After the <code>/id</code>, the URIs follow a common pattern of naming a class of resource, followed by an appropriate identifier for that resource. The identifiers themselves are designed to be unique, <a href="http://www.jenitennison.com/blog/node/112">unlikely to change</a>, and <a href="http://www.jenitennison.com/blog/node/114">human readable</a>.</p>
+
+<p>The ontologies, well, actually they don&#39;t exist as yet except in my head. It&#39;s been more important to make the data available than to provide ontologies for it. Triplestores and SPARQL queries work without ontologies; indeed you have to go out of your way to find applications that actually reason with them. Like schemas for XML documents, they&#39;re not absolutely essential, but useful for documentation purposes and <em>potentially</em> useful for applications.</p>
+
+<p>There are, though, a couple of <a href="http://www.w3.org/2004/02/skos/">SKOS</a> schemes for categorising roads and vehicle types. These are available via:</p>
+
+<ul>
+<li>http://transport.data.gov.uk/0/category/road</li>
+<li>http://transport.data.gov.uk/0/category/vehicle</li>
+</ul>
+
+<p>They were informed by the <a href="http://www.cbrd.co.uk/roadsfaq/">British Roads FAQ</a> and the <a href="http://www.dft.gov.uk/matrix/forms/definitions.aspx">data definitions from the Department for Transport</a>. I heartily recommend a read; it&#39;s scintillating stuff!</p>
+
+<p>Anyway, with this size of file, and the kind of processing that needed to be done with it, the simple XSLT that I talked about <a href="http://www.jenitennison.com/blog/node/109">previously</a> for extracting data out of CSV files just wasn&#39;t going to cut it. Awk, on the other hand, is designed for this kind of processing. Most of the RDF/XML could be generated by collecting unique values from the file. For example, to generate the RDF/XML for the regions I used:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">BEGIN { 
+  FS = &quot;|&quot;;
+  print &quot;&lt;rdf:RDF xmlns:rdf=\&quot;http://www.w3.org/1999/02/22-rdf-syntax-ns#\&quot;&quot;;
+  print &quot;  xmlns:rdfs=\&quot;http://www.w3.org/2000/01/rdf-schema#\&quot;&quot;;
+  print &quot;  xmlns:g=\&quot;http://geo.data.gov.uk/0/ontology/geo#\&quot;&gt;&quot;;
+}
+FNR &gt; 1 {
+  countries[$2] = substr($1, 2, length($1) - 2);
+  regions[$2] = substr($2, 2, length($2) - 2);
+  codes[$2] = substr($3, 2, length($3) - 2);
+}
+END { 
+  for (region in regions) {
+    country = countries[region];
+    name = regions[region];
+    code = codes[region];
+    path = tolower(name);
+    gsub(&quot; &quot;, &quot;-&quot;, path);
+    print &quot;&lt;g:Region rdf:about=\&quot;http://geo.data.gov.uk/0/id/region/&quot; path &quot;\&quot;&gt;&quot;;
+    print &quot;  &lt;rdfs:label&gt;&quot; name &quot;&lt;/rdfs:label&gt;&quot;;
+    print &quot;  &lt;g:isInCountry&gt;&quot;;
+    print &quot;    &lt;g:Country rdf:about=\&quot;http://geo.data.gov.uk/0/id/country/&quot; tolower(country) &quot;\&quot;&gt;&quot;;
+    print &quot;      &lt;g:hasRegion rdf:resource=\&quot;http://geo.data.gov.uk/0/id/region/&quot; path &quot;\&quot; /&gt;&quot;;
+    print &quot;    &lt;/g:Country&gt;&quot;;
+    print &quot;  &lt;/g:isInCountry&gt;&quot;;
+    if (code != &quot;&quot;) {
+      print &quot;  &lt;g:ONScode rdf:datatype=\&quot;http://www.w3.org/2001/XMLSchema#NCName\&quot;&gt;&quot; code &quot;&lt;/g:ONScode&gt;&quot;;
+    }
+    print &quot;&lt;/g:Region&gt;&quot;;
+  }
+  print &quot;&lt;/rdf:RDF&gt;&quot;; 
+}
+</code></pre></div>
+<p>This generated RDF/XML that looks like:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;rdf:RDF xmlns:rdf=&quot;http://www.w3.org/1999/02/22-rdf-syntax-ns#&quot;
+  xmlns:rdfs=&quot;http://www.w3.org/2000/01/rdf-schema#&quot;
+  xmlns:g=&quot;http://geo.data.gov.uk/0/ontology/geo#&quot;&gt;
+&lt;g:Region rdf:about=&quot;http://geo.data.gov.uk/0/id/region/london&quot;&gt;
+  &lt;rdfs:label&gt;London&lt;/rdfs:label&gt;
+  &lt;g:isInCountry&gt;
+    &lt;g:Country rdf:about=&quot;http://geo.data.gov.uk/0/id/country/england&quot;&gt;
+      &lt;g:hasRegion rdf:resource=&quot;http://geo.data.gov.uk/0/id/region/london&quot; /&gt;
+    &lt;/g:Country&gt;
+  &lt;/g:isInCountry&gt;
+  &lt;g:ONScode rdf:datatype=&quot;http://www.w3.org/2001/XMLSchema#NCName&quot;&gt;H&lt;/g:ONScode&gt;
+&lt;/g:Region&gt;
+&lt;g:Region rdf:about=&quot;http://geo.data.gov.uk/0/id/region/yorkshire-and-the-humber&quot;&gt;
+  &lt;rdfs:label&gt;Yorkshire and The Humber&lt;/rdfs:label&gt;
+  &lt;g:isInCountry&gt;
+    &lt;g:Country rdf:about=&quot;http://geo.data.gov.uk/0/id/country/england&quot;&gt;
+      &lt;g:hasRegion rdf:resource=&quot;http://geo.data.gov.uk/0/id/region/yorkshire-and-the-humber&quot; /&gt;
+    &lt;/g:Country&gt;
+  &lt;/g:isInCountry&gt;
+  &lt;g:ONScode rdf:datatype=&quot;http://www.w3.org/2001/XMLSchema#NCName&quot;&gt;D&lt;/g:ONScode&gt;
+&lt;/g:Region&gt;
+...
+&lt;/rdf:RDF&gt;
+</code></pre></div>
+<p>In other cases, I needed to split up the RDF/XML that was generated into several files. Uploads to Talis of more than about 2Mb cause the upload to fail. The traffic count point RDF/XML needed to be split into 13 separate files. The traffic counts themselves... well, I haven&#39;t managed to do it all yet but to give you an idea, the 2008 data alone generated 1800 RDF/XML files, each about 1.6Mb in size and each taking about a minute to upload. What&#39;s there now is all the 2008 data, and the overall motor vehicle counts from all the years. More will be added gradually.</p>
+
+<p>The awk script that generates the count data in separate files is:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">BEGIN { 
+  FS = &quot;|&quot;;
+  fileCount = 0;
+  countCount = 99999;
+  curlFile = &quot;traffic-counts.curl.sh&quot;;
+}
+FNR &gt; 1 &amp;&amp; $15 ~ /\/2008 / {
+  countCount += 1;
+  if (countCount &gt; 200) {
+    if (fileCount != 0) {
+      print &quot;&lt;/rdf:RDF&gt;&quot; &gt; fileName; 
+      close(fileName);
+    }
+    countCount = 0;
+    fileCount += 1;
+    fileName = &quot;traffic-counts/traffic-counts.&quot; fileCount &quot;.rdf&quot;;
+    print &quot;creating&quot;, fileName;
+    print &quot;echo loading&quot;, fileName &gt; curlFile;
+    print &quot;curl -H \&quot;Content-type: application/rdf+xml\&quot; -o progress.txt --digest -u username:password --data-binary @&quot; fileName &quot; http://api.talis.com/stores/transport/meta&quot; &gt; curlFile;
+
+    print &quot;&lt;?xml version=\&quot;1.0\&quot; encoding=\&quot;ASCII\&quot;?&gt;&quot; &gt; fileName;
+    print &quot;&lt;rdf:RDF xmlns:rdf=\&quot;http://www.w3.org/1999/02/22-rdf-syntax-ns#\&quot;&quot; &gt; fileName;
+    print &quot;  xmlns:rdfs=\&quot;http://www.w3.org/2000/01/rdf-schema#\&quot;&quot; &gt; fileName;
+    print &quot;  xmlns:xsd=\&quot;http://www.w3.org/2001/XMLSchema#\&quot;&quot; &gt; fileName;
+    print &quot;  xmlns:t=\&quot;http://transport.data.gov.uk/0/ontology/traffic#\&quot;&quot; &gt; fileName;
+    print &quot;  xml:base=\&quot;http://transport.data.gov.uk/0/id/traffic-count/\&quot;&gt;&quot; &gt; fileName;
+  }
+
+  cp = $7;
+  date = $15;
+  direction = substr($16, 2, length($16) - 2);
+  split(date, dateFields, &quot; &quot;);
+  date = dateFields[1];
+  split(date, dateFields, &quot;/&quot;);
+  date = sprintf(&quot;%04d-%02d-%02d&quot;, dateFields[3], dateFields[2], dateFields[1]);
+  hour = sprintf(&quot;%02d:00:00&quot;, $17);
+  base = &quot;http://transport.data.gov.uk/0/id/traffic-count/&quot; cp &quot;/&quot; direction &quot;/&quot; date &quot;/&quot; hour;
+
+  cycles = $18;
+  motorbikes = $19;
+  ...
+
+  print &quot;&lt;t:Count rdf:about=\&quot;&quot; base &quot;/cycle\&quot;&gt;&quot; &gt; fileName;
+  print &quot;  &lt;t:point&gt;&quot; &gt; fileName;
+  print &quot;    &lt;t:CountPoint rdf:about=\&quot;http://transport.data.gov.uk/0/id/traffic-count-point/&quot; cp &quot;\&quot;&gt;&quot; &gt; fileName;
+  print &quot;      &lt;t:count rdf:resource=\&quot;&quot; base &quot;/cycle\&quot; /&gt;&quot; &gt; fileName;
+  print &quot;    &lt;/t:CountPoint&gt;&quot; &gt; fileName;
+  print &quot;  &lt;/t:point&gt;&quot; &gt; fileName;
+  print &quot;  &lt;t:hour rdf:datatype=\&quot;http://www.w3.org/2001/XMLSchema#dateTime\&quot;&gt;&quot; date &quot;T&quot; hour &quot;&lt;/t:hour&gt;&quot; &gt; fileName;
+  print &quot;  &lt;t:direction&gt;&quot; direction &quot;&lt;/t:direction&gt;&quot; &gt; fileName;
+  print &quot;  &lt;t:category rdf:resource=\&quot;http://transport.data.gov.uk/0/category/bicycle\&quot; /&gt;&quot; &gt; fileName;
+  print &quot;  &lt;rdf:value  rdf:datatype=\&quot;http://www.w3.org/2001/XMLSchema#integer\&quot;&gt;&quot; cycles &quot;&lt;/rdf:value&gt;&quot; &gt; fileName;
+  print &quot;&lt;/t:Count&gt;&quot; &gt; fileName;
+  print &quot;&lt;t:Count rdf:about=\&quot;&quot; base &quot;/motorbike\&quot;&gt;&quot; &gt; fileName;
+  print &quot;  &lt;t:point&gt;&quot; &gt; fileName;
+  print &quot;    &lt;t:CountPoint rdf:about=\&quot;http://transport.data.gov.uk/0/id/traffic-count-point/&quot; cp &quot;\&quot;&gt;&quot; &gt; fileName;
+  print &quot;      &lt;t:count rdf:resource=\&quot;&quot; base &quot;/motorbike\&quot; /&gt;&quot; &gt; fileName;
+  print &quot;    &lt;/t:CountPoint&gt;&quot; &gt; fileName;
+  print &quot;  &lt;/t:point&gt;&quot; &gt; fileName;
+  print &quot;  &lt;t:hour rdf:datatype=\&quot;http://www.w3.org/2001/XMLSchema#dateTime\&quot;&gt;&quot; date &quot;T&quot; hour &quot;&lt;/t:hour&gt;&quot; &gt; fileName;
+  print &quot;  &lt;t:direction&gt;&quot; direction &quot;&lt;/t:direction&gt;&quot; &gt; fileName;
+  print &quot;  &lt;t:category rdf:resource=\&quot;http://transport.data.gov.uk/0/category/motorbike\&quot; /&gt;&quot; &gt; fileName;
+  print &quot;  &lt;rdf:value  rdf:datatype=\&quot;http://www.w3.org/2001/XMLSchema#integer\&quot;&gt;&quot; motorbikes &quot;&lt;/rdf:value&gt;&quot; &gt; fileName;
+  print &quot;&lt;/t:Count&gt;&quot; &gt; fileName;
+  ...
+}
+END {
+  print &quot;&lt;/rdf:RDF&gt;&quot; &gt; fileName; 
+  close(fileName);
+}
+</code></pre></div>
+<p>This also generates a shall script that includes the curl instructions to upload the files.</p>
+
+<p>The original data contained easing/northing information about each point when generally latitude/longitude is easier for mapping. So I extracted the easting/northings, used the <a href="http://gps.ordnancesurvey.co.uk/convert.asp">free (Windows only) software available via the Ordnance Survey</a> to turn these into latitude/longitude -- there is a <a href="http://gps.ordnancesurvey.co.uk/convertbatch.asp?location=0">web service</a> to do the same, but you can only do 200 coordinates at a time -- converted those into decimals, then RDF, and uploaded them.</p>
+
+<p>The PHP scripts that serve the data as linked data are exactly what I&#39;ve <a href="http://www.jenitennison.com/blog/node/111">shown before</a>. I amended the <code>.htaccess</code> file to redirect to an appropriate PHP script like this:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;IfModule mod_rewrite.c&gt;
+  RewriteEngine on
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+
+  RewriteRule ^id/(.+)$  id.php [L]
+
+  RewriteCond %{REQUEST_URI} !\.php
+  RewriteRule ^([^/]+)(/.+)? $1.php$2 [L,QSA]
+&lt;/IfModule&gt;
+</code></pre></div>
+<p>and created PHP scripts for each of the types of data being published. For example, <code>region.php</code> is:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;?php
+  include &quot;utils.php&quot;;
+  proxy(&#39;http://geo.data.gov.uk/0/ontology/geo#Region&#39;, 50);
+?&gt;
+</code></pre></div>
+<p>And there we have it. Linked traffic count data on the web.</p>
+
+<p>(And because this is all published through Talis, there&#39;s also a <a href="http://api.talis.com/stores/transport/services/sparql">SPARQL endpoint</a> that you could use to run queries and <a href="http://www.jenitennison.com/blog/node/112">create visualisations</a>. Knock yourself out.)</p>
+
+<p>Please take a look and comment on what we&#39;ve done. What&#39;s your opinion of the URI scheme? Is it useful to be able to access the data as linked data? Which other formats would you like to see?</p>

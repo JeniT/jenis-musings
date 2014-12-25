@@ -1,0 +1,135 @@
+<p>The big problem with the <a href="http://www.jenitennison.com/blog/node/11" title="Levenshtein distance in XSLT 2.0">previous Levenshtein distance</a> implementation is that it recurses so much a number of times (roughly) equal to the multiple of the lengths of the two strings you&#39;re comparing. If you&#39;re using an XSLT processor that doesn&#39;t recognise the function as being tail recursive then you can&#39;t compare two strings more than about 20 characters in length (400 recursions).</p>
+
+<p>The problem is that the standard dynamic programming <a href="http://en.wikipedia.org/wiki/Levenshtein_distance" title="Wikipedia: Levenshtein distance">Levenshtein distance algorithm</a> is written for procedural programming languages in which you can do useful things like updating variables. XSLT ain&#39;t like that, so we need an alternative algorithm.</p>
+
+<!--break-->
+
+<p>The dynamic programming algorithm for computing Levenshtein distance between two strings creates a matrix like this</p>
+
+<table style="width: auto;">
+  <tr><th colspan="2"></th><th>k</th><th>i</th><th>t</th><th>t</th><th>e</th><th>n</th></tr>
+  <tr><td></td><td>0</td><td>1</td><td>2</td><td>3</td><td>4</td><td>5</td><td>6</td></tr>
+  <tr><th>s</th><td>1</td><td>1</td><td>2</td><td>3</td><td>4</td><td>5</td><td>6</td></tr>
+  <tr><th>i</th><td>2</td><td>2</td><td>1</td><td>2</td><td>3</td><td>4</td><td>5</td></tr>
+  <tr><th>t</th><td>3</td><td>3</td><td>2</td><td>1</td><td>2</td><td>3</td><td>4</td></tr>
+  <tr><th>t</th><td>4</td><td>4</td><td>3</td><td>2</td><td>1</td><td>2</td><td>3</td></tr>
+  <tr><th>i</th><td>5</td><td>5</td><td>4</td><td>3</td><td>2</td><td>2</td><td>3</td></tr>
+  <tr><th>n</th><td>6</td><td>6</td><td>5</td><td>4</td><td>3</td><td>3</td><td>2</td></tr>
+  <tr><th>g</th><td>7</td><td>7</td><td>6</td><td>5</td><td>4</td><td>4</td><td>3</td></tr>
+</table>
+
+<p>and gets the final edit distance from the bottom right-most cell (in this case <code>3</code>). The top row holds the numbers <code>0</code> to <em><code>n</code>* (where *<code>n</code>* is the number of characters in the first string) and the left column holds the numbers <code>0</code> to *<code>m</code>* (where *<code>m</code></em> is the number of characters in the second string). The values in the rest of the cells are calculated by looking at the cells above, to the left and diagonally above-and-left.</p>
+
+<p>In the standard algorithm, you create this matrix row-by-row. This is fine in a procedural language where you can do the whole thing in a big loop, updating the matrix as you go. But in XSLT, there&#39;s no way of using a <code>&lt;xsl:for-each&gt;</code> to create a row because to calculate the value of a given cell, you have to know the value in the previous cell (to the left), and you can&#39;t carry values over from one iteration to the next in XSLT.</p>
+
+<p>However, there is a way of doing part of the calculation with iteration: calculate the diagonals. If you look at the matrix</p>
+
+<table style="width: auto;">
+  <tr><th colspan="2"></th><th>k</th><th>i</th><th>t</th><th>t</th><th>e</th><th>n</th></tr>
+  <tr><td></td><td>0</td><td><em>1</em></td><td><em>2</em></td><td><strong>3</strong></td><td></td><td></td><td></td></tr>
+  <tr><th>s</th><td><em>1</em></td><td><em>1</em></td><td><strong>2</strong></td><td></td><td></td><td></td><td></td></tr>
+  <tr><th>i</th><td><em>2</em></td><td><strong>2</strong></td><td></td><td></td><td></td><td></td><td></td></tr>
+  <tr><th>t</th><td><strong>3</strong></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+  <tr><th>t</th><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+  <tr><th>i</th><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+  <tr><th>n</th><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+  <tr><th>g</th><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+</table>
+
+<p>the values in bold can be calculated purely on the basis of the values in italics, which means they can be calculated in a loop rather than using recursion.</p>
+
+<p>So here&#39;s an implementation of this approach:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;xsl:function name=&quot;my:LevenshteinDistanceC&quot; as=&quot;xs:integer&quot;&gt;
+  &lt;xsl:param name=&quot;string1&quot; as=&quot;xs:string&quot; /&gt;
+  &lt;xsl:param name=&quot;string2&quot; as=&quot;xs:string&quot; /&gt;
+  &lt;xsl:choose&gt;
+    &lt;xsl:when test=&quot;$string1 = &#39;&#39;&quot;&gt;
+      &lt;xsl:sequence select=&quot;string-length($string2)&quot; /&gt;
+    &lt;/xsl:when&gt;
+    &lt;xsl:when test=&quot;$string2 = &#39;&#39;&quot;&gt;
+      &lt;xsl:sequence select=&quot;string-length($string1)&quot; /&gt;
+    &lt;/xsl:when&gt;
+    &lt;xsl:otherwise&gt;
+      &lt;xsl:sequence select=&quot;my:LevenshteinDistanceC(
+                              string-to-codepoints($string1),
+                              string-to-codepoints($string2),
+                              string-length($string1),
+                              string-length($string2),
+                              (1, 0, 1),
+                              2)&quot; /&gt;
+    &lt;/xsl:otherwise&gt;
+  &lt;/xsl:choose&gt;
+&lt;/xsl:function&gt;
+
+&lt;xsl:function name=&quot;my:LevenshteinDistanceC&quot; as=&quot;xs:integer&quot;&gt;
+  &lt;xsl:param name=&quot;chars1&quot; as=&quot;xs:integer*&quot; /&gt;
+  &lt;xsl:param name=&quot;chars2&quot; as=&quot;xs:integer*&quot; /&gt;
+  &lt;xsl:param name=&quot;length1&quot; as=&quot;xs:integer&quot; /&gt;
+  &lt;xsl:param name=&quot;length2&quot; as=&quot;xs:integer&quot; /&gt;
+  &lt;xsl:param name=&quot;lastDiag&quot; as=&quot;xs:integer*&quot; /&gt;
+  &lt;xsl:param name=&quot;total&quot; as=&quot;xs:integer&quot; /&gt;
+  &lt;xsl:variable name=&quot;shift&quot; as=&quot;xs:integer&quot; 
+    select=&quot;if ($total &gt; $length2) then ($total - ($length2 + 1)) else 0&quot; /&gt;
+  &lt;xsl:variable name=&quot;diag&quot; as=&quot;xs:integer*&quot;&gt;
+    &lt;xsl:for-each select=&quot;max((0, $total - $length2)) to 
+                          min(($total, $length1))&quot;&gt;
+      &lt;xsl:variable name=&quot;i&quot; as=&quot;xs:integer&quot; select=&quot;.&quot; /&gt;
+      &lt;xsl:variable name=&quot;j&quot; as=&quot;xs:integer&quot; select=&quot;$total - $i&quot; /&gt;
+      &lt;xsl:variable name=&quot;d&quot; as=&quot;xs:integer&quot; select=&quot;($i - $shift) * 2&quot; /&gt;
+      &lt;xsl:if test=&quot;$j &amp;lt; $length2&quot;&gt;
+        &lt;xsl:sequence select=&quot;$lastDiag[$d - 1]&quot; /&gt;
+      &lt;/xsl:if&gt;
+      &lt;xsl:choose&gt;
+        &lt;xsl:when test=&quot;$i = 0&quot;&gt;
+          &lt;xsl:sequence select=&quot;$j&quot; /&gt;
+        &lt;/xsl:when&gt;
+        &lt;xsl:when test=&quot;$j = 0&quot;&gt;
+          &lt;xsl:sequence select=&quot;$i&quot; /&gt;
+        &lt;/xsl:when&gt;
+        &lt;xsl:otherwise&gt;
+          &lt;xsl:sequence 
+            select=&quot;min(($lastDiag[$d - 1] + 1,
+                         $lastDiag[$d + 1] + 1,
+                         $lastDiag[$d] +
+                           (if ($chars1[$i] eq $chars2[$j]) then 0 else 1)))&quot; /&gt;
+        &lt;/xsl:otherwise&gt;
+      &lt;/xsl:choose&gt;
+    &lt;/xsl:for-each&gt;
+  &lt;/xsl:variable&gt;
+  &lt;xsl:choose&gt;
+    &lt;xsl:when test=&quot;$total = $length1 + $length2&quot;&gt;
+      &lt;xsl:sequence select=&quot;exactly-one($diag)&quot; /&gt;
+    &lt;/xsl:when&gt;
+    &lt;xsl:otherwise&gt;
+      &lt;xsl:sequence select=&quot;my:LevenshteinDistanceC(
+                              $chars1, $chars2, 
+                              $length1, $length2, 
+                              $diag, $total + 1)&quot; /&gt;
+    &lt;/xsl:otherwise&gt;
+  &lt;/xsl:choose&gt;
+&lt;/xsl:function&gt;
+</code></pre></div>
+<p>Basically, this keeps track of a diagonal of cells (the ones in italic in the earlier matrix), and creates another diagonal based on it to pass into the next recursion. The hardest part is working out when the diagonals go off the edge of the matrix, and adjusting for it. If it helps any, the</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">max((0, $total - $length2)) to min(($total, $length1))
+</code></pre></div>
+<p>is the same as</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">(0 to $total)[. &amp;lt;= $length1 and ($total - .) &amp;lt;= $length2]
+</code></pre></div>
+<p>(but faster) and just keeps <code>$i</code> and <code>$j</code> within the scope of the matrix.</p>
+
+<p>If you take out the call to <code>exactly-one()</code> (which is necessary for Saxon to recognise this as tail-recursive), then this can be used to compare two strings of 200 characters each without running out of stack. With the <code>exactly-one()</code> call in place, here&#39;s the comparative performance:</p>
+
+<table>
+  <tr><th># characters</th><th>row-based</th><th>diagonal-based</th></tr>
+  <tr><th>5</th><td>33ms</td><td>36ms</td></tr>
+  <tr><th>10</th><td>50ms</td><td>56ms</td></tr>
+  <tr><th>20</th><td>70ms</td><td>73ms</td></tr>
+  <tr><th>50</th><td>117ms</td><td>110ms</td></tr>
+  <tr><th>100</th><td>290ms</td><td>210ms</td></tr>
+  <tr><th>200</th><td>1455ms</td><td>711ms</td></tr>
+  <tr><th>500</th><td>18934ms</td><td>4389ms</td></tr>
+</table>
+
+<p>There&#39;s not much in it with short strings (any differences are within the margin of error), but when they get to over 100 characters in length, the diagonal algorithm starts to be faster, by 200 characters it&#39;s twice as fast, and at 500 characters over four times as fast!</p>
+
+<p>I guess the take-home messages are: (a) try to iterate rather than recurse whenever you can and (b) don&#39;t blindly adapt algorithms designed for procedural programming languages to XSLT.</p>

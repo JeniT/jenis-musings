@@ -1,0 +1,73 @@
+<p>I took on a long-term contract back in January which is good fun (of course I have to say that; my boss might read this) and pretty challenging.</p>
+
+<p>First, I&#39;m hobbled by having to use XSLT 1.0 (MSXML, what&#39;s more). I hadn&#39;t really realised either how fantastic XSLT 2.0 is, nor how used to it I&#39;ve become, until I started this work. How I miss user-defined functions, sequence constructors and <code>if</code> expressions.</p>
+
+<p>Second, my task is to take some XHTML generated from WordprocessingML and (a) turn all the CSS styling relative, so that it uses ems and percentages all over the place rather than points and (b) rationalise the CSS so that common styling appears in the <code>&lt;head&gt;</code> of the XHTML rather than on individual elements.</p>
+
+<!--break-->
+
+<p>Now I hesitate to say that something is impossible in out-of-the-box XSLT 1.0, but I have developed a sense of when something is impractical. Here, to rationalise styles, we&#39;re looking at grouping (elements) with a calculated value (their inherited style). That would be OK in XSLT 2.0, with <code>&lt;xsl:for-each-group&gt;</code> and user-defined functions, but in XSLT 1.0 it means code that is hard to write and impossible to maintain.</p>
+
+<p>The good news? I&#39;m allowed to use <code>msxsl:node-set()</code>, and that means I can use a pipeline. I can break down the complex process into simple steps, such as:</p>
+
+<ul>
+<li> turn CSS declarations into attributes</li>
+<li> inherit declarations from element and class rules down to individual elements</li>
+<li> inherit declarations down the tree, so that child elements inherit undefined inheritable properties from their parent</li>
+<li> inherit declarations <em>up</em> the tree, so that parent elements have declarations that are common to their children</li>
+<li> convert those properties that can take relative values into relative values</li>
+<li> update existing and create new class definitions for combinations of declarations that are used many times in the document</li>
+<li> remove declarations that are inherited from element and class rules or from parent elements</li>
+<li> remove elements that don&#39;t have any new declarations</li>
+<li> turn attributes back into CSS declarations</li>
+</ul>
+
+<p>In my stylesheet, I have a different mode for each step. I can capture the result of processing a document in that mode in a result tree fragment, then convert that into a new document using <code>msxsl:node-set()</code>, and process that document. I end up with lots of variable declarations like:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;xsl:variable name=&quot;inheritedDeclarations&quot;&gt;
+  &lt;xsl:apply-templates select=&quot;msxsl:node-set($declarationsAsAttributes)&quot;
+    mode=&quot;inheritDeclarations&quot; /&gt;
+&lt;/xsl:variable&gt;
+</code></pre></div>
+<p>The trouble with this is that it&#39;s hard to modify the pipeline and you have to make up unique names for each intermediate variable, which is such a challenge that they end up with meaningless names. So I created a mini pipeline definition in the stylesheet:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;my:pipeline&gt;
+  &lt;my:step mode=&quot;styleToAttributes&quot; /&gt;
+  &lt;my:step mode=&quot;inheritDeclarations&quot; /&gt;
+  ...
+&lt;/my:pipeline&gt;
+</code></pre></div>
+<p>and then process it with a template similar to the following:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;xsl:template name=&quot;processPipeline&quot;&gt;
+  &lt;xsl:param name=&quot;steps&quot; select=&quot;document(&#39;&#39;)/*/my:pipeline/my:step&quot; /&gt;
+  &lt;xsl:param name=&quot;source&quot; select=&quot;/&quot; /&gt;
+  &lt;xsl:choose&gt;
+    &lt;xsl:when test=&quot;$steps&quot;&gt;
+      &lt;xsl:variable name=&quot;mode&quot; select=&quot;$steps[1]/@mode&quot; /&gt;
+      &lt;xsl:variable name=&quot;result&quot;&gt;
+        &lt;xsl:choose&gt;
+          &lt;xsl:when test=&quot;$mode = &#39;styleToAttributes&#39;&quot;&gt;
+            &lt;xsl:apply-templates select=&quot;$source&quot; mode=&quot;styleToAttributes&quot; /&gt;
+          &lt;/xsl:when&gt;
+          &lt;xsl:when test=&quot;$mode = &#39;inheritDeclarations&#39;&quot;&gt;
+            &lt;xsl:apply-templates select=&quot;$source&quot; mode=&quot;inheritDeclarations&quot; /&gt;
+          &lt;/xsl:when&gt;
+          ...
+        &lt;/xsl:choose&gt;
+      &lt;/xsl:variable&gt;
+      &lt;xsl:call-template name=&quot;processPipeline&quot;&gt;
+        &lt;xsl:with-param name=&quot;steps&quot; select=&quot;$steps[position() &gt; 1]&quot; /&gt;
+        &lt;xsl:with-param name=&quot;source&quot; select=&quot;msxsl:node-set($result)&quot; /&gt;
+      &lt;/xsl:call-template&gt;
+    &lt;/xsl:when&gt;
+    &lt;xsl:otherwise&gt;
+      &lt;xsl:copy-of select=&quot;$document&quot; /&gt;
+    &lt;/xsl:otherwise&gt;
+  &lt;/xsl:choose&gt;
+&lt;/xsl:template&gt;
+</code></pre></div>
+<p>I have to modify the <code>processPipeline</code> template each time I introduce a new step, but dropping, repeating, or reordering the steps in my pipeline is very easy: I just change the pipeline definition by removing, copying or moving the <code>&lt;my:step&gt;</code> elements.</p>
+
+<p>(You can use the same template in other XSLT 1.0 processors by changing the <code>msxsl:node-set()</code> call into the version of the function used by your processor. And you can use the same code in XSLT 2.0 by just dropping the call to <code>msxsl:node-set()</code> altogether, though I&#39;d also change the <code>&lt;xsl:copy-of&gt;</code> to a <code>&lt;xsl:sequence&gt;</code> to prevent unnecessary node creation.)</p>
+
+<p>The only thing that bugs me about this approach is the performance: creating so many nodes seems wasteful, especially when many are straight-forward copies of existing nodes. Now that I understand better what the stylesheet needs to do, perhaps I can merge some of the step together. In any case, in the environment I&#39;m writing for, performance isn&#39;t a particularly big issue.</p>
+
+<p>Of course what I <em>really</em> want is <a href="http://www.w3.org/TR/xproc" title="XML Pipeline Language">XProc</a> to be finished and implemented (and adopted by the company I&#39;m working for). Several of the steps I&#39;m using could be streamed and might be better implemented in something other than XSLT. But at least breaking down my transformation in this way has made it easier (possible!) to write, more manageable, and more amenable to migration to a proper pipeline in the future.</p>

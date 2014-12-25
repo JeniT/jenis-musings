@@ -1,0 +1,37 @@
+<p>Rick Jelliffe has been writing recently about <a href="http://www.oreillynet.com/xml/blog/2008/02/presto_a_www_information_archi.html" title="PRESTO - A WWW Information Architecture for Legislation and Public Information systems">PRESTO</a>, most recently about the <a href="http://www.oreillynet.com/xml/blog/2008/03/presto_urls_as_xpaths_to_views.html" title="PRESTO: URLs as XPaths to views of information">design of URLs</a> based on the PRESTO system. In his latest post, Rick talks about using XPath as the basis of a URL scheme:</p>
+
+<blockquote>
+<p>The Xpath for accessing a particular part’s title would be /law/part<a href="http://www.oreillynet.com/xml/blog/2008/03/presto_urls_as_xpaths_to_views.html" title="PRESTO: URLs as XPaths to views of information">2</a>/title so the PRESTO URLs would need some kind of convention.</p>
+
+<p>[snip]</p>
+
+<p>Now, I am not sure I understand the issues well enough to say which system for indexing is absolutely best. But I think the advantage of <code>http://www.eg.com/law/part2/title</code> over  <code>http://www.eg.com/law/part2/title</code> is that it is probably a more common case that your system is interested in <code>/law/part[2]/title</code> rather than all titles of parts <code>/law/part/title</code>. But it is a matter of the particular use case and the consequent virtual schema.</p>
+</blockquote>
+
+<!--break-->
+
+<p>This has particular interest to me because I&#39;ve recently been involved in putting some of the <a href="http://www.opsi.gov.uk/legislation/about_legislation.htm" title="OPSI: Legislation">UK&#39;s legislation online</a>. We don&#39;t expose the parts/sections and so on as individual documents at the moment (although this <em>is</em> something that you get with the <a href="http://www.statutelaw.gov.uk/" title="The Statute Law Database">Statute Law Database</a>, albeit with an awful URL scheme).</p>
+
+<p>Anyway, we do have <em>anchors</em> for parts/sections within the main legislation which follow a similar scheme to the one that Rick suggests here. But they have a drawback: at least for consolidated legislation (which reflects the &quot;current state&quot; of legislation that has been amended by later legislation), the anchors don&#39;t reflect the semantics of the numbering scheme used by the document. For example, see <a href="http://www.opsi.gov.uk/RevisedStatutes/Acts/ukpga/1977/cukpga_19770042_en_2#pt1-pb2-l1g6" title="OPSI: Legislation: Revised: Rent Act 1977: Section 5A">Section 5A of the Rent Act 1977</a>, whose URL is:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">http://www.opsi.gov.uk/RevisedStatutes/Acts/ukpga/1977/cukpga_19770042_en_2#pt1-pb2-l1g6
+</code></pre></div>
+<p>As you can see, the URL ends in a 6 rather than 5A because it&#39;s the 6th Section that appears in the document.</p>
+
+<p>The thing is that generic, position-based XPaths into content are seldom the ones that make most sense semantically. A friendly XPath to Section 5A would look like:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">/part[1]/group[2]/section[3]
+</code></pre></div>
+<p>and even if you just counted sections it would be:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">//section[6]
+</code></pre></div>
+<p>when what you really want is the equivalent of:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">//section[number = &#39;5A&#39;]
+</code></pre></div>
+<p>Given this, I wonder if a &quot;striped&quot; URL scheme would be better, by which I mean something that follows the general pattern <code>/name/identifier/name/identifier</code>. For example:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">/part/I/section/5A
+</code></pre></div>
+<p>There are several advantages to this. The resulting URLs are more semantically meaningful than those based on positions. They are more robust to changes in the document (which naturally happen with consolidated legislation). They also provide a neat method of returning <em>all</em> the sections in a particular part, such as:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">/part/I/section
+</code></pre></div>
+<p>(though you could get this advantage with a position-based scheme as well, depending on how you map from XPath to URL).</p>
+
+<p>The main disadvantage is that you have to provide a custom mapping from XPath to URL, because it&#39;s not immediately obvious what identifier to use for a given element: it might be a <code>&lt;number&gt;</code> element child for one kind of element, but an <code>id</code> attribute for another element, and the position of the child for some other element. Of course you could add annotations to your schema to indicate what acts as the identifier for that particular element type, but it does raise the implementation barrier.</p>

@@ -1,0 +1,117 @@
+<p>There is (obviously, from the way my tweet stream, feed reader and email have filled up) lots to say at many levels about <a href="http://schema.org/">schema.org</a>, a new collaboration between Google, Microsoft and Yahoo! that describes the next phase in search engines&#39; extraction of semantics from web pages. In this post I&#39;m going to focus on what we can learn from schema.org about the design of <a href="http://www.w3.org/TR/microdata/">microdata</a> and how it might be improved.</p>
+
+<!--break-->
+
+<p>Digging into the details of schema.org there are several examples of places where its recommended method of marking up metadata directly contradicts the HTML5 specs. Given the number of internal contradictions within schema.org, I&#39;m assuming that these are mistakes that will be corrected as the material is reviewed and matures rather than deliberate forking of HTML5.</p>
+
+<blockquote>
+<p><em>Note: What I say about HTML5 here is equally true -- at least at time of writing -- of the WHATWG version of HTML, which of course already diverges from HTML5.</em></p>
+</blockquote>
+
+<p>One of the inputs to the design of microdata was to look at the mistakes that people make and try to design something to address the cause of those errors, so it&#39;s interesting to apply that method to the errors made by schema.org. This doesn&#39;t mean changing specs so that erroneous markup is conformant, but it does mean providing facilities that enable people to more easily do things in a conformant way, removing the temptation of non-conformance and lowering the likelihood of future mistakes.</p>
+
+<blockquote>
+<p><em>Note: I am certain that there would also have been errors had schema.org used RDFa or microformats, indeed I gather that they are common in the documentation of <a href="http://www.google.com/support/webmasters/bin/answer.py?answer=99170">Google&#39;s Rich Snippets</a>.</em></p>
+</blockquote>
+
+<h2>Use of <code>&lt;time&gt;</code> element</h2>
+
+<p>The first example is one <a href="http://tantek.com/2011/155/t5/schemaorg-html5-fork-smoke-openinghours-time-duration">spotted by Tantek</a>: the value of the <code>openingHours</code> property of <a href="http://schema.org/EventVenue">EventVenue</a> is described as:</p>
+
+<blockquote>
+<p>The opening hours for a business. Opening hours can be specified as a weekly time range, starting with days, then times per day. Multiple days can be listed with commas &#39;,&#39; separating each day. Day or time ranges are specified using a hyphen &#39;-&#39;.</p>
+
+<ul>
+<li>Days are specified using the following two-letter combinations: <code>Mo</code>, <code>Tu</code>, <code>We</code>, <code>Th</code>, <code>Fr</code>, <code>Sa</code>, <code>Su</code>.</li>
+<li>Times are specified using 24:00 time. For example, 3pm is specified as <code>15:00</code>.</li>
+</ul>
+
+<p>Here is an example: <code>&lt;time itemprop=&quot;openingHours&quot; datetime=&quot;Tu,Th 16:00-20:00&quot;&gt;Tuesdays and Thursdays 4-8pm&lt;/time&gt;</code></p>
+</blockquote>
+
+<p>A similar error involving the <code>&lt;time&gt;</code> element can be found on the <a href="http://schema.org/docs/gs.html#advanced_dates">Getting Started page</a> which has an example in which the <code>datetime</code> attribute contains an ISO 8601 <em>duration</em>:</p>
+
+<blockquote>
+<p>Durations can be specified in an analogous way using the time tag with the datetime attribute. Durations are prefixed with the letter P (stands for &quot;period&quot;). Here&#39;s how you can specify a recipe cook time of 1 ½ hours:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;time itemprop=&quot;cookTime&quot; datetime=&quot;P1H30M&quot;&gt;1 1/2 hrs&lt;/time&gt;
+</code></pre></div>
+<p>H is used to designate the number of hours, and M is used to designate the number of minutes.</p>
+</blockquote>
+
+<p>According to the HTML5 specification, the <code>datetime</code> attribute holds a <a href="http://www.w3.org/TR/html5/Overview.html#valid-date-or-time-string">valid date or time string</a> which is specified as using the normal ISO 8601 syntaxes for dates and times. <a href="http://www.w3.org/TR/html5/Overview.html#conforming-html5-documents">Conforming HTML5 document</a> must not hold the syntax used in the above example. From what I can tell (please correct me if I have this wrong), <a href="http://www.w3.org/TR/html5/Overview.html#data-mining">conforming data-mining tools</a> <em>can</em> process this syntax because they use the <a href="http://www.w3.org/TR/microdata/#values">value of the <code>datetime</code> content attribute</a>, rather than the value of the <code>dateTime</code> IDL attribute to provide the property&#39;s value, but from an authoring perspective, no one should be encouraging people to create non-conformant HTML5.</p>
+
+<p>In fact, given that values from microdata are never typed, it&#39;s not clear why these examples use the <code>&lt;time&gt;</code> element at all. The conformant way to provide the data would be to use a separate <code>&lt;meta&gt;</code> element to hold the data:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;meta itemprop=&quot;openingHours&quot; content=&quot;Tu,Th 16:00-20:00&quot;&gt;
+Tuesdays and Thursdays 4-8pm
+</code></pre></div>
+<p>But I can understand the itch to use the <code>&lt;time&gt;</code> element here; the <code>&lt;meta&gt;</code> element above is <em>before</em>, rather than <em>around</em>, the textual content of the page which it reflects, whereas with the <code>&lt;time&gt;</code> element it is more obviously an explicit machine-readable version of that content. In microformats, the pattern is to use a <code>title</code> attribute:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;span class=&quot;openingHours&quot; title=&quot;Tu,Th 16:00-20:00&quot;&gt;
+  Tuesdays and Thursdays 4-8pm
+&lt;/span&gt;
+</code></pre></div>
+<p>and in RDFa a <code>content</code> attribute:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;span property=&quot;openingHours&quot; content=&quot;Tu,Th 16:00-20:00&quot;&gt;
+  Tuesdays and Thursdays 4-8pm
+&lt;/span&gt;
+</code></pre></div>
+<p>So maybe this error is an indication that microdata needs an <code>itemvalue</code> attribute for those cases where the human-readable content can be expressed in a more formal machine-readable microsyntax, with special handling with the <code>&lt;time&gt;</code> element for the case when the value is a date/time and <code>href</code>/<code>src</code> when the value is a URI.</p>
+
+<h2>String parsing of URIs</h2>
+
+<p>The second example of non-conformance with HTML5 in schema.org is the method by which they <a href="http://schema.org/docs/extension.html">support extensibility</a>. Schema.org provides a set of types for the things described by web pages. Naturally, this set does not cover everything, but search engines still want to be able to use the metadata within the page about a <code>Person</code> even when that <code>Person</code> is described as a <code>Minister</code> (say).</p>
+
+<p>So schema.org says that to extend their type hierarchy, you simply append the name of the new type after a <code>/</code> at the end of the URI for the parent type. In this example, a <code>Minister</code> should be given the type <code>http://schema.org/Person/Minister</code>.</p>
+
+<p>My guess (as I can&#39;t see any other way in which they&#39;d do it) is that the search engines intend to use string processing on the type URI in order to work out whether it&#39;s a subtype of a known type (ie, does the URI start with the string <code>http://schema.org/Person</code>? If it does, it&#39;s a Person of some kind).</p>
+
+<p>The <a href="http://www.w3.org/TR/2011/WD-microdata-20110525/#items">microdata specification</a> states that:</p>
+
+<blockquote>
+<p>The item type must be a type defined in an <a href="http://www.w3.org/TR/html5/Overview.html#other-applicable-specifications">applicable specification</a>.</p>
+</blockquote>
+
+<p>and that:</p>
+
+<blockquote>
+<p>Item types are opaque identifiers, and user agents must not dereference unknown item types, or otherwise deconstruct them, in order to determine how to process items that use them.</p>
+</blockquote>
+
+<p>Treating URIs as opaque identifiers, and forbidding inferring semantic meaning through string processing, is a fairly fundamental web architectural principle as well as fitting with microdata&#39;s constraint that types are specified somewhere.</p>
+
+<p>Perhaps the gloss is that schema.org is an applicable specification that states that any URI that looks like <code>http://schema.org/{known-type}/{extension-type}</code> is a type that is defined in schema.org. But I think what&#39;s actually happening is that schema.org wants to grow their vocabulary organically, responding to the data that the search engines find on the web. They recognise that people will want to use their own vocabularies for their own purposes (for example to provide data for scripts, reusers, or for browsers and other agents that aren&#39;t search engines) but want to continue to be able to understand the semantics of that data.</p>
+
+<p>Schema.org is constrained in the mechanisms that it could use to recognise these new types:</p>
+
+<ul>
+<li>they can&#39;t resolve the type URI and expect metadata at the end of it to indicate the parent schema.org type, because the HTML5 microdata specification forbids resolving unrecognised item type URIs; even if they were allowed to do so, working out inheritance by declarative mechanisms that involve resolving URIs and interpreting the results is computationally expensive compared to string munging; for search engines that expect to do this with billions of web pages, this may be a significant processing burden</li>
+<li>they can&#39;t tell people to use the schema.org type in addition to their own type because the HTML5 microdata specification doesn&#39;t allow an item to have more than one type; if it did, they could encourage people to use the schema.org type as well as their more specific one, so rather than <code>itemtype=&quot;http://schema.org/Person/Minister&quot;</code>, enable publishers to do <code>itemtype=&quot;http://schema.org/Person http://reference.data.gov.uk/def/central-government/Minister&quot;</code></li>
+</ul>
+
+<p>I suspect that having multiple types is currently disallowed in microdata because the semantics of the (non-URI) properties of an item are based on its type, but I think that microdata could handle multiple types for an item if instead of saying:</p>
+
+<blockquote>
+<p>If the item is a typed item: [the property token must be] a defined property name allowed in this situation according to the specification that defines the relevant type for the item</p>
+</blockquote>
+
+<p>it said:</p>
+
+<blockquote>
+<p>If the item is a typed item: [the property token must be] a defined property name allowed in this situation according to any of the specifications that define the relevant types for the item; if the property is defined for more than one type, these definitions must be identical</p>
+</blockquote>
+
+<p>It&#39;s worth noting that, unlike <code>itemtype</code>, the <code>itemprop</code> attribute <em>can</em> take multiple values which, along with its ability to take URIs, provides for an easier inheritance mechanism. However, schema.org again recommends a string-based approach for extended properties; maybe that&#39;s for consistency, or perhaps the real reason is that they want to become a centralised repository for acceptable microdata on the web.</p>
+
+<h2>Summary</h2>
+
+<p>Whatever method publishers use, creating structured machine-processable data is hard and embedding it in a page is even harder. It is a layer that necessarily sits above or alongside the content of a page, invisible to people simply looking at the page in a browser and therefore difficult to get right without additional tooling.</p>
+
+<p>Microdata specifically aims to make this easy to do; schema.org demonstrates some of the ways in which it doesn&#39;t <em>quite</em> meet that requirement. Perhaps the search engines behind the effort haven&#39;t managed to (or bothered to) implement HTML5/microdata parsing correctly or perhaps the people writing the documentation thought they understood how HTML5/microdata works but actually didn&#39;t. </p>
+
+<p>Either way, the mistakes are worth learning from to improve the specs while they are not yet final. As I discussed above I think that means:</p>
+
+<ul>
+<li>adding an <code>itemvalue</code> attribute for machine-readable versions of content</li>
+<li>enabling <code>itemtype</code> to take multiple values to support extensibility</li>
+</ul>
+
+<p>though I suspect the latter point at least will be contentious among those who don&#39;t think decentralised extensibility is ever a desirable feature.</p>

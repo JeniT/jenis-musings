@@ -1,0 +1,610 @@
+<p>This is the fourth instalment in a series about turning an existing dataset into some linked data. I&#39;ve previously talked about <a href="http://www.jenitennison.com/blog/node/135">analysis and modelling</a>, <a href="http://www.jenitennison.com/blog/node/136">defining URIs</a> and <a href="http://www.jenitennison.com/blog/node/137">defining concept schemes</a>. In this instalment, we&#39;ll look at developing a schema in which we define the classes, properties and datatypes that we want to use in the RDF that describes the <em>things</em> in our dataset.</p>
+
+<p>We&#39;ll start by writing out some RDF for our record, using Turtle here for readability, and use unprefixed names to indicate classes, properties and datatypes, just so we can see what we need. Then we&#39;ll see how those requirements match up to existing vocabularies and ontologies that we can reuse. Anything that&#39;s left over we&#39;re going to have to put in our own vocabulary. We&#39;ll call this</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">http://transport.data.gov.uk/def/traffic/
+</code></pre></div>
+<p>All the classes, properties and datatypes that we define will eventually use that namespace.</p>
+
+<p>Let&#39;s focus on this record; I find it easiest to use an actual example rather than talk in abstract:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&quot;England&quot;,&quot;South West&quot;,&quot;K&quot;,1115.00,&quot;18&quot;,&quot;Devon County Council&quot;,
+13,&quot;B3178&quot;,,&quot;B Urban&quot;,&quot;Salterton Road&quot;,
+&quot;Salterton Road, EAST OF DINAN WAY, EXMOUTH&quot;,302600,81984,
+8/10/2001 00:00:00,&quot;E&quot;,17,2,2,400,5,41,0,2,0,0,0,0,2,450
+</code></pre></div>
+<p>We&#39;ll put this into RDF bit by bit.</p>
+
+<h2>Areas</h2>
+
+<p>First, let&#39;s look at the areas and local authorities. The kind of RDF that we want to have looks like:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;http://statistics.data.gov.uk/id/country?name=England&gt;
+  a :Country ;
+  :name &quot;England&quot;@en .
+
+&lt;http://statistics.data.gov.uk/id/government-office-region/K&gt;
+  a :GovernmentOfficeRegion ;
+  :name &quot;South West&quot;@en ;
+  :code &quot;K&quot;^^:ONScode ;
+  :containedBy &lt;http://statistics.data.gov.uk/id/country?name=England&gt; .
+
+&lt;http://statistics.data.gov.uk/id/local-authority-district/18&gt;
+  a :LocalAuthorityDistrict ;
+  :code &quot;18&quot;^^:ONScode ;
+  :code &quot;1115&quot;^^:DfTLAcode ;
+  :localAuthority &lt;http://statistics.data.gov.uk/id/local-authority/18&gt; ;
+  :containedBy &lt;http://statistics.data.gov.uk/id/country?name=England&gt; ;
+  :containedBy &lt;http://statistics.data.gov.uk/id/government-office-region/K&gt; .
+
+&lt;http://transport.data.gov.uk/id/local-authority-district/1115&gt;
+  :sameAs &lt;http://statistics.data.gov.uk/id/local-authority-district/18&gt; .
+
+&lt;http://statistics.data.gov.uk/id/local-authority/18&gt;
+  a :LocalAuthority ;
+  :name &quot;Devon County Council&quot;@en ;
+  :code &quot;18&quot;^^:ONSLAcode ;
+  :code &quot;1115&quot;^^:DfTLAcode ;
+  :localAuthorityDistrict &lt;http://statistics.data.gov.uk/id/local-authority-district/18&gt; .
+
+&lt;http://transport.data.gov.uk/id/local-authority/1116&gt;
+  :sameAs &lt;http://statistics.data.gov.uk/id/local-authority/18&gt; .
+</code></pre></div>
+<p>To work out what we need to put in our schema, we should first look at what existing vocabularies there are that could help. These areas are already defined elsewhere, so we can just use the same vocabulary for countries, regions, local authority districts and local authorities as is used there. The vocabularies that are useful here are:</p>
+
+<ul>
+<li><code>http://statistics.data.gov.uk/def/administrative-geography/</code> which defines classes and properties related to administrative areas and local authorities (as described by the <a href="http://www.statistics.gov.uk/">Office of National Statistics</a>)</li>
+<li><code>http://data.ordnancesurvey.co.uk/ontology/admingeo/</code> which also defines classes and properties related to administrative areas (as described by the <a href="http://www.ordnancesurvey.co.uk/">Ordnance Survey</a>)</li>
+<li><code>http://data.ordnancesurvey.co.uk/ontology/spatialrelations/</code>, also developed by John Goodwin at the Ordnance Survey, which defines spatial relationships between areas</li>
+</ul>
+
+<p>There are other commonly used vocabularies that it&#39;s helpful to know about:</p>
+
+<ul>
+<li>RDFS is designed for representing RDF schemas, but it has a few general-purpose properties that are good to know, namely <code>rdfs:label</code> (the label for a thing) and <code>rdfs:comment</code> (a comment or description about the thing).</li>
+<li>SKOS is designed for representing concept schemes, but again it has a few properties that can be used with any set of linked data, in particular <code>skos:prefLabel</code> (the preferred label for a thing), <code>skos:altLabel</code> (an alternative label for a thing) and <code>skos:notation</code> (a code for the thing).</li>
+<li>OWL is designed for representing ontologies, but it has one very important property that you should know about -- <code>owl:sameAs</code> -- which is used to link two things that are the same thing.</li>
+<li>XML Schema datatypes can be used within RDF, which is useful for things like dates, times, integers and so on.</li>
+<li>For our purposes here, OWL-Time is going to prove useful, as it has a bunch of properties that are used to represent instants and durations.</li>
+</ul>
+
+<p>If we look through the RDF above, the only thing that <em>isn&#39;t</em> covered by these vocabularies is the <code>DfTLAcode</code> datatype. If we use the <code>http://transport.data.gov.uk/def/traffic/</code> namespace, there&#39;s not really any need to indicate that this is a transport-related code, so we can just call it <code>LAcode</code>. Let&#39;s define that datatype:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;http://transport.data.gov.uk/def/traffic/LAcode&gt;
+  a rdfs:Datatype ;
+  rdfs:label &quot;Local Authority Code&quot;@en .
+</code></pre></div>
+<p>That&#39;s it. Now here&#39;s the Turtle for the areas with the relevant namespaces added, and property names changed where appropriate:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">@prefix rdfs: &lt;http://www.w3.org/2000/01/rdf-schema#&gt; .
+@prefix xsd: &lt;http://www.w3.org/2001/XMLSchema#&quot;&gt; .
+@prefix skos: &lt;http://www.w3.org/2004/02/skos/core#&gt; .
+@prefix owl: &lt;http://www.w3.org/2002/07/owl#&gt; .
+@prefix area: &lt;http://statistics.data.gov.uk/def/administrative-geography/&gt; .
+@prefix space: &lt;http://data.ordnancesurvey.co.uk/ontology/spatialrelations/&gt; .
+@prefix admingeo: &lt;http://data.ordnancesurvey.co.uk/ontology/admingeo/&gt; .
+@prefix traffic: &lt;http://transport.data.gov.uk/def/traffic/&gt; .
+
+&lt;http://statistics.data.gov.uk/id/country?name=England&gt;
+  a area:Country ;
+  rdfs:label &quot;England&quot;@en .
+
+&lt;http://statistics.data.gov.uk/id/government-office-region/K&gt;
+  a admingeo:GovernmentOfficeRegion ;
+  rdfs:label &quot;South West&quot;@en ;
+  skos:notation &quot;K&quot;^^area:StandardCode ;
+  area:country &lt;http://statistics.data.gov.uk/id/country?name=England&gt; .
+
+&lt;http://statistics.data.gov.uk/id/local-authority-district/18&gt;
+  a area:LocalAuthorityDistrict ;
+  skos:notation &quot;18&quot;^^area:StandardCode ;
+  skos:notation &quot;1115&quot;^^traffic:LAcode ;
+  area:localAuthority &lt;http://statistics.data.gov.uk/id/local-authority/18&gt; ;
+  area:country &lt;http://statistics.data.gov.uk/id/country?name=England&gt; ;
+  area:region &lt;http://statistics.data.gov.uk/id/government-office-region/K&gt; .
+
+&lt;http://transport.data.gov.uk/id/local-authority-district/1115&gt;
+  owl:sameAs &lt;http://statistics.data.gov.uk/id/local-authority-district/18&gt; .
+
+&lt;http://statistics.data.gov.uk/id/local-authority/18&gt;
+  a area:LocalAuthority ;
+  rdfs:label &quot;Devon County Council&quot;@en ;
+  skos:notation &quot;18&quot;^^area:StandardCode ;
+  skos:notation &quot;1115&quot;^^traffic:LAcode ;
+  area:coverage &lt;http://statistics.data.gov.uk/id/local-authority-district/18&gt; .
+
+&lt;http://transport.data.gov.uk/id/local-authority/1116&gt;
+  owl:sameAs &lt;http://statistics.data.gov.uk/id/local-authority/18&gt; .
+</code></pre></div>
+<h2>Roads</h2>
+
+<p>Here&#39;s the kind of RDF we want to create for roads:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;http://transport.data.gov.uk/id/road/B3178&gt;
+  a :Road ;
+  :code &quot;B3178&quot;^^:RoadNumber .
+</code></pre></div>
+<p>Obviously, we need a class for roads:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;http://transport.data.gov.uk/def/traffic/Road&gt;
+  a rdfs:Class ;
+  rdfs:label &quot;Road&quot;@en .
+</code></pre></div>
+<p>Wherever there&#39;s a code, I like to reuse <code>skos:notation</code>. But it&#39;s important to define a datatype for the values used with that notation because (as we saw with local authorities above) there may be several different coding schemes that apply to the same Thing, and we need to be able to distinguish between them in case they clash. So:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;http://transport.data.gov.uk/def/traffic/RoadNumber&gt;
+  a rdfs:Datatype ;
+  rdfs:label &quot;Road Number&quot;@en .
+</code></pre></div>
+<p>That&#39;s all we have to define for roads; now the RDF can look like:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">@prefix traffic: &lt;http://transport.data.gov.uk/def/traffic/&gt; .
+@prefix skos: &lt;http://www.w3.org/2004/02/skos/core#&gt; .
+
+&lt;http://transport.data.gov.uk/id/road/B3178&gt;
+  a traffic:Road ;
+  skos:notation &quot;B3178&quot;^^traffic:RoadNumber .
+</code></pre></div>
+<h2>Count Points</h2>
+
+<p>On to count points. Here&#39;s the sketch of the RDF we want to create:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;http://transport.data.gov.uk/id/traffic-count-point/13&gt;
+  a :TrafficCountPoint ;
+  :description &quot;Salterton Road, EAST OF DINAN WAY, EXMOUTH&quot;@en ;
+  :code &quot;13&quot;^^:CountPointNumber ;
+  :road &lt;http://transport.data.gov.uk/id/road/B3178&gt; ;
+  :roadName &quot;Salterton Road&quot;@en ;
+  :roadCategory 
+    &lt;http://transport.data.gov.uk/def/road-category/b&gt; ,
+    &lt;http://transport.data.gov.uk/def/road-category/urban&gt; ;
+  :easting 302600 ;
+  :northing 81984 ;
+  :localAuthority &lt;http://statistics.data.gov.uk/id/local-authority/18&gt; ;
+  :localAuthorityDistrict &lt;http://statistics.data.gov.uk/id/local-authority-district/18&gt; .
+</code></pre></div>
+<p>Of these, the description could be done with <code>rdfs:comment</code>. The code can be held by a <code>skos:notation</code> (provided we define a datatype for the count point number):</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;http://transport.data.gov.uk/def/traffic/CountPointNumber&gt;
+  a rdfs:Datatype ;
+  rdfs:label &quot;Traffic Count Point Number&quot;@en .
+</code></pre></div>
+<p>Properties for easting and northing are actually defined by the OS&#39;s spatial relations ontology (although unfortunately neither the ontology nor the property is currently resolvable; the only way you&#39;d know this is through looking at their use in the conversion of the edubase data). Links to local authorities and local authority districts can be done using the ONS-based administrative geography ontology, which again is currently only guessable at by looking at the online data.</p>
+
+<p>That leaves us with a <code>traffic:CountPoint</code> class (no point calling it <code>TrafficCountPoint</code> if the namespace provides sufficient disambiguation):</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;http://transport.data.gov.uk/def/traffic/CountPoint&gt;
+  a rdfs:Class ;
+  rdfs:label &quot;Traffic Count Point&quot;@en .
+</code></pre></div>
+<p>A road property to point to a road:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;http://transport.data.gov.uk/def/traffic/road&gt;
+  a rdf:Property ;
+  rdfs:label &quot;road&quot;@en ;
+  rdfs:range &lt;http://transport.data.gov.uk/def/traffic/Road&gt; .
+</code></pre></div>
+<p>Note that properties are by convention named with a lowercase first letter, whereas classes are named with an uppercase first letter. It&#39;s a good idea to follow that convention. Note also that I&#39;ve defined a <code>rdfs:range</code> for this property, which means that anything that&#39;s the <em>object</em> in a RDF statement that involves this property must be a <code>traffic:Road</code>.</p>
+
+<p>We need a road name property to give the name of the road at the count point.</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;http://transport.data.gov.uk/def/traffic/road&gt;
+  a rdf:Property ;
+  rdfs:label &quot;road name&quot;@en ;
+  rdfs:range &lt;http://transport.data.gov.uk/def/traffic/Road&gt; .
+</code></pre></div>
+<p>We also need a road category property to point to the categor(ies) of the road at the count point:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;http://transport.data.gov.uk/def/traffic/roadCategory&gt;
+  a rdf:Property ;
+  rdfs:label &quot;road category&quot;@en .
+</code></pre></div>
+<p>You&#39;ll remember that we defined different road categories using SKOS, such that each road category is a <code>skos:Concept</code>. But to give a range to the <code>traffic:roadCategory</code> property, we need to create a class for all the things that are categories of road. These are all <code>skos:Concept</code>s, and we can indicate that through an <code>rdfs:subClassOf</code> property:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;http://transport.data.gov.uk/def/traffic/RoadCategory&gt;
+  a rdfs:Class ;
+  rdfs:subClassOf skos:Concept ;
+  rdfs:label &quot;Road Category&quot;@en .
+</code></pre></div>
+<p>use this as the range of the <code>traffic:roadCategory</code> property:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;http://transport.data.gov.uk/def/traffic/roadCategory&gt;
+  a rdf:Property ;
+  rdfs:label &quot;road category&quot;@en ;
+  rdfs:range &lt;http://transport.data.gov.uk/def/traffic/RoadCategory&gt; .
+</code></pre></div>
+<p>and amend the concept scheme we created to include references to this new class, for example:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;motorway&gt; a traffic:RoadCategory ;
+  skos:prefLabel &quot;Motorway&quot;@en ;
+  skos:broader &lt;major&gt; ;
+  skos:scopeNote &quot;Major roads often used for long distance travel. They are usually three or more lanes in each direction and generally have the maximum speed limit of 70mph.&quot;@en ;
+  skos:inScheme &lt;&gt; .
+</code></pre></div>
+<p>So here is the RDF with the relevant properties properly defined:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">@prefix rdfs: &lt;http://www.w3.org/2000/01/rdf-schema#&gt; .
+@prefix skos: &lt;http://www.w3.org/2004/02/skos/core#&gt; .
+@prefix area: &lt;http://statistics.data.gov.uk/def/administrative-geography/&gt; .
+@prefix space: &lt;http://data.ordnancesurvey.co.uk/ontology/spatialrelations/&gt; .
+@prefix traffic: &lt;http://transport.data.gov.uk/def/traffic/&gt; .
+
+&lt;http://transport.data.gov.uk/id/traffic-count-point/13&gt;
+  a traffic:CountPoint ;
+  rdfs:comment &quot;Salterton Road, EAST OF DINAN WAY, EXMOUTH&quot;@en ;
+  skos:notation &quot;13&quot;^^traffic:CountPointNumber ;
+  traffic:road &lt;http://transport.data.gov.uk/id/road/B3178&gt; ;
+  traffic:roadName &quot;Salterton Road&quot;@en ;
+  traffic:roadCategory 
+    &lt;http://transport.data.gov.uk/def/road-category/b&gt; ,
+    &lt;http://transport.data.gov.uk/def/road-category/urban&gt; ;
+  space:easting 302600 ;
+  space:northing 81984 ;
+  area:localAuthority &lt;http://statistics.data.gov.uk/id/local-authority/18&gt; ;
+  area:district &lt;http://statistics.data.gov.uk/id/local-authority-district/18&gt; .
+</code></pre></div>
+<h2>Traffic Counts</h2>
+
+<p>On to traffic counts. The un-namespaced RDF should look like:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;http://transport.data.gov.uk/id/traffic-count-point/13/direction/E/hour/2001-10-08T17:00:00&gt;
+  a :TrafficCount ;
+  :countPoint &lt;http://transport.data.gov.uk/id/traffic-count-point/13&gt; ;
+  :direction &lt;http://dbpedia.org/resource/East&gt; ;
+  :hour &lt;http://placetime.com/interval/gregorian/2001-10-08T17:00:00Z/PT1H&gt; .
+</code></pre></div>
+<p>So for that we need a class for traffic counts:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;http://transport.data.gov.uk/def/traffic/Count&gt;
+  a rdfs:Class ;
+  rdfs:label &quot;Traffic Count&quot;@en .
+</code></pre></div>
+<p>a property that can link to the traffic count to the count point where the count is taken:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;http://transport.data.gov.uk/def/traffic/countPoint&gt;
+  a rdf:Property ;
+  rdfs:label &quot;traffic count point&quot;@en ;
+  rdfs:range &lt;http://transport.data.gov.uk/def/traffic/CountPoint&gt; .
+</code></pre></div>
+<p>a property to link to the the direction the traffic is flowing in (we can&#39;t put a range on this one because the DBPedia resources we&#39;re using don&#39;t have a common type):</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;http://transport.data.gov.uk/def/traffic/direction&gt;
+  a rdf:Property ;
+  rdfs:label &quot;traffic direction&quot;@en .
+</code></pre></div>
+<p>and finally a property to link to the hour during which the measurement was taken. This last one is a very common thing to need to do, so we&#39;d imagine that there might be an existing property defined somewhere that we could use. <a href="http://sdmx.org/">SDMX</a>, which includes a standard for representing statistical information in XML, defines a <code>REF_PERIOD</code> field which would seem to suit our purposes, but we don&#39;t yet have a proper mapping of SDMX into RDF (I&#39;ve had an initial cut, but it needs some input from statisticians).</p>
+
+<p>So for now, we&#39;ll use a specific property in our own namespace; we can always indicate that it&#39;s a sub-property of a future SDMX property at a later date. I&#39;m going to call it <code>countHour</code> and give it a domain of <code>traffic:Count</code> to indicate that the property has a pretty specific use for providing the count for an hour. We could just give its range as a generic <code>time:Interval</code>, but the kind of hours that are traffic count hours are kinda special intervals: they&#39;re obviously an hour long, but are also restricted to start and end on the hour, cover an hour between 7am and 7pm, and don&#39;t occur in winter. So it feels like we should have a special kind of interval for that purpose:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;http://transport.data.gov.uk/def/traffic/countHour&gt;
+  a rdf:Property ;
+  rdfs:label &quot;hour of count&quot;@en ;
+  rdfs:domain &lt;http://transport.data.gov.uk/def/traffic/Count&gt; ;
+  rdfs:range &lt;http://transport.data.gov.uk/def/traffic/CountHour&gt; .
+
+&lt;http://transport.data.gov.uk/def/traffic/CountHour&gt;
+  a rdfs:Class ;
+  rdfs:subClassOf time:Interval ;
+  rdfs:label &quot;Count Hour&quot;@en .
+</code></pre></div>
+<p>All those properties were in the traffic namespace, so here&#39;s the RDF with it added:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">@prefix traffic: &lt;http://transport.data.gov.uk/def/traffic/&gt; .
+
+&lt;http://transport.data.gov.uk/id/traffic-count-point/13/direction/E/hour/2001-10-08T17:00:00&gt;
+  a traffic:Count ;
+  traffic:countPoint &lt;http://transport.data.gov.uk/id/traffic-count-point/13&gt; ;
+  traffic:direction &lt;http://dbpedia.org/resource/East&gt; ;
+  traffic:countHour &lt;http://placetime.com/interval/gregorian/2001-10-08T17:00:00Z/PT1H&gt; .
+</code></pre></div>
+<h2>Cardinal Directions</h2>
+
+<p>As I discussed in the last instalment, we&#39;re not actually going to mint URIs for cardinal directions, but that doesn&#39;t mean we can&#39;t make statements about them in the RDF we generate. As I&#39;ll discuss in more depth in the next instalment, it&#39;s always good to provide a label at the very least:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;http://dbpedia.org/resource/East&gt;
+  rdfs:label &quot;East&quot;@en .
+</code></pre></div>
+<h2>Intervals and Instants</h2>
+
+<p>Let&#39;s look now at the RDF we want to generate about the hour during which the count was taken. As I&#39;ve said above, these hours are a special kind of interval, and we&#39;ve already created a class for them. I also discussed earlier that the things about this interval that are really useful for the purposes of querying are the year during which the count was taken and the hour at which it was taken, so we should pull out at least those pieces of information. Time-based data can be represented in RDF using the <a href="http://www.w3.org/2006/time">OWL-Time ontology</a>.</p>
+
+<p>Unfortunately, expressing time very specifically gets. This is what the statements we want to make look like using OWL-Time:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">@prefix rdfs: &lt;http://www.w3.org/2000/01/rdf-schema#&gt; .
+@prefix time: &lt;http://www.w3.org/2006/time&gt; .
+
+&lt;http://placetime.com/interval/gregorian/2001-10-08T17:00:00Z/PT1H&gt;
+  a traffic:CountHour ;
+  rdfs:label &quot;8 Oct 2001, 17:00-18:00&quot;@en ;
+  time:hasBeginning &lt;http://placetime.com/instant/gregorian/2001-10-08T17:00:00Z&gt; ;
+  time:hasEnd &lt;http://placetime.com/instant/gregorian/2001-10-08T18:00:00Z&gt; ;
+  time:hasDurationDescription _:OneHour ;
+  time:intervalDuring &lt;http://dbpedia.org/resource/2001&gt; .
+
+_:OneHour a time:DurationDescription ;
+  rdfs:label &quot;one hour&quot;@en ;
+  time:years 0 ;
+  time:months 0 ;
+  time:days 0 ;
+  time:hours 1 ;
+  time:minutes 0 ;
+  time:seconds 0 .
+
+&lt;http://placetime.com/instant/gregorian/2001-10-08T17:00:00Z&gt;
+  a time:Instant ;
+  rdfs:label &quot;8 Oct 2001, 17:00&quot;@en ;
+  time:inXSDDateTime &quot;2001-10-08T17:00:00Z&quot;^^xsd:dateTime ;
+  time:inDateTime [
+    a time:DateTimeDescription ;
+    time:unitType time:unitHour ;
+    time:year &quot;2001&quot;^^xsd:gYear ;
+    time:month &quot;--10&quot;^^xsd:gMonth ;
+    time:day &quot;---08&quot;^^xsd:gDay ;
+    time:hour 17 ;
+  ] .
+
+&lt;http://placetime.com/interval/gregorian/2001-10-08T18:00:00Z&gt;
+  a time:Instant ;
+  rdfs:label &quot;8 Oct 2001, 18:00&quot;@en ;
+  time:inXSDDateTime &quot;2001-10-08T18:00:00Z&quot;^^xsd:dateTime ;
+  time:inDateTime [
+    a time:DateTimeDescription ;
+    time:unitType time:unitHour ;
+    time:year &quot;2001&quot;^^xsd:gYear ;
+    time:month &quot;--10&quot;^^xsd:gMonth ;
+    time:day &quot;---08&quot;^^xsd:gDay ;
+    time:hour 18 ;
+  ] .
+
+&lt;http://dbpedia.org/resource/2001&gt;
+  a time:Interval ;
+  rdfs:label &quot;2001&quot; ;
+  rdf:value &quot;2001&quot;^^xsd:gYear ;
+  time:intervalEquals &lt;http://placetime.com/interval/gregorian/2001-01-01T00:00:00Z/P1Y&gt; .
+</code></pre></div>
+<h2>Observations</h2>
+
+<p>Finally we&#39;re on to the observations themselves. The un-namespaced RDF looks like:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;http://transport.data.gov.uk/id/traffic-count-point/13/direction/E/hour/2001-10-08T17:00:00/type/bicycle&gt;
+  a :Observation ;
+  :count &lt;http://transport.data.gov.uk/id/traffic-count-point/13/direction/E/hour/2001-10-08T17:00:00&gt; ;
+  :vehicleType &lt;http://transport.data.gov.uk/def/vehicle/bicycle&gt; ;
+  :value 2 .
+</code></pre></div>
+<p>The <a href="http://purl.org/NET/scovo">SCOVO</a> vocabulary exists to represent statistical information like this. In SCOVO, observations are called <code>scovo:Item</code>s, the value of the statistical measure itself (the count in this case) should be held in the <code>rdf:value</code> property, and any other properties should be subtypes of <code>scovo:dimension</code>, which has a domain of <code>scovo:Dimension</code>.</p>
+
+<p>To fit in with SCOVO, then, we need to have the pointer to the count that this observation belongs to as a property that is a sub-property of <code>scovo:dimension</code>:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;http://transport.data.gov.uk/def/traffic/count&gt;
+  a rdf:Property ;
+  rdfs:subPropertyOf scovo:dimension ;
+  rdfs:label &quot;count&quot;@en ;
+  rdfs:range &lt;http://transport.data.gov.uk/def/traffic/Count&gt; .
+</code></pre></div>
+<p>We might be tempted to indicate that the type of thing pointed to by the <code>traffic:count</code> property is a subclass of <code>scovo:Dimension</code>, but this is unnecessary and probably untrue: there might exist some traffic counts that <em>aren&#39;t</em> dimensions, and the ones that are will be linked to by the <code>traffic:count</code> property can be inferred to be dimensions.</p>
+
+<p>Similarly, the property that provides the pointer to the vehicle type should be a sub-property of <code>scovo:dimension</code> and we need a class for those various vehicle types in order to restrict the range of that property:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;http://transport.data.gov.uk/def/vehicleType&gt;
+  a rdf:Property ;
+  rdfs:subPropertyOf scovo:dimension ;
+  rdfs:label &quot;vehicle type&quot;@en ;
+  rdfs:range &lt;http://transport.data.gov.uk/def/VehicleType&gt; .
+
+&lt;http://transport.data.gov.uk/def/VehicleType&gt;
+  a rdfs:Class ;
+  rdfs:subClassOf skos:Concept ;
+  rdfs:label &quot;Vehicle Type&quot;@en .
+</code></pre></div>
+<p>Of course all the concepts that we created for the vehicle types need to be designated as instances of this new <code>traffic:VehicleType</code> class:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;bicycle&gt; a traffic:VehicleType ;
+  ... .
+</code></pre></div>
+<p>So, the RDF with the proper namespaces is:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">@prefix scovo: &lt;http://purl.org/NET/scovo#&gt; .
+@prefix traffic: &lt;http://transport.data.gov.uk/def/traffic/&gt; .
+
+&lt;http://transport.data.gov.uk/id/traffic-count-point/13/direction/E/hour/2001-10-08T17:00:00/type/bicycle&gt;
+  a scovo:Item ;
+  traffic:count &lt;http://transport.data.gov.uk/id/traffic-count-point/13/direction/E/hour/2001-10-08T17:00:00&gt; ;
+  traffic:vehicleType &lt;http://transport.data.gov.uk/def/vehicle/bicycle&gt; ;
+  rdf:value 2 .
+</code></pre></div>
+<hr>
+
+<p>That concludes our initial walkthrough of the data to create a vocabulary. I&#39;ve duplicated the schema and the example data below so that it&#39;s all in one place. But it&#39;s not quite done. In the next instalment, I&#39;ll look at adding some finishing touches that make the RDF easier to use.</p>
+
+<hr>
+
+<h2>Schema</h2>
+
+<p>This is the full schema. It contains just six classes, seven properties and three datatypes at the moment, so it&#39;s pretty small as vocabularies go. We&#39;ve been able to reuse a lot of classes, properties and datatypes that have already been defined elsewhere in the RDF itself, so this vocabulary is pretty focused on just what we need to describe traffic counts.</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">@prefix rdf: &lt;http://www.w3.org/1999/02/22-rdf-syntax-ns#&gt; .
+@prefix rdfs: &lt;http://www.w3.org/2000/01/rdf-schema#&gt; .
+@prefix skos: &lt;http://www.w3.org/2004/02/skos/core#&gt; .
+@prefix scovo: &lt;http://purl.org/NET/scovo#&gt; .
+@prefix time: &lt;http://www.w3.org/2006/time&gt; .
+
+# Classes #
+
+&lt;http://transport.data.gov.uk/def/traffic/Road&gt;
+  a rdfs:Class ;
+  rdfs:label &quot;Road&quot;@en .
+
+&lt;http://transport.data.gov.uk/def/traffic/CountPoint&gt;
+  a rdfs:Class ;
+  rdfs:label &quot;Traffic Count Point&quot;@en .
+
+&lt;http://transport.data.gov.uk/def/traffic/Count&gt;
+  a rdfs:Class ;
+  rdfs:label &quot;Traffic Count&quot;@en .
+
+&lt;http://transport.data.gov.uk/def/traffic/RoadCategory&gt;
+  a rdfs:Class ;
+  rdfs:subClassOf skos:Concept ;
+  rdfs:label &quot;Road Category&quot;@en .    
+
+&lt;http://transport.data.gov.uk/def/traffic/CountHour&gt;
+  a rdfs:Class ;
+  rdfs:subClassOf time:Interval ;
+  rdfs:label &quot;Count Hour&quot;@en .
+
+&lt;http://transport.data.gov.uk/def/VehicleType&gt;
+  a rdfs:Class ;
+  rdfs:subClassOf skos:Concept ;
+  rdfs:label &quot;Vehicle Type&quot;@en .
+
+# Properties #
+
+&lt;http://transport.data.gov.uk/def/traffic/road&gt;
+  a rdf:Property ;
+  rdfs:label &quot;road name&quot;@en ;
+  rdfs:range &lt;http://transport.data.gov.uk/def/traffic/Road&gt; .
+
+&lt;http://transport.data.gov.uk/def/traffic/countPoint&gt;
+  a rdf:Property ;
+  rdfs:label &quot;traffic count point&quot;@en ;
+  rdfs:range &lt;http://transport.data.gov.uk/def/traffic/CountPoint&gt; .
+
+&lt;http://transport.data.gov.uk/def/traffic/count&gt;
+  a rdf:Property ;
+  rdfs:subPropertyOf scovo:dimension ;
+  rdfs:label &quot;count&quot;@en ;
+  rdfs:range &lt;http://transport.data.gov.uk/def/traffic/Count&gt; .
+
+&lt;http://transport.data.gov.uk/def/traffic/roadCategory&gt;
+  a rdf:Property ;
+  rdfs:label &quot;road category&quot;@en ;
+  rdfs:range &lt;http://transport.data.gov.uk/def/traffic/RoadCategory&gt; .
+
+&lt;http://transport.data.gov.uk/def/traffic/direction&gt;
+  a rdf:Property ;
+  rdfs:label &quot;traffic direction&quot;@en .
+
+&lt;http://transport.data.gov.uk/def/traffic/countHour&gt;
+  a rdf:Property ;
+  rdfs:label &quot;hour of count&quot;@en ;
+  rdfs:domain &lt;http://transport.data.gov.uk/def/traffic/Count&gt; ;
+  rdfs:range &lt;http://transport.data.gov.uk/def/traffic/CountHour&gt; .
+
+&lt;http://transport.data.gov.uk/def/vehicleType&gt;
+  a rdf:Property ;
+  rdfs:subPropertyOf scovo:dimension ;
+  rdfs:label &quot;vehicle type&quot;@en ;
+  rdfs:range &lt;http://transport.data.gov.uk/def/VehicleType&gt; .
+
+# Datatypes #
+
+&lt;http://transport.data.gov.uk/def/traffic/LAcode&gt;
+  a rdfs:Datatype ;
+  rdfs:label &quot;Local Authority Code&quot;@en .
+
+&lt;http://transport.data.gov.uk/def/traffic/RoadNumber&gt;
+  a rdfs:Datatype ;
+  rdfs:label &quot;Road Number&quot;@en .
+
+&lt;http://transport.data.gov.uk/def/traffic/CountPointNumber&gt;
+  a rdfs:Datatype ;
+  rdfs:label &quot;Traffic Count Point Number&quot;@en .
+</code></pre></div>
+<hr>
+
+<h2>RDF Data</h2>
+
+<p>Here&#39;s a sample set of data. It looks like rather a lot to simply describe the number of bicycles at a particular point on a road (and it doesn&#39;t even include the SKOS concept schemes that we did last time), but (a) it all provides valuable context for that measurement and (b) most of it will be reused by a lot of other measurements.</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">@prefix rdf: &lt;http://www.w3.org/1999/02/22-rdf-syntax-ns#&gt; .
+@prefix rdfs: &lt;http://www.w3.org/2000/01/rdf-schema#&gt; .
+@prefix xsd: &lt;http://www.w3.org/2001/XMLSchema#&quot;&gt; .
+@prefix owl: &lt;http://www.w3.org/2002/07/owl#&gt; .
+@prefix skos: &lt;http://www.w3.org/2004/02/skos/core#&gt; .
+@prefix time: &lt;http://www.w3.org/2006/time&gt; .
+@prefix scovo: &lt;http://purl.org/NET/scovo#&gt; .
+@prefix area: &lt;http://statistics.data.gov.uk/def/administrative-geography/&gt; .
+@prefix admingeo: &lt;http://data.ordnancesurvey.co.uk/ontology/admingeo/&gt; .
+@prefix space: &lt;http://data.ordnancesurvey.co.uk/ontology/spatialrelations/&gt; .
+@prefix traffic: &lt;http://transport.data.gov.uk/def/traffic/&gt; .
+
+&lt;http://statistics.data.gov.uk/id/country?name=England&gt;
+  a area:Country ;
+  rdfs:label &quot;England&quot;@en .
+
+&lt;http://statistics.data.gov.uk/id/government-office-region/K&gt;
+  a admingeo:GovernmentOfficeRegion ;
+  rdfs:label &quot;South West&quot;@en ;
+  skos:notation &quot;K&quot;^^area:StandardCode ;
+  area:country &lt;http://statistics.data.gov.uk/id/country?name=England&gt; .
+
+&lt;http://statistics.data.gov.uk/id/local-authority-district/18&gt;
+  a area:LocalAuthorityDistrict ;
+  skos:notation &quot;18&quot;^^area:StandardCode ;
+  skos:notation &quot;1115&quot;^^traffic:LAcode ;
+  area:localAuthority &lt;http://statistics.data.gov.uk/id/local-authority/18&gt; ;
+  area:country &lt;http://statistics.data.gov.uk/id/country?name=England&gt; ;
+  area:region &lt;http://statistics.data.gov.uk/id/government-office-region/K&gt; .
+
+&lt;http://transport.data.gov.uk/id/local-authority-district/1115&gt;
+  owl:sameAs &lt;http://statistics.data.gov.uk/id/local-authority-district/18&gt; .
+
+&lt;http://statistics.data.gov.uk/id/local-authority/18&gt;
+  a area:LocalAuthority ;
+  rdfs:label &quot;Devon County Council&quot;@en ;
+  skos:notation &quot;18&quot;^^area:StandardCode ;
+  skos:notation &quot;1115&quot;^^traffic:LAcode ;
+  area:coverage &lt;http://statistics.data.gov.uk/id/local-authority-district/18&gt; .
+
+&lt;http://transport.data.gov.uk/id/local-authority/1116&gt;
+  owl:sameAs &lt;http://statistics.data.gov.uk/id/local-authority/18&gt; .
+
+&lt;http://transport.data.gov.uk/id/road/B3178&gt;
+  a traffic:Road ;
+  skos:notation &quot;B3178&quot;^^traffic:RoadNumber .
+
+&lt;http://transport.data.gov.uk/id/traffic-count-point/13&gt;
+  a traffic:CountPoint ;
+  rdfs:comment &quot;Salterton Road, EAST OF DINAN WAY, EXMOUTH&quot;@en ;
+  skos:notation &quot;13&quot;^^traffic:CountPointNumber ;
+  traffic:road &lt;http://transport.data.gov.uk/id/road/B3178&gt; ;
+  traffic:roadName &quot;Salterton Road&quot;@en ;
+  traffic:roadCategory 
+    &lt;http://transport.data.gov.uk/def/road-category/b&gt; ,
+    &lt;http://transport.data.gov.uk/def/road-category/urban&gt; ;
+  space:easting 302600 ;
+  space:northing 81984 ;
+  area:localAuthority &lt;http://statistics.data.gov.uk/id/local-authority/18&gt; ;
+  area:district &lt;http://statistics.data.gov.uk/id/local-authority-district/18&gt; .
+
+&lt;http://transport.data.gov.uk/id/traffic-count-point/13/direction/E/hour/2001-10-08T17:00:00&gt;
+  a traffic:Count ;
+  traffic:countPoint &lt;http://transport.data.gov.uk/id/traffic-count-point/13&gt; ;
+  traffic:direction &lt;http://dbpedia.org/resource/East&gt; ;
+  traffic:countHour &lt;http://placetime.com/interval/gregorian/2001-10-08T17:00:00Z/PT1H&gt; .
+
+&lt;http://dbpedia.org/resource/East&gt;
+  rdfs:label &quot;East&quot;@en .
+
+&lt;http://placetime.com/interval/gregorian/2001-10-08T17:00:00Z/PT1H&gt;
+  a traffic:CountHour ;
+  rdfs:label &quot;8 Oct 2001, 17:00-18:00&quot;@en ;
+  time:hasBeginning &lt;http://placetime.com/instant/gregorian/2001-10-08T17:00:00Z&gt; ;
+  time:hasEnd &lt;http://placetime.com/instant/gregorian/2001-10-08T18:00:00Z&gt; ;
+  time:hasDurationDescription _:OneHour ;
+  time:intervalDuring &lt;http://dbpedia.org/resource/2001&gt; .
+
+_:OneHour a time:DurationDescription ;
+  rdfs:label &quot;one hour&quot;@en ;
+  time:years 0 ;
+  time:months 0 ;
+  time:days 0 ;
+  time:hours 1 ;
+  time:minutes 0 ;
+  time:seconds 0 .
+
+&lt;http://placetime.com/instant/gregorian/2001-10-08T17:00:00Z&gt;
+  a time:Instant ;
+  rdfs:label &quot;8 Oct 2001, 17:00&quot;@en ;
+  time:inXSDDateTime &quot;2001-10-08T17:00:00Z&quot;^^xsd:dateTime ;
+  time:inDateTime [
+    a time:DateTimeDescription ;
+    time:unitType time:unitHour ;
+    time:year &quot;2001&quot;^^xsd:gYear ;
+    time:month &quot;--10&quot;^^xsd:gMonth ;
+    time:day &quot;---08&quot;^^xsd:gDay ;
+    time:hour 17 ;
+  ] .
+
+&lt;http://placetime.com/instant/gregorian/2001-10-08T18:00:00Z&gt;
+  a time:Instant ;
+  rdfs:label &quot;8 Oct 2001, 18:00&quot;@en ;
+  time:inXSDDateTime &quot;2001-10-08T18:00:00Z&quot;^^xsd:dateTime ;
+  time:inDateTime [
+    a time:DateTimeDescription ;
+    time:unitType time:unitHour ;
+    time:year &quot;2001&quot;^^xsd:gYear ;
+    time:month &quot;--10&quot;^^xsd:gMonth ;
+    time:day &quot;---08&quot;^^xsd:gDay ;
+    time:hour 18 ;
+  ] .
+
+&lt;http://dbpedia.org/resource/2001&gt;
+  a time:Interval ;
+  rdfs:label &quot;2001&quot; ;
+  rdf:value &quot;2001&quot;^^xsd:gYear ;
+  time:intervalEquals &lt;http://placetime.com/interval/gregorian/2001-01-01T00:00:00Z/P1Y&gt; .
+
+&lt;http://transport.data.gov.uk/id/traffic-count-point/13/direction/E/hour/2001-10-08T17:00:00/type/bicycle&gt;
+  a scovo:Item ;
+  traffic:count &lt;http://transport.data.gov.uk/id/traffic-count-point/13/direction/E/hour/2001-10-08T17:00:00&gt; ;
+  traffic:vehicleType &lt;http://transport.data.gov.uk/def/vehicle/bicycle&gt; ;
+  rdf:value 2 .    
+</code></pre></div>

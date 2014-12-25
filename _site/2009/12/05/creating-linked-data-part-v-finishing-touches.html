@@ -1,0 +1,420 @@
+<p>This is the fifth part in this series about creating linked data. I&#39;ve talked previously about <a href="http://www.jenitennison.com/blog/node/135">analysis and modelling</a>, <a href="http://www.jenitennison.com/blog/node/136">defining URIs</a>, <a href="http://www.jenitennison.com/blog/node/137">defining concept schemes</a> and <a href="http://www.jenitennison.com/blog/node/138">defining a vocabulary</a>. In this instalment I&#39;ll talk about the finishing touches that can make linked data easier to browse, query, locate and trust.</p>
+
+<p>Note that we don&#39;t <em>have</em> to do any of these things; they&#39;re not part of the core data. We shouldn&#39;t beat ourselves up if we don&#39;t have time to do it right now, because we can always add them later, and it might be that you just don&#39;t agree that they should be done. But many of them don&#39;t take a lot of time and can enhance the user&#39;s experience of the data.</p>
+
+<!--break-->
+
+<h2>Labels</h2>
+
+<p>Every resource should have a label, even blank nodes. Adding labels makes it easier for people to generate HTML views from the data. Sometimes we have resources that have an obvious label (like the name of a local authority); at other times, the label needs to be constructed based on the other information that&#39;s available about the resource.</p>
+
+<p>I talked in the last instalment about <code>skos:prefLabel</code> (preferred label), <code>skos:altLabel</code> (alternative label) and <code>rdfs:label</code>. Technically, <code>skos:prefLabel</code> and <code>skos:altLabel</code> are sub properties of <code>rdfs:label</code>, which means that if a resource has a <code>skos:prefLabel</code> it also has a <code>rdfs:label</code> with that value. However, drawing that conclusion requires either built-in knowledge of SKOS or the ability to both automatically get hold of the SKOS ontology and reason with it, which is feasible (this is one of the advantages of RDF, after all), but adds an extra hurdle for people wanting to use your data.</p>
+
+<p>So it&#39;s best to give everything a <code>rdfs:label</code>, even if they already have a <code>skos:prefLabel</code> or <code>skos:altLabel</code>. It&#39;s also good to try to imagine that label in the context of having no other information about the thing that it&#39;s labelling, such as in the title of a page. For example, if you&#39;re looking at the observation <code>http://transport.data.gov.uk/id/traffic-count-point/13/direction/E/hour/2001-10-08T17:00:00/type/bicycle</code> in the context of a traffic count, it may seem sensible to label it just &quot;bicycle&quot; (as I did in the first iteration of turning this traffic count data into RDF). But without that context, it makes no sense. Better to label it &quot;Bicycles - 8 Oct 2001 17:00-18:00 - East - Salterton Road, EAST OF DINAN WAY, EXMOUTH&quot; and provide an even more descriptive <code>rdfs:comment</code> like &quot;Number of bicycles counted travelling East at Salterton Road, EAST OF DINAN WAY, EXMOUTH on 8 October 2001 between 17:00 and 18:00.&quot;.</p>
+
+<h2>Datasets</h2>
+
+<p>There are two kinds of datasets that are applicable to this particular ...err... set of data ... and that we should describe within the RDF. They are:</p>
+
+<ul>
+<li>datasets that are sets of statistical data items (such as the observations in the traffic count data); these are best described using <a href="http://sw.joanneum.at/scovo/schema.html">SCOVO</a></li>
+<li>datasets that are general descriptions of particular sets of linked data (such as roads or local authorities); these are best described using <a href="http://semanticweb.org/wiki/VoiD">voiD</a></li>
+</ul>
+
+<p>Both kinds of datasets can be identified for UK government data using URIs in the form:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">http://{sector}.data.gov.uk/set/{dataset}/
+</code></pre></div>
+<h3>SCOVO Datasets</h3>
+
+<p>Every <code>scovo:Item</code> should be part of a <code>scovo:Dataset</code>, associated through a <code>scovo:dataset</code> (and a reverse <code>scovo:datasetOf</code>). A <code>scovo:Dataset</code> is pretty simple: all you really need to do is give it an identifier and, of course, a label. In this case, something like:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">http://transport.data.gov.uk/set/traffic-count/2001-2008/
+</code></pre></div>
+<p>This is an identifier that the various <code>scovo:Item</code>s should use to indicate where the data comes from:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;http://transport.data.gov.uk/id/traffic-count-point/13/direction/E/hour/2001-10-08T17:00:00/type/bicycle&gt;
+  a scovo:Item ;
+  scovo:dataset &lt;http://transport.data.gov.uk/set/traffic-count/2001-2008/&gt; ;
+  traffic:count &lt;http://transport.data.gov.uk/id/traffic-count-point/13/direction/E/hour/2001-10-08T17:00:00&gt; ;
+  traffic:vehicleType &lt;http://transport.data.gov.uk/def/vehicle/bicycle&gt; ;
+  rdf:value 2 .
+</code></pre></div>
+<p>It&#39;s also an identifier that we can attach some metadata to. Obviously it needs a label, but we can also attach other metadata, such as the <a href="http://www.jenitennison.com/blog/node/133">provenance of the dataset</a>.</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;http://transport.data.gov.uk/set/traffic-count/2001-2008/&gt;
+  a scovo:Dataset ;
+  a prv:DataItem ;
+  rdfs:label &quot;Traffic counts between 2001 and 2008&quot;@en ;
+  prv:createdBy [
+    a prv:DataCreation ;
+    prv:performedAt ... ;
+    prv:performedBy ... ;
+    prv:usedData ... ;
+    prv:usedGuideline ... ;
+  ] .
+</code></pre></div>
+<h3>VoiD Datasets</h3>
+
+<p>VoiD is designed to be used to describe sets of linked data, their contents, their provenance and their relationships with each other. There are many ways of dividing up the data that we&#39;ve been looking at into datasets. We can start with a simple example: the dataset containing linked data about countries:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;http://statistics.data.gov.uk/set/country/&gt;
+  a void:Dataset ;
+  rdfs:label &quot;Countries&quot;@en ;
+  foaf:homepage &lt;http://statistics.data.gov.uk/set/country&gt; ;
+  dct:subject &lt;http://dbpedia.org/resource/Country&gt; ;
+  cc:license [
+    a cc:License ;
+    rdfs:label &quot;data.gov.uk Licence&quot;@en ;
+    foaf:homepage &lt;http://data.hmg.gov.uk/terms-privacy&gt; ;
+    cc:permits cc:DerivativeWorks, cc:Distribution, cc:Reproduction ;
+    cc:requires cc:Attribution ;
+  ] ;
+  void:exampleResource &lt;http://statistics.data.gov.uk/id/country?name=England&gt; ;
+  void:sparqlEndpoint &lt;http://services.data.gov.uk/statistics/sparql&gt; ;
+  void:uriRegexPattern &quot;http://statistics.data.gov.uk/id/country?name=.+&quot;^^xs:string ;
+  void:vocabulary &lt;http://statistics.data.gov.uk/def/administrative-geography/&gt; ;
+  void:vocabulary &lt;http://www.w3.org/2000/01/rdf-schema#&gt; .
+</code></pre></div>
+<p>This provides a link to a home page for the dataset, which should contain information about the dataset itself. (Accessing the URI for the dataset should also redirect users to this home page.) I&#39;ve used the same URI as the dataset URI but without the slash at the end. (This is probably too subtle a difference between URIs; we don&#39;t currently have official guidance for URIs for documents-about-datasets or documents-about-definitions.)</p>
+
+<p>The <code>void:exampleResource</code> property can be used to point to resources that can act as starting points for exploring the data, and the <code>void:sparqlEndpoint</code> property points at a SPARQL endpoint that can be used for deeper querying. The <code>void:uriRegexPattern</code> property provides a regular expression for the URIs that are used to identify the resources that the dataset is about. <code>void:vocabulary</code> points to the vocabularies that the dataset uses.</p>
+
+<p>Various <a href="http://dublincore.org/documents/dcmi-terms/">Dublin Core</a> properties can be used to provide metadata about the dataset, such as its subject matter. The <a href="http://creativecommons.org/ns">Creative Commons schema</a> provides a way of indicating the licence that the dataset is made available under, which is essential information to enable reuse. (I&#39;ve derived some RDF about the licence here from the one <a href="http://data.hmg.gov.uk/terms-privacy">described on the data.hmg.gov.uk pages</a>; there should be an official version some time soon.)</p>
+
+<p>The data that we can actually produce from this traffic count dataset is actually a <em>subset</em> of the dataset of all countries, and we can indicate this through a <code>void:subset</code> relationship:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;http://statistics.data.gov.uk/set/country/&gt;
+  ...
+  void:subset [
+    a void:Dataset ;
+    a prv:DataItem ;
+    rdfs:label &quot;Country data from the DfT traffic count dataset 2001-2008&quot;@en ;
+    prv:createdBy [
+      a prv:DataCreation ;
+      prv:performedAt ... ;
+      prv:performedBy ... ;
+      prv:usedData ... ;
+      prv:usedGuideline ... ;
+    ] ;
+  ] .
+</code></pre></div>
+<p>The other kind of subset that we should describe are link sets. Link sets are datasets that contain links between datasets. The country dataset doesn&#39;t (currently) contain any links to other datasets, but the count dataset does:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;http://transport.data.gov.uk/set/traffic-count&gt;
+  a void:Dataset ;
+  rdfs:label &quot;Traffic Counts&quot;@en ;
+  foaf:homepage &lt;http://transport.data.gov.uk/set/traffic-count&gt; ;
+  dct:subject &lt;http://dbpedia.org/resource/Traffic&gt; ;
+  dct:subject &lt;http://dbpedia.org/resource/Counting&gt; ;
+  cc:license [
+    a cc:License ;
+    rdfs:label &quot;data.gov.uk Licence&quot;@en ;
+    foaf:homepage &lt;http://data.hmg.gov.uk/terms-privacy&gt; ;
+    cc:permits cc:DerivativeWorks, cc:Distribution, cc:Reproduction ;
+    cc:requires cc:Attribution ;
+  ] ;
+  void:exampleResource &lt;http://transport.data.gov.uk/id/traffic-count-point/13/direction/E/hour/2001-10-08T17:00:00&gt; ;
+  void:uriRegexPattern &lt;http://transport.data.gov.uk/id/traffic-count-point/[0-9]+/direction/[NSEW]/hour/[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:00:00&gt; ;
+  void:sparqlEndpoint &lt;http://services.data.gov.uk/transport/sparql&gt; ;
+  void:vocabulary &lt;http://transport.data.gov.uk/def/traffic/&gt; ;
+  void:subset [
+    a void:Dataset ;
+    rdfs:label &quot;Traffic Counts from the DfT traffic count dataset 2001-2008&quot;@en ;
+    prv:createdBy ...
+  ] ;
+  void:subset [
+    a void:Linkset ;
+    rdfs:label &quot;Traffic count / count point links&quot;@en ;
+    rdfs:comment &quot;Links from a traffic count to the count point at which the count was taken.&quot;@en ;
+    void:subjectsTarget &lt;http://transport.data.gov.uk/set/traffic-count/&gt; ;
+    void:linkPredicate &lt;http://transport.data.gov.uk/def/count&gt; ;
+    void:objectsTarget &lt;http://transport.data.gov.uk/set/traffic-count-point/&gt; ;
+  ] ;
+  void:subset [
+    a void:Linkset ;
+    rdfs:label &quot;Traffic count / cardinal direction&quot;@en ;
+    rdfs:comment &quot;Links from a traffic count to the direction in which the traffic was going.&quot;@en ;
+    void:subjectsTarget &lt;http://transport.data.gov.uk/set/traffic-count/&gt; ;
+    void:linkPredicate &lt;http://transport.data.gov.uk/def/direction&gt; ;
+    void:objectsTarget &lt;http://dbpedia.org/void/Dataset&gt; ;
+  ] ;
+  void:subset [
+    a void:Linkset ;
+    rdfs:label &quot;Traffic count / hour&quot;@en ;
+    rdfs:comment &quot;Links from a traffic count to the hour when the traffic was being monitored.&quot;@en ;
+    void:subjectsTarget &lt;http://transport.data.gov.uk/set/traffic-count/&gt; ;
+    void:linkPredicate &lt;http://transport.data.gov.uk/def/direction&gt; ;
+    void:objectsTarget [
+      a void:Dataset ;
+      rdfs:label &quot;URIs for places and times&quot; ;
+      foaf:homepage &quot;http://placetime.com/&quot; ;
+    ] ;
+  ] .
+</code></pre></div>
+<p><code>scovo:Dataset</code>s are often subsets of <code>void:Datasets</code>. In the case of the traffic count data, the observations described by the <code>scovo:Dataset</code> above are a subset of the <code>void:Dataset</code> that is the set of <em>all</em> such observations (including ones from other years).</p>
+
+<h2>Derivable Data</h2>
+
+<p>The discussion about <code>rdfs:label</code> above touched on another set of information that should be included within the RDF data we produce: data that is automatically derivable from the data we provide. There are three main reasons for including derivable data within what we publish:</p>
+
+<ol>
+<li><p>Given the current adoption of RDF-aware technologies, the consumers of our data are pretty unlikely to be able to (or to want to) use schemas, ontologies or rule sets to help them to reason over the data and draw conclusions. The consumers of this data <em>might</em> include semantic search engines and people scraping the data into their own triplestores, but they&#39;re far more likely to be developers who really don&#39;t care about RDF at all. It would be a shame to publish the data and then have no one use it.</p></li>
+<li><p>Computing derivable data once saves overall effort. We calculate it once, centrally, and it means that the people using the data don&#39;t have to spend processing time doing it themselves. (There&#39;s a classic time/space trade-off here, of course; the down side of including data that isn&#39;t strictly necessary is that the documents will end up larger.)</p></li>
+<li><p>If we provide information that people are likely to need within the document that they get when they request a given resource, they&#39;re less likely to need to resort to (harder to construct and more intensive to process) SPARQL queries to get what they need.</p></li>
+</ol>
+
+<p>The overriding principle that we can use to help us decide what to include is to consider what we would like to see if we visited a page about the particular thing.</p>
+
+<p>How we manage to provide the derived data depends on how we publish the data. I&#39;m not talking here about how to do the publishing, but rather about what the consumers of the data should expect to see eventually. So, for example, if we publish the data as static files then we&#39;re going to have to include all this data in those files. If we generate the RDF dynamically, we just have to make sure that the generated RDF includes the derived data; we might be able to set up rules in a triplestore, or a transformation of the data that it naturally produces, to include the derivable data.</p>
+
+<h3>Superclasses and Super-properties</h3>
+
+<p>One set of derived data is that inferred from the superclasses and super-properties that are defined with the RDF vocabularies we use in our data. Basically, if a resource has a type that is a subclass of another type, then the resource should have that superclass as a type as well. Similarly, if a triple includes a property that has a super-property, then there ought also to be a triple that links the subject and object of the original triple with the super-property as well.</p>
+
+<p>To understand when it&#39;s important to include this kind of derived data, we need to be aware of the kind of applications that will use the data. Some applications will be targeting just this dataset about traffic counts, and will be written to use whatever properties and classes that we&#39;ve made available. Other applications will be targeted at specific vocabularies at a more general-purpose level. There might be applications that can be used to visualise SKOS hierarchies as a tree, for example, or applications that can plot any <code>geo:lat</code>/<code>geo:long</code> coordinates on a map, or any OWL-Time intervals and instants on a timeline. Still other applications, such as viewers like Tabulator, will be used with any old RDF. We need to provide enough information to make the data easily usable by these more generic applications.</p>
+
+<p>As an example, in the last instalment we introduced classes for <code>traffic:VehicleType</code> and <code>traffic:RoadCategory</code> which were subclasses of <code>skos:Concept</code>. If we want generic SKOS visualisers to be able to display the vehicle type and road category concept schemes, we should try to make it easy for them to work out which things are concepts, by indicating that they are concepts as well. Bearing in mind what I&#39;ve said above about labels, that means that the original RDF:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;motorway&gt; a traffic:RoadCategory ;
+  skos:prefLabel &quot;Motorway&quot;@en ;
+  skos:broader &lt;major&gt; ;
+  skos:scopeNote &quot;Major roads often used for long distance travel. They are usually three or more lanes in each direction and generally have the maximum speed limit of 70mph.&quot;@en ;
+  skos:inScheme &lt;&gt; .
+</code></pre></div>
+<p>should include a reference to <code>skos:Concept</code> and a <code>rdfs:label</code>:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;motorway&gt; a traffic:RoadCategory ;
+  a skos:Concept ;
+  rdfs:label &quot;Motorway&quot;@en ;
+  skos:prefLabel &quot;Motorway&quot;@en ;
+  skos:broader &lt;major&gt; ;
+  skos:scopeNote &quot;Major roads often used for long distance travel. They are usually three or more lanes in each direction and generally have the maximum speed limit of 70mph.&quot;@en ;
+  skos:inScheme &lt;&gt; .
+</code></pre></div>
+<p>Note that I haven&#39;t included the results of <em>all</em> the reasoning that we could anticipate. The property <code>skos:scopeNote</code> is a sub-property of <code>skos:note</code>, for example, but I haven&#39;t included a <code>skos:note</code> explicitly because any SKOS-aware processor should have that kind of knowledge built in. The rule of thumb is that <strong>if the result of the reasoning involves a resource from another vocabulary, then we should include it</strong>.</p>
+
+<h3>Derivable Values</h3>
+
+<p>There are other kinds of derivable data in this data set. In particular, there are eastings and northings, but not latitudes and longitudes. When there&#39;s useful derivable data, especially when it&#39;s not trivial to derive, it makes sense to make that available explicitly, otherwise everyone else will have to go through the effort of deriving it themselves.</p>
+
+<p>We&#39;ve already done this with the information about the hours of the traffic counts, by pulling out the year and hour of the count rather than having them tucked away within a <code>xs:dateTime</code> literal. The same should be true of the eastings and northings. For small numbers of values, you can use the <a href="http://gps.ordnancesurvey.co.uk/convert.asp">Ordnance Survey&#39;s online converter</a>; for larger numbers of values you can download the (Windows only and very dated) software or try one of the various converters you can find with a <a href="http://www.google.com/search?q=easting+northing+latitude+longitude+conversion+UK">Google search</a>.</p>
+
+<p>Latitudes and longitudes for points should, of course, be expressed using the <code>geo:lat</code> and <code>geo:long</code> properties from the <a href="http://www.w3.org/2003/01/geo/">http://www.w3.org/2003/01/geo/wgs84_pos#</a> vocabulary.</p>
+
+<h3>Inverses</h3>
+
+<p>Statements in RDF link two things. For example, you can view the statement:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;http://transport.data.gov.uk/id/traffic-count-point/13&gt;
+  traffic:road &lt;http://transport.data.gov.uk/id/road/B3178&gt; .
+</code></pre></div>
+<p>as saying that traffic count point 13 is on the B3178 <em>and</em> that the B3178 has a count point on it that is traffic count point 13.</p>
+
+<p>So it&#39;s always possible, when creating a query about or a representation of the road to include the &#39;backward links&#39; -- the statements in which the road features as an <em>object</em> as well as those in which it features as a <em>subject</em>. This has caused some people to argue that <a href="http://dowhatimean.net/2006/06/an-rdf-design-pattern-inverse-property-labels">relationships should only be defined in one direction</a>.</p>
+
+<p>Personally, I don&#39;t agree, for two reasons.</p>
+
+<ol>
+<li><p>Although it&#39;s <em>possible</em> to create queries and representations that include backward links, it often doesn&#39;t happen like that. It&#39;s different with different triplestores, but result of a the <code>DESCRIBE</code> SPARQL query commonly only includes triples in which the thing being described in the subject, not the object. Also, when constructing queries, it seem more natural to always &quot;travel forward&quot; through the graph. For example:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">SELECT ?count
+WHERE {
+  ?point
+    area:localAuthority &lt;http://statistics.data.gov.uk/id/local-authority/43UC&gt; ;
+    traffic:count ?count .
+}
+</code></pre></div>
+<p>rather than:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">SELECT ?count
+WHERE {
+  ?point
+    area:localAuthority &lt;http://statistics.data.gov.uk/id/local-authority/43UC&gt; .
+  ?count
+    traffic:countPoint ?point .
+}
+</code></pre></div>
+<p>So although it introduces redundancy, I think that including inverse relationships in RDF aids usability and navigability.</p></li>
+<li><p>Sometimes both directions of a relationship contain meaningful information. For example, it&#39;s not enough to include a <code>gen:mother</code> relationship from a person to their mother because the implied reverse relationship is simply that the person is a child of their mother -- you need to include a <code>gen:son</code> or <code>gen:daughter</code> relationship as well to tell which type of child.</p></li>
+</ol>
+
+<p>So in this dataset, I&#39;m going to include inverse relationships where appropriate:</p>
+
+<ul>
+<li>from countries to regions</li>
+<li>from regions to local authority districts</li>
+<li>from roads to count points</li>
+<li>from count points to counts</li>
+<li>from counts to observations</li>
+</ul>
+
+<h3>Shortcuts</h3>
+
+<p>Another thing that can aid the navigability of a set of RDF data is to provide &quot;shortcuts&quot;. For example, at the moment we have links that say which country a region belongs to and which region a local authority district belongs to, but we don&#39;t have a link that says which country a local authority district belongs to. These kind of links can make it easier to navigate through (and to query) a dataset, so they can be worth adding so long as they don&#39;t clutter up the data too much.</p>
+
+<p>Just think of what you&#39;d like to know about a particular <em>thing</em> when you visit its page. If you&#39;re looking at transport in a local authority district, it would be useful to know what region and country it belongs to and about what roads and traffic count points it contains. But it would be too much to have a list of all the counts and observations that have been taken on those count points.</p>
+
+<p>For this dataset, I&#39;m going to add shortcuts from:</p>
+
+<ul>
+<li>countries to local authority districts (and vice versa)</li>
+<li>count points to regions and countries</li>
+<li>roads to local authority districts (and vice versa)</li>
+<li>roads to regions and countries</li>
+<li>roads to road categories and road names</li>
+<li>roads to counts (and vice versa)</li>
+<li>observations to count points, roads, directions and count hours</li>
+</ul>
+
+<p>These are all judgement calls -- there are no hard and fast rules -- and as you can see I&#39;m not adding inverses everywhere here because to do so would lead to unnecessarily large sets of RDF in some cases.</p>
+
+<hr>
+
+<p>That&#39;s the end of this instalment. I had been intending to make this the final one, but there are a couple of things still left to talk about: the publication of RDF, and the supplementary documents that we need to provide (including RDF about those supplementary documents). I&#39;ve also had a request to talk about OWL ontologies, so I&#39;ll probably do that, and there are things to say about how to manage things changing over time. So this may end up being an eight-part series!</p>
+
+<p>To keep us up to date, with all the extra derived information added, the RDF looks as follows:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">@prefix rdf: &lt;http://www.w3.org/1999/02/22-rdf-syntax-ns#&gt; .
+@prefix rdfs: &lt;http://www.w3.org/2000/01/rdf-schema#&gt; .
+@prefix xsd: &lt;http://www.w3.org/2001/XMLSchema#&quot;&gt; .
+@prefix owl: &lt;http://www.w3.org/2002/07/owl#&gt; .
+@prefix skos: &lt;http://www.w3.org/2004/02/skos/core#&gt; .
+@prefix time: &lt;http://www.w3.org/2006/time&gt; .
+@prefix scovo: &lt;http://purl.org/NET/scovo#&gt; .
+@prefix area: &lt;http://statistics.data.gov.uk/def/administrative-geography/&gt; .
+@prefix admingeo: &lt;http://data.ordnancesurvey.co.uk/ontology/admingeo/&gt; .
+@prefix space: &lt;http://data.ordnancesurvey.co.uk/ontology/spatialrelations/&gt; .
+@prefix traffic: &lt;http://transport.data.gov.uk/def/traffic/&gt; .
+
+&lt;http://statistics.data.gov.uk/id/country?name=England&gt;
+  a area:Country ;
+  rdfs:label &quot;England&quot;@en ;
+  area:region &lt;http://statistics.data.gov.uk/id/government-office-region/K&gt; ;
+  area:district &lt;http://statistics.data.gov.uk/id/local-authority-district/18&gt; .
+
+&lt;http://statistics.data.gov.uk/id/government-office-region/K&gt;
+  a admingeo:GovernmentOfficeRegion ;
+  rdfs:label &quot;South West&quot;@en ;
+  skos:notation &quot;K&quot;^^area:StandardCode ;
+  area:country &lt;http://statistics.data.gov.uk/id/country?name=England&gt; ;
+  area:district &lt;http://statistics.data.gov.uk/id/local-authority-district/18&gt; .
+
+&lt;http://statistics.data.gov.uk/id/local-authority-district/18&gt;
+  a area:LocalAuthorityDistrict ;
+  rdfs:label &quot;Devon&quot;@en ;
+  skos:notation &quot;18&quot;^^area:StandardCode ;
+  skos:notation &quot;1115&quot;^^traffic:LAcode ;
+  area:localAuthority &lt;http://statistics.data.gov.uk/id/local-authority/18&gt; ;
+  area:country &lt;http://statistics.data.gov.uk/id/country?name=England&gt; ;
+  area:region &lt;http://statistics.data.gov.uk/id/government-office-region/K&gt; ;
+  traffic:countPoint &lt;http://transport.data.gov.uk/id/traffic-count-point/13&gt; ;
+  traffic:road &lt;http://transport.data.gov.uk/id/road/B3178&gt; .
+
+&lt;http://transport.data.gov.uk/id/local-authority-district/1115&gt;
+  owl:sameAs &lt;http://statistics.data.gov.uk/id/local-authority-district/18&gt; .
+
+&lt;http://statistics.data.gov.uk/id/local-authority/18&gt;
+  a area:LocalAuthority ;
+  rdfs:label &quot;Devon County Council&quot;@en ;
+  skos:notation &quot;18&quot;^^area:StandardCode ;
+  skos:notation &quot;1115&quot;^^traffic:LAcode ;
+  area:coverage &lt;http://statistics.data.gov.uk/id/local-authority-district/18&gt; .
+
+&lt;http://transport.data.gov.uk/id/local-authority/1116&gt;
+  owl:sameAs &lt;http://statistics.data.gov.uk/id/local-authority/18&gt; .
+
+&lt;http://transport.data.gov.uk/id/road/B3178&gt;
+  a traffic:Road ;
+  rdfs:label &quot;B3178&quot; ;
+  rdfs:label &quot;Salterton Road&quot;@en ;
+  skos:prefLabel &quot;B3178&quot; ;
+  skos:altLabel &quot;Salterton Road&quot;@en ;
+  skos:notation &quot;B3178&quot;^^traffic:RoadNumber ;
+  area:country &lt;http://statistics.data.gov.uk/id/country?name=England&gt; ;
+  area:region &lt;http://statistics.data.gov.uk/id/government-office-region/K&gt; ;
+  area:localAuthority &lt;http://statistics.data.gov.uk/id/local-authority/18&gt; ;
+  area:district &lt;http://statistics.data.gov.uk/id/local-authority-district/18&gt; ;
+  traffic:roadCategory 
+    &lt;http://transport.data.gov.uk/def/road-category/b&gt; ,
+    &lt;http://transport.data.gov.uk/def/road-category/urban&gt; ;
+  traffic:count &lt;http://transport.data.gov.uk/id/traffic-count-point/13/direction/E/hour/2001-10-08T17:00:00&gt; .
+
+&lt;http://transport.data.gov.uk/id/traffic-count-point/13&gt;
+  a traffic:CountPoint ;
+  rdfs:label &quot;Salterton Road, EAST OF DINAN WAY, EXMOUTH&quot;@en ;
+  rdfs:comment &quot;Salterton Road, EAST OF DINAN WAY, EXMOUTH&quot;@en ;
+  skos:notation &quot;13&quot;^^traffic:CountPointNumber ;
+  traffic:road &lt;http://transport.data.gov.uk/id/road/B3178&gt; ;
+  traffic:roadName &quot;Salterton Road&quot;@en ;
+  traffic:roadCategory 
+    &lt;http://transport.data.gov.uk/def/road-category/b&gt; ,
+    &lt;http://transport.data.gov.uk/def/road-category/urban&gt; ;
+  space:easting 302600 ;
+  space:northing 81984 ;
+  geo:lat 50.6294 ;
+  geo:long -3.3784 ;
+  area:country &lt;http://statistics.data.gov.uk/id/country?name=England&gt; ;
+  area:region &lt;http://statistics.data.gov.uk/id/government-office-region/K&gt; ;
+  area:localAuthority &lt;http://statistics.data.gov.uk/id/local-authority/18&gt; ;
+  area:district &lt;http://statistics.data.gov.uk/id/local-authority-district/18&gt; ;
+  traffic:count &lt;http://transport.data.gov.uk/id/traffic-count-point/13/direction/E/hour/2001-10-08T17:00:00&gt; .
+
+&lt;http://transport.data.gov.uk/id/traffic-count-point/13/direction/E/hour/2001-10-08T17:00:00&gt;
+  a traffic:Count ;
+  rdfs:label &quot;8 Oct 2001 17:00-18:00 - East - Salterton Road, EAST OF DINAN WAY, EXMOUTH&quot;@en ;
+  traffic:countPoint &lt;http://transport.data.gov.uk/id/traffic-count-point/13&gt; ;
+  traffic:road &lt;http://transport.data.gov.uk/id/road/B3178&gt; ;
+  traffic:direction &lt;http://dbpedia.org/resource/East&gt; ;
+  traffic:countHour &lt;http://placetime.com/interval/gregorian/2001-10-08T17:00:00Z/PT1H&gt; ;
+  traffic:observation &lt;http://transport.data.gov.uk/id/traffic-count-point/13/direction/E/hour/2001-10-08T17:00:00/type/bicycle&gt; .
+
+&lt;http://dbpedia.org/resource/East&gt;
+  rdfs:label &quot;East&quot;@en .
+
+&lt;http://placetime.com/interval/gregorian/2001-10-08T17:00:00Z/PT1H&gt;
+  a traffic:CountHour ;
+  rdfs:label &quot;8 Oct 2001, 17:00-18:00&quot;@en ;
+  time:hasBeginning &lt;http://placetime.com/instant/gregorian/2001-10-08T17:00:00Z&gt; ;
+  time:hasEnd &lt;http://placetime.com/instant/gregorian/2001-10-08T18:00:00Z&gt; ;
+  time:hasDurationDescription _:OneHour ;
+  time:intervalDuring &lt;http://dbpedia.org/resource/2001&gt; .
+
+_:OneHour a time:DurationDescription ;
+  rdfs:label &quot;one hour&quot;@en ;
+  time:years 0 ;
+  time:months 0 ;
+  time:days 0 ;
+  time:hours 1 ;
+  time:minutes 0 ;
+  time:seconds 0 .
+
+&lt;http://placetime.com/instant/gregorian/2001-10-08T17:00:00Z&gt;
+  a time:Instant ;
+  rdfs:label &quot;8 Oct 2001, 17:00&quot;@en ;
+  time:inXSDDateTime &quot;2001-10-08T17:00:00Z&quot;^^xsd:dateTime ;
+  time:inDateTime [
+    a time:DateTimeDescription ;
+    time:unitType time:unitHour ;
+    time:year &quot;2001&quot;^^xsd:gYear ;
+    time:month &quot;--10&quot;^^xsd:gMonth ;
+    time:day &quot;---08&quot;^^xsd:gDay ;
+    time:hour 17 ;
+  ] .
+
+&lt;http://placetime.com/instant/gregorian/2001-10-08T18:00:00Z&gt;
+  a time:Instant ;
+  rdfs:label &quot;8 Oct 2001, 18:00&quot;@en ;
+  time:inXSDDateTime &quot;2001-10-08T18:00:00Z&quot;^^xsd:dateTime ;
+  time:inDateTime [
+    a time:DateTimeDescription ;
+    time:unitType time:unitHour ;
+    time:year &quot;2001&quot;^^xsd:gYear ;
+    time:month &quot;--10&quot;^^xsd:gMonth ;
+    time:day &quot;---08&quot;^^xsd:gDay ;
+    time:hour 18 ;
+  ] .
+
+&lt;http://dbpedia.org/resource/2001&gt;
+  a time:Interval ;
+  rdfs:label &quot;2001&quot; ;
+  rdf:value &quot;2001&quot;^^xsd:gYear ;
+  time:intervalEquals &lt;http://placetime.com/interval/gregorian/2001-01-01T00:00:00Z/P1Y&gt; .
+
+&lt;http://transport.data.gov.uk/id/traffic-count-point/13/direction/E/hour/2001-10-08T17:00:00/type/bicycle&gt;
+  a scovo:Item ;
+  rdfs:label &quot;8 Oct 2001 17:00-18:00 - East - Salterton Road, EAST OF DINAN WAY, EXMOUTH&quot;@en ;
+  traffic:count &lt;http://transport.data.gov.uk/id/traffic-count-point/13/direction/E/hour/2001-10-08T17:00:00&gt; ;
+  traffic:countPoint &lt;http://transport.data.gov.uk/id/traffic-count-point/13&gt; ;
+  traffic:direction &lt;http://dbpedia.org/resource/East&gt; ;
+  traffic:countHour &lt;http://placetime.com/interval/gregorian/2001-10-08T17:00:00Z/PT1H&gt; ;
+  traffic:vehicleType &lt;http://transport.data.gov.uk/def/vehicle/bicycle&gt; ;
+  rdf:value 2 .
+</code></pre></div>

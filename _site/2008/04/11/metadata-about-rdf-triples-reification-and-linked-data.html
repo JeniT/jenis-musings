@@ -1,0 +1,143 @@
+<p>Those of you who have been following this blog will know that I&#39;ve been thinking recently about <a href="http://www.jenitennison.com/blog/node/67#comment-4512" title="Jeni&#39;s Musings: Web 2.0 project: RDF and uncertainty">how to handle uncertainty related to RDF triples</a> (specifically in the context of a genealogical web app). Certainty isn&#39;t the only kind of metadata-about-triples that you&#39;d want to keep in an app like this. We need to know things like:</p>
+
+<ul>
+<li>who made the statement</li>
+<li>when the statement was made</li>
+<li>what evidence that led to the statement being made</li>
+<li>licensing information about the reuse of the statement</li>
+<li>(if we go with the rating idea) what ratings the statement has been given</li>
+<li>(if we allow editing of statements) what changes have been made to the statement over time</li>
+</ul>
+
+<p>and so on. In short, all the metadata that you&#39;d want to associate with <em>resources</em> you&#39;d also want to associate with <em>statements</em>.</p>
+
+<!--break-->
+
+<p>I&#39;d anticipated using <a href="http://www.w3.org/TR/rdf-primer/#reification" title="W3C: RDF Primer: Reification">reification</a> to associate metadata with statements. Something like this</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;rdf:Statement rdf:about=&quot;#statement1&quot;&gt;
+  &lt;rdf:subject rdf:resource=&quot;/people/CharlesDarwin&quot; /&gt;
+  &lt;rdf:predicate rdf:resource=&quot;/ontology/event-roles/passenger&quot; /&gt;
+  &lt;rdf:object rdf:resource=&quot;/events/BeagleVoyage&quot; /&gt;
+  &lt;dc:creator rdf:resource=&quot;/users/JeniT&quot; /&gt;
+  &lt;dc:date rdf:datatype=&quot;xsd:date&quot;&gt;2008-04-11&lt;/dc:date&gt;
+  &lt;g:certainty rdf:datatype=&quot;xsd:decimal&quot;&gt;1.0&lt;/g:certainty&gt;
+  ...
+&lt;/rdf:Statement&gt;
+</code></pre></div>
+<p>or <a href="http://www.w3.org/TR/2004/REC-rdf-syntax-grammar-20040210/#section-Syntax-reifying" title="W3C: RDF/XML Syntax Specification: Reifying Statements: rdf:ID">using <code>rdf:ID</code></a>, although this does limit the URI of our statements to hash-URIs:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;rdf:Description about=&quot;/people/CharlesDarwin&quot;&gt;
+  &lt;r:passenger rdf:ID=&quot;#statement1&quot; rdf:resource=&quot;/events/BeagleVoyage&quot; /&gt; 
+&lt;/rdf:Description&gt;
+&lt;rdf:Description about=&quot;#statement1&quot;&gt;
+  &lt;dc:creator rdf:resource=&quot;/users/JeniT&quot; /&gt;
+  &lt;dc:date rdf:datatype=&quot;xsd:date&quot;&gt;2008-04-11&lt;/dc:date&gt;
+  &lt;g:certainty rdf:datatype=&quot;xsd:decimal&quot;&gt;1.0&lt;/g:certainty&gt;
+&lt;/rdf:Description&gt;
+</code></pre></div>
+<p>(Please feel free to correct my RDF, RDF-folks!)</p>
+
+<p>We can embed this information into our web pages using RDFa:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;div about=&quot;#statement1&quot; instanceof=&quot;rdf:Statement&quot;&gt;
+  &lt;p class=&quot;statement&quot;&gt;
+    &lt;a rel=&quot;rdf:subject&quot; href=&quot;/people/CharlesDarwin&quot;&gt;
+      Charles Darwin
+    &lt;/a&gt;
+    was a
+    &lt;a rel=&quot;rdf:predicate&quot; href=&quot;/ontologies/event-roles/passenger&quot;&gt;
+      passenger
+    &lt;/a&gt;
+    on the
+    &lt;a rel=&quot;rdf:object&quot; href=&quot;/events/BeagleVoyage&quot;&gt;
+      &lt;span about=&quot;/people/CharlesDarwin&quot; 
+            rel=&quot;r:passenger&quot; 
+            resource=&quot;/events/BeagleVoyage&quot;&gt;
+        Beagle Voyage
+      &lt;/span&gt;
+    &lt;/a&gt;
+  &lt;/p&gt;
+  &lt;dl class=&quot;metadata&quot;&gt;
+    &lt;dt&gt;Author:&lt;/dt&gt;
+    &lt;dd&gt;
+      &lt;a rel=&quot;dc:creator&quot; href=&quot;/users/JeniT&quot;&gt;
+        Jeni Tennison
+      &lt;/a&gt;
+    &lt;/dd&gt;
+    &lt;dt&gt;Date:&lt;/dt&gt;
+    &lt;dd property=&quot;dc:date&quot; datatype=&quot;xsd:date&quot; 
+        content=&quot;2008-04-11&quot;&gt;
+      11 Apr, 2008
+    &lt;/dd&gt;
+    &lt;dt&gt;Certainty:&lt;/dt&gt;
+    &lt;dd property=&quot;b:certainty&quot; datatype=&quot;xsd:decimal&quot;
+        content=&quot;1.0&quot;&gt;
+      &lt;img src=&quot;stars5.gif&quot; alt=&quot;five stars&quot; /&gt;
+    &lt;/dd&gt;
+  &lt;/dl&gt;
+&lt;/div&gt;
+</code></pre></div>
+<p>Note that I&#39;ve incorporated both the reified statement and the statement itself into the RDFa. If I&#39;m correct in my mental parsing of RDFa, I think this leads to the set of triples from the RDF/XML in the above examples plus the triple:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;/people/CharlesDarwin&gt; r:passenger &lt;/events/BeagleVoyage&gt; .
+</code></pre></div>
+<p>But then the other day, I was reading the tutorial <a href="http://www4.wiwiss.fu-berlin.de/bizer/pub/LinkedDataTutorial/" title="How to publish Linked Data on the Web">How to publish Linked Data on the Web</a>, which says</p>
+
+<blockquote>
+<p>We discourage the use of RDF reification as the semantics of reification are unclear and as reified statements are rather cumbersome to query with the SPARQL query language. Metadata can be attached to the information resource instead, as explained in Section 5.</p>
+</blockquote>
+
+<p>Jumping to Section 5, I find</p>
+
+<blockquote>
+<p><strong>Metadata:</strong> The representation should contain any metadata you want to attach to your published data, such as a URI identifying the author and licensing information. These should be recorded as RDF descriptions of the information resource that describes a non-information resource; that is, the subject of the RDF triples should be the URI of the information resource. Attaching meta-information to that information resource, rather than attaching it to the described resource itself or to specific RDF statements about the resource (as with RDF reification) plays nicely together with using Named Graphs and the SPARQL query language in Linked Data client applications...</p>
+</blockquote>
+
+<p>There are some examples of what this looks like within the tutorial. The first is an &quot;<strong>authoritative description</strong>&quot; found at <code>http://dbpedia.org/data/Alec_Empire</code> after a 303 redirection from <code>http://dbpedia.org/resource/Alec_Empire</code>.</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text"># Metadata and Licensing Information
+&lt;http://dbpedia.org/data/Alec_Empire&gt;
+    rdfs:label &quot;RDF description of Alec Empire&quot; ;
+    rdf:type foaf:Document ;
+    dc:publisher &lt;http://dbpedia.org/resource/DBpedia&gt; ;
+    dc:date &quot;2007-07-13&quot;^^xsd:date ;
+    dc:rights &lt;http://en.wikipedia.org/wiki/WP:GFDL&gt; .
+
+# The description
+&lt;http://dbpedia.org/resource/Alec_Empire&gt; 
+    foaf:name &quot;Empire, Alec&quot; ;
+    rdf:type foaf:Person ;
+    rdf:type &lt;http://dbpedia.org/class/yago/musician&gt; ;
+    rdfs:comment
+        &quot;Alec Empire (born May 2, 1972) is a German musician who is ...&quot;@en ;
+    rdfs:comment
+        &quot;Alec Empire (eigentlich Alexander Wilke) ist ein deutscher Musiker. ...&quot;@de ;
+    dbpedia:genre &lt;http://dbpedia.org/resource/Techno&gt; ;
+    dbpedia:associatedActs 
+      &lt;http://dbpedia.org/resource/Atari_Teenage_Riot&gt; ;
+    foaf:page &lt;http://en.wikipedia.org/wiki/Alec_Empire&gt; ;
+    foaf:page &lt;http://dbpedia.org/page/Alec_Empire&gt; ; 
+    rdfs:isDefinedBy &lt;http://dbpedia.org/data/Alec_Empire&gt; ;
+    owl:sameAs &lt;http://zitgist.com/music/artist/d71ba53b-23b0-4870-a429-cce6f345763b&gt; .
+</code></pre></div>
+<p>The second is a <strong>non-authoritative description</strong> found at <code>http://sites.wiwiss.fu-berlin.de/suhl/bizer/pub/LinkedDataTutorial/ChrisAboutRichard</code>:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text"># Metadata and Licensing Information
+&lt;&gt;
+    rdf:type foaf:Document ;
+    dc:author &lt;http://www.bizer.de#chris&gt; ;
+    dc:date &quot;2007-07-13&quot;^^xsd:date ;
+    cc:license &lt;http://web.resource.org/cc/PublicDomain&gt; .
+
+# The description
+&lt;http://richard.cyganiak.de/foaf.rdf#cygri&gt; 
+    foaf:name &quot;Richard Cyganiak&quot; ;
+    foaf:topic_interest &lt;http://dbpedia.org/resource/Category:Databases&gt; ;
+    foaf:topic_interest &lt;http://dbpedia.org/resource/MacBook_Pro&gt; ;
+    rdfs:isDefinedBy &lt;http://richard.cyganiak.de/foaf.rdf&gt; ;
+    rdf:seeAlso &lt;&gt; .
+</code></pre></div>
+<p>Note that <code>rdfs:isDefinedBy</code> does not necessarily point to the data you get when you retrieve the resource, but to an (presumably there can be more than one) authoritative description of the resource. It&#39;s also associated with a particular <em>resource</em> rather than a particular <em>statement</em>.</p>
+
+<p>To know which metadata applies to a particular statement, an application must know where it got the statement from. In effect, a statement here has <em>four</em> parts: subject, property, object and location (with the possibility that multiple statements with the same subject, property and object might have different locations and therefore different metadata). This is similar to assigning an ID to a statement, as with <code>rdf:ID</code>, but restricts the statement&#39;s identifier to being the location where it was found.</p>
+
+<p>So what does that mean for the genealogical web app? Well, in the app we&#39;re going to find any given statement by a particular user quoted on lots of pages. I was intending to RDFa them all but that would mean lots of duplicate statements from different locations, potentially bloating applications that were harvesting the data.</p>
+
+<p>I can&#39;t work out whether I like or loathe the Linked Data concept of associating metadata with the document in which you find triples. In some ways it seems very natural -- look for information about a resource at the URI for the resouce -- but the metadata mechanisms restrict where you can place statements on the web (or at least assign semantics to their location which aren&#39;t necessarily intended), and that seems like a Bad Thing. On the other hand, perhaps I&#39;m just being overly influenced by the desire to use RDFa, which does lead one to want to mark up data wherever it appears.</p>
+
+<p>I&#39;d welcome any advice.</p>

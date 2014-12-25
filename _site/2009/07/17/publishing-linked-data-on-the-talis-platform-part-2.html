@@ -1,0 +1,184 @@
+<p>In <a href="http://www.jenitennison.com/blog/node/109">my last post</a>, I showed how to add data to a <a href="http://www.talis.com/platform/">Talis</a> store. In this post, I&#39;m going to show how you can use the Talis Platform as a back end for a Linked Data view on the RDF you added to it.</p>
+
+<p>As you&#39;ll see, the great thing about this method is that it only takes a couple of PHP files and an <code>.htaccess</code> file on a server. Assuming that you&#39;ve got a web server that supports PHP, it&#39;s an approach you can use without installing anything. The code I&#39;ve written is pretty generic and should be widely applicable; feel free to reuse and adapt it.</p>
+
+<!--break-->
+
+<p>One of the principles of Linked Data is that if you make a GET request to a URI that&#39;s used as an identifier within an RDF triple, you&#39;ll get back some useful information about that resource. I&#39;ve created URIs like <code>http://www.jenitennison.com/data/id/london-borough/barnet</code> and added triples to Talis about those resources, but I haven&#39;t yet put anything in place such that actually requesting <code>http://www.jenitennison.com/data/id/london-borough/barnet</code> will provide a useful response. So how do I do that?</p>
+
+<p>Well, it&#39;s easy enough with a bit of PHP to do the forwarding. (By the way, this is the first bit of PHP I&#39;ve ever done, so feel free to point out all the glaring problems with it; I&#39;d love to learn.)</p>
+
+<p>Now, the URI <code>http://www.jenitennison.com/data/id/london-borough/barnet</code> is a URI that I&#39;ve made up for a London Borough, and obviously when you request that URI you&#39;re not actually going to get the London Borough delivered to you through your computer screen. Instead, based on <a href="http://www.w3.org/TR/cooluris/#r303gendocument">Cool URIs for the Semantic Web</a>, I want to either respond with a <code>303 See Other</code> redirection to a document resource <em>describing</em> the borough, or a <code>404 Not Found</code> to say that it doesn&#39;t exist.</p>
+
+<p>Note that I don&#39;t just want to blindly respond with a <code>303 See Other</code>. If someone requests <code>http://www.jenitennison.com/data/id/london-borough/rubbish</code> I want to tell them that the London Borough of &#39;Rubbish&#39; doesn&#39;t exist. If I redirected them to a document URI which then 404&#39;ed, it would mean the London Borough of &#39;Rubbish&#39; exists, but we have no information about it. So I can&#39;t use a simple URL rewrite; I have to check for its presence first.</p>
+
+<h2>Existence Tests</h2>
+
+<p>The first task, then, is to test whether the resource exists. To do that, I can execute an ASK request on the <a href="http://n2.talis.com/wiki/Store_Sparql_Service">SPARQL endpoint</a> that Talis provides for the store. The ASK request simply looks like:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">ASK { &lt;http://www.jenitennison.com/data/id/london-borough/barnet&gt; ?p ?v . }
+</code></pre></div>
+<p>which asks if there are any triples at all that involve that URI. I request the JSON response using the <code>output=json</code> parameter. The JSON looks like:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">{&quot;head&quot;:{},&quot;boolean&quot;:true}
+</code></pre></div>
+<p>if the store holds any triples about the borough and:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">{&quot;head&quot;:{},&quot;boolean&quot;:false}
+</code></pre></div>
+<p>if it doesn&#39;t. The URI for the request looks like:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">http://api.talis.com/stores/rdfquery-dev1/services/sparql?query=ASK+%7B+%3Chttp%3A%2F%2Fwww.jenitennison.com%2Fdata%2Fid%2Flondon-borough%2Fbarnet%3E+%3Fp+%3Fv+.+%7D
+</code></pre></div>
+<p>which looks pretty horrendous when you write it out but is easy enough to construct with PHP. Here&#39;s the <code>exists()</code> function which does the test based on the server host name used in the request and a path that&#39;s passed in.</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">$store = &#39;rdfquery-dev1&#39;;
+
+function exists($idUri) {
+  global $store;
+  $host = $_SERVER[&#39;HTTP_HOST&#39;];
+  $id = &quot;http://$host$idUri&quot;;
+  $sparql = &quot;ASK { &lt;$id&gt; ?p ?v . }&quot;;
+  $params = array(&#39;query&#39; =&gt; $sparql, &#39;output&#39; =&gt; &#39;json&#39;);
+  $query = http_build_query($params);
+  $request = &quot;http://api.talis.com/stores/$store/services/sparql?$query&quot;;
+  $resource = file_get_contents($request, &#39;rb&#39;);
+  $result = strstr(strstr($resource, &quot;\&quot;boolean\&quot;:&quot;), &quot;:&quot;);
+  return !strstr($result, &quot;false&quot;);
+}
+</code></pre></div>
+<h2>Handling Identifier URIs</h2>
+
+<p>With that function in <code>utils.php</code>, it&#39;s pretty easy to create a <code>id.php</code> that does the redirection that I need to do. For my purposes, I&#39;m using <code>/id/</code> in all the URIs that identify abstract resources, and removing it for the document URIs that describe them. So the URI for the abstract resource <code>http://www.jenitennison.com/data/id/london-borough/barnet</code> will redirect to the document resource <code>http://www.jenitennison.com/data/london-borough/barnet</code>. Here&#39;s <code>id.php</code>:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;?php
+  include &quot;utils.php&quot;;
+  $idUri = $_SERVER[&#39;REQUEST_URI&#39;];
+  if (exists($idUri)) {
+    $docUri = str_replace(&#39;/id/&#39;, &#39;/&#39;, $idUri);
+    header(&quot;Location: $docUri&quot;, true, 303);
+  } else {
+    error(404);
+  }
+?&gt;
+</code></pre></div>
+<p>The <code>error()</code> function is also in <code>utils.php</code> and looks like:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">  function error() {
+    header(&quot;HTTP/1.1 404 Not Found&quot;);
+    echo &lt;&lt;&lt;EOF
+&lt;html&gt;
+  &lt;head&gt;
+    &lt;title&gt;404 Not Found&lt;/title&gt;
+  &lt;/head&gt;
+  &lt;body&gt;
+    &lt;h1&gt;404 Not Found&lt;/h1&gt;
+    &lt;p&gt;No such resource&lt;/p&gt;
+  &lt;/body&gt;
+&lt;/html&gt;
+EOF;
+  }
+</code></pre></div>
+<p>I have <code>id.php</code> which will check for the presence of triples about the requested resource, and respond with either a <code>404 Not Found</code> or a <code>303 See Other</code>. Now I need to invoke <code>id.php</code> whenever someone requests an identifier URI like <code>http://www.jenitennison.com/data/id/london-borough/barnet</code>. To do this, I put <code>id.php</code> in the <code>/data</code> directory within my webserver&#39;s documents and added a <code>.htaccess</code> file that looks like:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;IfModule mod_rewrite.c&gt;
+  RewriteEngine on
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+
+  RewriteRule ^id/([^/]+)/(.+)$  id.php [L]
+&lt;/IfModule&gt;
+</code></pre></div>
+<p>This says that any requests that aren&#39;t for existing files or directories and that start with <code>id</code> should be redirected to <code>id.php</code>. Since <code>id.php</code> picks up on the original request URI, I don&#39;t need to pass anything extra into it by way of query parameters and what have you.</p>
+
+<blockquote>
+<p>To make this <code>.htaccess</code> file work, you have to have <code>mod_rewrite</code> enabled and have <code>AllowOverride</code> include <code>FileInfo</code> (in <code>http.conf</code>) . My ISP allows this, but the Apache installation on my Mac doesn&#39;t, and Apache generally doesn&#39;t out of the box, so you may need to do a bit of fiddling with configuration files.</p>
+</blockquote>
+
+<p>Now, requesting <code>http://www.jenitennison.com/data/id/london-borough/barnet</code> redirects me with a <code>303 See Other</code> to <code>http://www.jenitennison.com/data/london-borough/barnet</code>, while requesting <code>http://www.jenitennison.com/data/id/london-borough/rubbish</code> gives me a <code>404 Not Found</code> response.</p>
+
+<h2>Handling Document URIs</h2>
+
+<p>The next stage is supporting the document URIs like <code>http://www.jenitennison.com/data/london-borough/barnet</code>. For them, I need to actually get the data about the resource out of the Talis Platform. Fortunately, there&#39;s a really easy way of doing that using a simple <a href="http://n2.talis.com/wiki/Metabox">request on the metabox</a> like:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">http://api.talis.com/stores/rdfquery-dev1/meta?about=http%3A%2F%2Fwww.jenitennison.com%2Fdata%2Fid%2Flondon-borough%2Fbarnet&amp;output=rdf
+</code></pre></div>
+<p>In other words, you pass the URI of the resource that you&#39;re interested in as the value of the <code>about</code> parameter to the metabox store URI of <code>http://api.talis.com/stores/{store}/meta?about={resource}&amp;output=rdf</code>. This gives you back some RDF/XML. For the particular request above, the RDF/XML looks like:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;rdf:RDF
+    xmlns:rdf=&quot;http://www.w3.org/1999/02/22-rdf-syntax-ns#&quot;
+    xmlns:j.0=&quot;http://www.jenitennison.com/ontology/data#&quot;
+    xmlns:rdfs=&quot;http://www.w3.org/2000/01/rdf-schema#&quot; &gt; 
+  &lt;rdf:Description rdf:about=&quot;http://www.jenitennison.com/data/id/london-borough/barnet&quot;&gt;
+    &lt;rdfs:label&gt;Barnet&lt;/rdfs:label&gt;
+    &lt;rdf:type rdf:resource=&quot;http://www.jenitennison.com/ontology/data#LondonBorough&quot;/&gt;
+    &lt;j.0:maleLifeExpectancy rdf:datatype=&quot;http://www.w3.org/2001/XMLSchema#decimal&quot;&gt;79.5&lt;/j.0:maleLifeExpectancy&gt;
+    &lt;j.0:femaleLifeExpectancy rdf:datatype=&quot;http://www.w3.org/2001/XMLSchema#decimal&quot;&gt;83.6&lt;/j.0:femaleLifeExpectancy&gt;
+  &lt;/rdf:Description&gt;
+&lt;/rdf:RDF&gt;
+</code></pre></div>
+<p>Now I don&#39;t know about you, but this RDF/XML really makes me cringe. It&#39;s very obviously RDF, and it has a horrible <code>j.0</code> prefix that no one would ever actually write if they were creating it in an editor. Readability matters, even for data that&#39;s aimed at computers. If I&#39;m going to use RDF/XML, I&#39;d really like it to be <a href="http://www.jenitennison.com/blog/node/74">sensible XML as well as being RDF</a> (and <a href="http://www.jenitennison.com/blog/node/74#comment-4463">Leigh Dodds has given some good guidelines about how to do it</a>).</p>
+
+<p>But of course since it&#39;s XML it&#39;s amendable to a spot of transformation. So it&#39;s not hard to transform the RDF/XML above into:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;LondonBorough xmlns=&quot;http://www.jenitennison.com/ontology/data#&quot;
+               xmlns:rdf=&quot;http://www.w3.org/1999/02/22-rdf-syntax-ns#&quot;
+               xmlns:rdfs=&quot;http://www.w3.org/2000/01/rdf-schema#&quot;
+               rdf:about=&quot;http://www.jenitennison.com/data/id/london-borough/sutton&quot;&gt;
+   &lt;rdfs:label&gt;Sutton&lt;/rdfs:label&gt;
+   &lt;femaleLifeExpectancy rdf:datatype=&quot;http://www.w3.org/2001/XMLSchema#decimal&quot;&gt;82.6&lt;/femaleLifeExpectancy&gt;
+   &lt;maleLifeExpectancy rdf:datatype=&quot;http://www.w3.org/2001/XMLSchema#decimal&quot;&gt;78.7&lt;/maleLifeExpectancy&gt;
+&lt;/LondonBorough&gt;
+</code></pre></div>
+<p>which is a little more acceptable. Talis offers a <a href="http://n2.talis.com/wiki/Transformation_Service">transformation service</a> at:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">http://api.talis.com/tx
+</code></pre></div>
+<p>It only supports XSLT 1.0. (There&#39;s also the <a href="http://www.w3.org/2005/08/online_xslt/">W3C XSLT 2.0 Service</a> based on Saxon, but I get the impression they don&#39;t like people to use it in anger.)</p>
+
+<p>Anyway, each Talis store contains a contentbox as well as a metabox. The metabox holds the RDF/XML, and the contentbox can hold anything you like. I can put the XSLT stylesheet (<code>tidyRDF.xsl</code>) into my store&#39;s contentbox using the command:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">curl -X PUT -H &quot;Content-type: application/xslt+xml&quot; --digest -u username:password --data-binary @tidyRDF.xsl 
+  http://api.talis.com/stores/rdfquery-dev1/items/tidyRDF.xsl
+</code></pre></div>
+<p>which then makes it accessible at:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">http://api.talis.com/stores/rdfquery-dev1/items/tidyRDF.xsl
+</code></pre></div>
+<p>(I could also use my own server of course, but if Talis are offering free hosting, why not?...)</p>
+
+<p>And that means that I can get the RDF/XML associated with <code>http://www.jenitennison.com/data/london-borough/barnet</code> and transform it into some decent XML using a horrendous double-escaped URI that I&#39;m not going to replicate here. The <code>proxy.php</code> script does this all nicely behind the scenes:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;?php
+  include &quot;utils.php&quot;;
+  $docUri = $_SERVER[&#39;REQUEST_URI&#39;];
+  $dir = dirname($_SERVER[&#39;SCRIPT_NAME&#39;]);
+  $path = substr($docUri, strlen($dir));
+  $idUri = &quot;$dir/id$path&quot;;
+  if (exists($idUri)) {
+    $domain = $_SERVER[&#39;HTTP_HOST&#39;];
+
+    // URL for the RDF
+    $id = &quot;http://$domain$idUri&quot;;
+    $params = array(&#39;about&#39; =&gt; $id, &#39;output&#39; =&gt; &#39;rdf&#39;);
+    $query = http_build_query($params);
+    $rdfURL = &quot;http://api.talis.com/stores/$store/meta?$query&quot;;
+
+    // URL for the transformation
+    $params = array(&#39;xml-uri&#39; =&gt; $rdfURL, 
+      &#39;xsl-uri&#39; =&gt; &quot;http://api.talis.com/stores/$store/items/tidyRDF.xsl&quot;);
+    $query = http_build_query($params);
+    $txURL = &quot;http://api.talis.com/tx?$query&quot;;
+
+    $resource = fopen($txURL, &#39;rb&#39;);
+    header(&quot;Content-Type: application/rdf+xml&quot;);
+    header(&quot;Content-Location: $docUri.rdf&quot;);
+    fpassthru($resource);
+    return;
+  } else {
+    error(404);
+  }
+?&gt;
+</code></pre></div>
+<p>With <code>proxy.php</code> in the <code>/data</code> directory on my server, I need a slight tweak to the <code>.htaccess</code> to make sure that all non-id requests go to it:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;IfModule mod_rewrite.c&gt;
+  RewriteEngine on
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+
+  RewriteRule ^id/(.+)$  id.php [L]
+
+  RewriteCond %{REQUEST_URI} !\.php
+  RewriteRule ^(.+)$ proxy.php [L]
+&lt;/IfModule&gt;
+</code></pre></div>
+<p>And Bob, as they say, is your uncle.</p>
+
+<p>Requests to identifier URIs redirect to document URIs. Requests to document URIs return relevant RDF/XML for the resource. Have a look at <a href="http://www.jenitennison.com/data/id/london-borough/barnet">http://www.jenitennison.com/data/id/london-borough/barnet</a> for example.</p>
+
+<p><em>Updated: fixed the link in the final paragraph so it actually pointed to the right location. Duh.</em></p>

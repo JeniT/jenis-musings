@@ -1,0 +1,67 @@
+<p>During <a href="http://www.guardian.co.uk/media/pda/2009/jul/31/hacking-opensource1">Guardian Hack Day 2</a>, <a href="http://www.ldodds.com/">Leigh</a> ported the <a href="http://mps-expenses.guardian.co.uk/">Guardian&#39;s MP&#39;s Expenses data</a> into <a href="http://guardian.dataincubator.org/">Talis</a>. Most wonderfully, this gives a <a href="http://api.talis.com/stores/guardian/services/sparql">SPARQL endpoint</a> that can be used to query the data. I thought I&#39;d try to use the same approach as I <a href="http://www.jenitennison.com/blog/node/113">blogged about recently</a>, using a SPARQL query as a <a href="http://code.google.com/apis/visualization/documentation/dev/implementing_data_source.html">Data Source</a> for a <a href="http://code.google.com/apis/visualization/documentation/gallery.html">Google Visualisation</a> of the MP&#39;s expenses data.</p>
+
+<p>To cut to the chase, here&#39;s a screenshot of <a href="http://www.jenitennison.com/visualisation/mp-travel.html">the result</a> (follow the link for the more interactive version):</p>
+
+<p><img alt="Map of travel expenses for the 100 MPs with the lowest majorities" src="/blog/files/mp-travel.jpg" width="100%" /></p>
+
+<!--break-->
+
+<p>I created this visualisation with the same general approach as I <a href="http://www.jenitennison.com/blog/node/113">explained last time</a>.</p>
+
+<p>First, I&#39;ve been working on the visualisation <code>utils.php</code>, which is a reasonably simple PHP script that exposes a SPARQL endpoint as a Google Visualisation Data Source. Requests to a Data Source use a special <a href="http://code.google.com/apis/visualization/documentation/querylanguage.html">query language</a> to indicate the information that should be included, how it should be sorted, how many rows of data there should be, and so on.</p>
+
+<p>Previously, <a href="/blog/files/utils.php_2.txt"><code>utils.php</code></a> only understood the <code>select</code> portion of the <code>tq</code> parameter which contains this query; I&#39;ve expanded it to understand (somewhat limited versions of) the <code>select</code>, <code>where</code>, <code>order by</code>, <code>limit</code> and <code>offset</code> parts of the query, which of course have equivalents in <a href="http://www.w3.org/TR/rdf-sparql-query/">SPARQL</a>. Since these parts of the Google Visualisation query language are pretty close to SPARQL, this is actually just a bunch of string munging, which isn&#39;t particularly interesting, so just <a href="/blog/files/utils.php_2.txt">grab hold of it</a> if you want to use it.</p>
+
+<p>Second, I created a PHP script (<a href="/blog/files/mp-travel.php.txt"><code>mp-travel.php</code></a>) specifically for the MPs expenses data that pulls out the parts that I&#39;m interested in and exposes them as variables which can be used in the query language. This is what the file looks like:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;?php
+  include &quot;utils.php&quot;;
+  proxy(&#39;?rMP a &lt;http://guardian.dataincubator.org/ns/MemberOfParliament&gt; .
+         ?rMP &lt;http://xmlns.com/foaf/0.1/name&gt; ?mp .
+         ?rMP &lt;http://guardian.dataincubator.org/ns/mp-expenses/majority&gt; ?majority .
+         ?rMP &lt;http://dbpedia.org/property/constituency&gt; ?rConstituency .
+         ?rConstituency rdfs:label ?constituency .
+         ?rConstituency &lt;http://www.w3.org/2003/01/geo/wgs84_pos#lat&gt; ?lat .
+         ?rConstituency &lt;http://www.w3.org/2003/01/geo/wgs84_pos#long&gt; ?long .
+         ?rMP &lt;http://guardian.dataincubator.org/ns/mp-expenses/total-travel&gt; ?totalTravel .&#39;,
+        &#39;desc(?totalTravel)&#39;, 
+        &#39;guardian&#39;);
+?&gt;
+</code></pre></div>
+<p>The second argument to the <code>proxy()</code> function is the default ordering (<code>desc(?totalTravel)</code>) and the third is the name of the Talis data store that&#39;s being used (<code>guardian</code>).</p>
+
+<p>The first argument is a query which determines the variables that are exposed by the Data Source. This Data Source exposes the variables:</p>
+
+<ul>
+<li><code>mp</code>: the name of the MP</li>
+<li><code>majority</code>: the majority that they have in their constituency</li>
+<li><code>constituency</code>: the name of the constituency</li>
+<li><code>lat</code>, <code>long</code>: the latitude and longitude of the constituency (presumably the centre of it)</li>
+<li><code>totalTravel</code>: the total amount claimed for travel by the MP</li>
+<li><code>rMP</code>: the URI used to identify the MP</li>
+<li><code>rConstituency</code>: the URI used to identify the constituency</li>
+</ul>
+
+<p>Third, I created an <a href="/blog/files/mp-travel.html">HTML document</a> that used the Google Visualisation API to create the map visualisation that I&#39;ve shown above. The really important lines are:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">var query = new google.visualization.Query(&#39;http://www.jenitennison.com/visualisation/data/mp-travel&#39;);
+query.setQuery(&#39;select lat, long, totalTravel, mp order by majority limit 100&#39;);
+</code></pre></div>
+<p>The first line shows the URL for the Data Source, which is essentially a pointer to the <code>mp-travel.php</code> script. The second line shows the query that&#39;s sent to the Data Source: &quot;<code>select lat, long, totalTravel, mp order by majority limit 100</code>&quot;.</p>
+
+<p>Put together, when you load <a href="http://www.jenitennison.com/visualisation/mp-travel.html">http://www.jenitennison.com/visualisation/mp-travel.html</a>, you create a <a href="http://code.google.com/apis/visualization/documentation/gallery/geomap.html">Google Visualisation GeoMap</a> which uses as its data the result of the SPARQL query</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">SELECT ?lat ?long ?totalTravel ?mp
+WHERE {
+  ?rMP a &lt;http://guardian.dataincubator.org/ns/MemberOfParliament&gt; .
+  ?rMP &lt;http://xmlns.com/foaf/0.1/name&gt; ?mp .
+  ?rMP &lt;http://guardian.dataincubator.org/ns/mp-expenses/majority&gt; ?majority .
+  ?rMP &lt;http://dbpedia.org/property/constituency&gt; ?rConstituency .
+  ?rConstituency rdfs:label ?constituency .
+  ?rConstituency &lt;http://www.w3.org/2003/01/geo/wgs84_pos#lat&gt; ?lat .
+  ?rConstituency &lt;http://www.w3.org/2003/01/geo/wgs84_pos#long&gt; ?long .
+  ?rMP &lt;http://guardian.dataincubator.org/ns/mp-expenses/total-travel&gt; ?totalTravel .
+}
+ORDER By ?majority
+LIMIT 100
+</code></pre></div>
+<p>on the SPARQL endpoint at <a href="http://api.talis.com/stores/guardian/services/sparql">http://api.talis.com/stores/guardian/services/sparql</a>.</p>
+
+<p>Here&#39;s hoping you can reuse the Data Source or the code that was used to make it. Let me know if you do!</p>

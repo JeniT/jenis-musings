@@ -1,0 +1,23 @@
+<p>Can you believe it, we&#39;ve made it to Last Call on XProc (<em>the</em> XML pipeline language)! That&#39;s only, like, nine months later than the <a href="http://www.w3.org/XML/Processing/#schedule" title="XML Processing Working Group Schedule">published schedule</a>, which I reckon is pretty good going. (Then again, I&#39;m judging it against XSLT 2.0...)</p>
+
+<p>I&#39;m really excited about XProc. I&#39;ve found that pipelining in XSLT -- splitting up processing tasks into smaller, more manageable processing tasks and stringing them together -- has greatly improved my productivity and the simplicity and maintainability of the code I write. But some processing (such as that used by my <a href="http://www.jenitennison.com/xslt/utilities/unit-testing/index.html" title="XSLT Unit Test Framework">XSLT unit test framework</a>) can&#39;t be done in a single transformation, some is on massive documents that you can&#39;t realistically process with XSLT (and I <em>really</em> don&#39;t want to have to write SAX or StAX code to do it), and some I just want to do on all the files in a directory.</p>
+
+<p>XProc gives me a high-level, declarative, streamable processing language for XML documents. And I think we&#39;ve struck the right balance between something that&#39;s simple enough to be easy for everyday tasks, and powerful enough to be able to do the more complex things you might want to do with it.</p>
+
+<!--break-->
+
+<p>It&#39;s going to be really interesting to see how much of current XSLT use it replaces, and how much it opens up. For example, the ability to use a <a href="http://www.w3.org/TR/xproc/#p.viewport" title="XProc: Viewport">viewport</a> to isolate a subtree of a document for processing means that XSLT could be used on (the records in) huge database dumps. A bit like <a href="http://www.saxonica.com/documentation/sourcedocs/serial.html" title="Saxonica: Streaming Large Documents">Saxon&#39;s support for streaming large documents</a>, but standardised.</p>
+
+<p>Anyway, <strong>Last Call</strong>, guys! <a href="http://www.w3.org/TR/2007/WD-xproc-20070920/" title="XProc: An XML Pipeline Language: Last Call Working Draft 20 September 2007">Read the specification.</a> <a href="mailto:public-xml-processing-model-comments@w3.org" title="public-xml-processing-model-comments@w3.org">Send us your comments.</a> Write some pipelines. Try them out with <a href="http://norman.walsh.name/2007/projects/xproc" title="Norm Walsh&#39;s XML Pipeline Processor">Norm&#39;s XML Pipeline Processor</a>. Heck, write <a href="http://norman.walsh.name/2007/09/05/xprocTests" title="Norm Walsh: Bring out your tests">test cases</a>! Implement it!</p>
+
+<p>On the subject of comments, I recommend:</p>
+
+<ul>
+<li>resending any comments you already made that you don&#39;t feel we&#39;ve addressed; as I understand it, we&#39;re obligated to discuss every comment we receive during Last Call</li>
+<li>sending a separate mail for each technical comment (but a single mail with multiple editorial comments is OK)</li>
+<li>only sending requests that you think are must-haves for version 1.0</li>
+<li>supporting requests with examples</li>
+<li>searching for what you want to comment on in the <a href="http://lists.w3.org/Archives/Public/public-xml-processing-model-wg/" title="W3C XML Processing Model WG Discussion Archive">archives of the XML Processing WG mailing list</a> just to make sure we haven&#39;t already discussed it to death</li>
+</ul>
+
+<p>I hope that doesn&#39;t sound as if I&#39;m discouraging comments. If you&#39;ve got something to say, say it. But be aware that the more comments we receive the longer it&#39;ll take us to get to Recommendation, so make &#39;em count. You&#39;ve got until the 24th October.</p>

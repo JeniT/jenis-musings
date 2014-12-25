@@ -1,0 +1,120 @@
+<p>In my <a href="http://www.jenitennison.com/blog/node/95" title="Overlap, Containment and Dominance">last post</a> I discussed the kinds of situations where overlapping markup can appear in documents, and the distinction between <em>containment</em>, when one element happens to contain another, and <em>dominance</em>, where the relationship between the two elements is more meaningful. Here I&#39;ll expand a bit more on the issue of whether dominance relationships are or should be part of the essential information in the document.</p>
+
+<!--break-->
+
+<p>I wrote:</p>
+
+<blockquote>
+<p>So an important challenge is how to get from a flat, containment-only model to a DAG. There are four approaches that can be taken:</p>
+
+<ol>
+<li>For any document, for each pair of range names A and B, if every range named A contains a range named B, then assume that A dominates B; from that set of relationships, create a DAG.</li>
+<li>Introduce additional syntax into tags, such that dominance relationships between ranges can be expressed explicitly within the serialisation.</li>
+<li>Associate each document with a schema, and use the model expressed in the schema to identify dominance relationships; a Creole schema like the one above could be taking as asserting that poems dominate stanzas, for example, since stanzas are mentioned in the content model of the poem range.</li>
+<li>Defer the construction of a DAG to the point of processing; a document would then not be a DAG in and of itself, but only in relation to a particular process.</li>
+</ol>
+
+<p>I find the last of these the most satisfactory. 1 is too arbitrary. 2 requires too much syntax. 3 requires a single schema per document (which, from experience with XML, I think is a broken model).</p>
+</blockquote>
+
+<p><a href="http://www.jclark.com/" title="James Clark">James Clark</a> commented:</p>
+
+<blockquote>
+<p>I’m surprised by your rejection of approach 2 on the grounds that it “requires too much syntax”. I would be inclined to start by designing the information model first and then figure out a syntax to represent that information model. Maybe I’m just brainwashed by too much XML/SGML, but the hierarchical relationships seem like a fundamental aspect of the information about the document which the markup should be capturing explicitly.</p>
+</blockquote>
+
+<p>So I shall expand upon my rather throw-away rejection of the option of using additional syntax within tags to express dominance relationships. There are two parts to it: philosophical and pragmatic.</p>
+
+<h2>Philosophy</h2>
+
+<p>My philosophical objection applies to both the idea of indicating hierarchy within tags and using a schema (option 3 above). My attitude going into the development of <a href="http://www.lmnl.org/wiki/index.php/LMNL_data_model" title="LMNL data model">LMNL</a> (an attitude that might not be shared by the <a href="http://www.lmnl.org/wiki/index.php/Ad_Hoc_LMNL_Committee" title="Ad Hoc LMNL Committee">other members of the ad hoc LMNL committee</a>) has been to carry over as few assumptions as possible from the SGML/XML world, and to see how far we can get without those assumptions. So as well as overlap, LMNL has weird things like <a href="http://www.lmnl.org/wiki/index.php/LMNL_data_model#Annotations" title="LMNL: Annotations">structured and ordered annotations</a>, <a href="http://www.lmnl.org/wiki/index.php/LMNL_data_model#Atoms" title="LMNL: Atoms">atoms</a>, and <a href="http://www.lmnl.org/wiki/index.php/LMNL_data_model#Ranges" title="LMNL: Ranges">anonymous ranges</a>.</p>
+
+<p>In that spirit, I want to see if we can get away with <em>not</em> having hierarchy as a fundamental part of the information model. Does this allow us to do things that we couldn&#39;t otherwise do, or is it a burden? I don&#39;t know yet.</p>
+
+<p>I view this as somewhat similar to the questions around datatyping XML. Some people (seem to) think that elements and attributes have a particular datatype as part of their essential nature, others (myself amongst them) that two processes could reasonably view a document using different datatypes or no datatypes at all if it wasn&#39;t important for that particular processing. Just as with datatyping, the restrictive, &quot;there can be only one&quot;, attitude is fine for people whose documents fit that model, but causes problems for those whose don&#39;t. Conversely, if your documents need only ever be seen in one way, it won&#39;t (or shouldn&#39;t) hurt you that other people want to take a more permissive approach. So allowing processing to determine hierarchy seems more likely to satisfy more people.</p>
+
+<p>As a small illustration that hierarchy is in the eye of the beholder, take the <a href="http://www.jenitennison.com/blog/node/95" title="Overlap, Containment and Dominance">poem from my previous post</a>. During my talk at the workshop in Amsterdam I asserted that the stanza line (<code>sl</code>) elements could hold (dominate) one or more page line (<code>pl</code>) elements. <a href="http://vitali.web.cs.unibo.it/" title="Professor Fabio Vitali, University of Bologna">Fabio Vitali</a> objected strongly to this, saying that the relationship was simply one of containment. Shouldn&#39;t it be possible for us both to process the poem based on our differing views?</p>
+
+<h2>Pragmatism</h2>
+
+<p>There are several models floating around as possibilities for representing overlapping structures. I talked about two of them in my last post: the <a href="http://www.lmnl.org/wiki/index.php/LMNL_data_model" title="LMNL data model">LMNL data model</a> in which a document is basically a sequence of atoms (most of which will be characters) with annotated ranges over them, and the <a href="http://www.w3.org/People/cmsmcq/2000/poddp2000.html" title="GODDAG: A Data Structure for Overlapping Hierarchies">GODDAG</a> model in which a document is a directed acyclic graph (DAG) of nodes. The GODDAG model is closest to SGML/XML in that it views the hierarchy of elements as an fundamental part of the document.</p>
+
+<p>The <a href="http://decentius.aksis.uib.no/mlcd/2003/Papers/texmecs.html" title="TexMECS">TexMECS</a> syntax, which is supposed to be amenable to representing GODDAG structures, only represents hierarchy through containment. If you want to read about it, <a href="http://www.mapageweb.umontreal.ca/marcoux/" title="Yves Marcoux">Yves Marcoux</a> did some <a href="http://www.balisage.net/Proceedings/html/2008/Marcoux01/Balisage2008-Marcoux01.html" title="Graph characterization of overlap-only TexMECS and other overlapping markup formalisms">analysis of what is and isn&#39;t serialisable within TexMECS</a> at <a href="http://www.balisage.net/" title="Balisage: The Markup Conference">Balisage</a> last year.</p>
+
+<p>In LMNL, we have the concept of limina which hold ranges (rather than atoms/characters), over which you can define other ranges. This gives us a structure roughly equivalent to a GODDAG. But despite a <em>lot</em> of back and fro, we were never able to come up with a satisfactory serialisation. You might imagine an extension to the <a href="http://www.lmnl.org/wiki/index.php/LMNL_syntax" title="LMNL syntax">LMNL syntax</a> that goes something like:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">[page=p199 [n}199{]}
+...
+[poem=poem}
+  [title^poem}[pl^p199}Recueillement{pl]{title]
+  [stanza=s1^poem}
+    [s^poem}[sl^s1}[pl^p199}Sois sage, ô ma douleur, et tiens-toi plus {pl]
+                                        [pl^p199}tranquille.{pl]{sl]{s]
+    [s^poem}[sl^s1}[pl^p199}Tu réclamais le Soir; il descend; le voici:{pl]{sl]
+    [sl^s1}[pl^p199}Une atmosphère obscure enveloppe la ville,{pl]{sl]
+    [sl^s1}[pl^p199}Aux uns portant la paix, aux autres le souci.{pl]{sl]{s}
+  {stanza]
+  [stanza=s2^poem}
+    [s^poem}[sl^s2}[pl^p199}Pendant que des mortels la multitude vile,{pl]{sl]
+    [sl^s2}[pl^p199}Sous le fouet du Plaisir, ce bourreau sans merci,{pl]{sl]
+    [sl^s2}[pl^p199}Va cueillir des remords dans la fête servile,{pl]{sl]
+    [sl^s2}[pl^p199}Ma douleur, donne moi la main; viens par ici,{pl]{sl]
+  {stanza]
+  [stanza=s3^poem}
+    [sl^s3}[pl^p199}Loin d&#39;eux.{s] [s^poem}Vois se pencher les défuntes {pl]
+                                                [pl^p199}Années,{pl]{sl]
+    [sl^s3}[pl^p199}Sur les balcons du ciel, en robes surannées;{pl]{sl]
+    [sl^s3}[pl^p199}Surgir du fond des eaux le Regret souriant;{pl]{sl]
+  {stanza]{page]
+  [page=p200 [n}200{]}[stanza=s4^poem}
+    [sl^s4}[pl^p200}Le Soleil moribund s&#39;endormir sous une arche,{pl]{sl]
+    [sl^s4}[pl^p200}Et, comme un long linceul traînant à l&#39;Orient,{pl]{sl]
+    [sl^s4}[pl^p200}Entends, ma chère, entends la douce Nuit qui {pl]
+                                              [pl^p200}marche.{pl]{sl]{s]
+  {stanza]
+{poem]
+...
+{page]
+</code></pre></div>
+<p>in which each range can point to its parent range via its ID (IDs being set with the standard <code>=id</code> and the child relationship being indicated by <code>^id</code>). Or various other ways of doing it, none of which are convincing.</p>
+
+<p><a href="http://www.xconcur.org/" title="XCONCUR">XCONCUR</a> (which is pretty much the same syntax as CONCUR in SGML, but using XML) does indicate hierarchy, using syntax like this:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;(phy)page n=&quot;199&quot;&gt;
+...
+&lt;(syn)poem&gt;&lt;(pro)poem&gt;
+  &lt;(pro)title&gt;&lt;(syn)title&gt;&lt;(phy)pl&gt;Recueillement&lt;/(phy)pl&gt;&lt;/(syn)title&gt;&lt;/(pro)title&gt;
+  &lt;(pro)stanza&gt;
+    &lt;(syn)s&gt;&lt;(pro)sl&gt;&lt;(phy)pl&gt;Sois sage, ô ma douleur, et tiens-toi plus &lt;/(phy)pl&gt;
+                                        &lt;(phy)pl&gt;tranquille.&lt;/(phy)pl&gt;&lt;/(pro)sl&gt;&lt;/(syn)s&gt;
+    &lt;(syn)s&gt;&lt;(pro)sl&gt;&lt;(phy)pl&gt;Tu réclamais le Soir; il descend; le voici:&lt;/(phy)pl&gt;&lt;/(pro)sl&gt;
+    &lt;(pro)sl&gt;&lt;(phy)pl&gt;Une atmosphère obscure enveloppe la ville,&lt;/(phy)pl&gt;&lt;/(pro)sl&gt;
+    &lt;(pro)sl&gt;&lt;(phy)pl&gt;Aux uns portant la paix, aux autres le souci.&lt;/(phy)pl&gt;&lt;/(pro)sl&gt;&lt;/(syn)s&gt;
+  &lt;/(pro)stanza&gt;
+  &lt;(pro)stanza&gt;
+    &lt;(syn)s&gt;&lt;(pro)sl&gt;&lt;(phy)pl&gt;Pendant que des mortels la multitude vile,&lt;/(phy)pl&gt;&lt;/(pro)sl&gt;
+    &lt;(pro)sl&gt;&lt;(phy)pl&gt;Sous le fouet du Plaisir, ce bourreau sans merci,&lt;/(phy)pl&gt;&lt;/(pro)sl&gt;
+    &lt;(pro)sl&gt;&lt;(phy)pl&gt;Va cueillir des remords dans la fête servile,&lt;/(phy)pl&gt;&lt;/(pro)sl&gt;
+    &lt;(pro)sl&gt;&lt;(phy)pl&gt;Ma douleur, donne moi la main; viens par ici,&lt;/(phy)pl&gt;&lt;/(pro)sl&gt;
+  &lt;/(pro)stanza&gt;
+  &lt;(pro)stanza&gt;
+    &lt;(pro)sl&gt;&lt;(phy)pl&gt;Loin d&#39;eux.&lt;/(syn)s&gt; &lt;(syn)s&gt;Vois se pencher les défuntes &lt;/(phy)pl&gt;
+                                                &lt;(phy)pl&gt;Années,&lt;/(phy)pl&gt;&lt;/(pro)sl&gt;
+    &lt;(pro)sl&gt;&lt;(phy)pl&gt;Sur les balcons du ciel, en robes surannées;&lt;/(phy)pl&gt;&lt;/(pro)sl&gt;
+    &lt;(pro)sl&gt;&lt;(phy)pl&gt;Surgir du fond des eaux le Regret souriant;&lt;/(phy)pl&gt;&lt;/(pro)sl&gt;
+  &lt;/(pro)stanza&gt;&lt;/(phy)page&gt;
+  &lt;(phy)page n=&quot;200&quot;&gt;&lt;(pro)stanza&gt;
+    &lt;(pro)sl&gt;&lt;(phy)pl&gt;Le Soleil moribund s&#39;endormir sous une arche,&lt;/(phy)pl&gt;&lt;/(pro)sl&gt;
+    &lt;(pro)sl&gt;&lt;(phy)pl&gt;Et, comme un long linceul traînant à l&#39;Orient,&lt;/(phy)pl&gt;&lt;/(pro)sl&gt;
+    &lt;(pro)sl&gt;&lt;(phy)pl&gt;Entends, ma chère, entends la douce Nuit qui &lt;/(phy)pl&gt;
+                                              &lt;(phy)pl&gt;marche.&lt;/(phy)pl&gt;&lt;/(pro)sl&gt;&lt;/(syn)s&gt;
+  &lt;/(pro)stanza&gt;
+&lt;/(pro)poem&gt;&lt;/(syn)poem&gt;
+...
+&lt;/(phy)page&gt;
+</code></pre></div>
+<p>The <code>pro</code>, <code>syn</code> and <code>phy</code> labels in brackets before the element names indicate the hierarchy to which each element belongs. Elements can overlap if they have different labels. As you can see, this syntax means a lot of repetition for elements that belong to more than one hierarchy and there&#39;s a built-in limitation here regarding self-overlap (ie of elements that can overlap other elements with the same name).</p>
+
+<p>Now this isn&#39;t altogether rational, but I think that the fact that we haven&#39;t managed to come up with a good syntax that expresses hierarchy, even without the restrictions of XML well-formedness, is an indication that it&#39;s not meant to be. I am firmly of the opinion that simplicity and elegance are hallmarks of good design. If hierarchies can only be expressed through an ugly syntax, then it&#39;s just not worth it.</p>
+
+<p>Slightly more rationally: if the syntax for expressing hierarchies is that verbose and difficult to use, people won&#39;t use it, and we&#39;ll have to find a way to add dominance relationships programmatically. We might as well start from that point.</p>
+
+<p>But perhaps someone out there can come up with a clean, elegant syntax for expressing dominance within overlapping markup?</p>

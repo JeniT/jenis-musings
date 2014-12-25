@@ -1,0 +1,261 @@
+<p><em>Update: For the people who couldn&#39;t read the post because the graph didn&#39;t have 0 as its x-axis minimum, here is the version of the graph that does. I haven&#39;t removed the other version, since doing so would make the comments confusing and I think it&#39;s interesting to compare the two.</em></p>
+
+<p><img src="/blog/files/LononBoroughBarchart2.jpg" alt="London Borough Life Expectancy Bar Chart with Y-Axis Minimum at 0"></p>
+
+<p>There are idealists who immediately see the publication of Open Data as a Good Thing, and leap up and down (metaphorically or physically) shouting &quot;Raw Data Now&quot;. There are also a whole bunch of people who need to &quot;see the shiny&quot;. They need to understand <em>why</em> publishing Open Data is a Good Thing, and most particularly what the benefit is going to be to <em>them</em>.</p>
+
+<p>This is understandable. Publishers bear the cost of the development of URI schemes, XML formats, RDF ontologies, and other infrastructure for serving data, and the ongoing maintenance cost of domain resolution, bandwidth usage and user support. Even publishers with a public-service remit (who may not need to see <em>monetary</em> payback) need to be convinced that there will be some kind of return on the investment.</p>
+
+<p>One result of making data available is that it enables you and others to easily construct nice visualisations over the data, and maybe spot useful patterns within it. This is particularly useful for public sector information because it can provide feedback on how effective a particular policy has been or where more resources need to be spent.</p>
+
+<p>So I thought it would be worthwhile trying to explore how to create visualisations of some data, starting with the <a href="http://spreadsheets.google.com/ccc?key=t3bns85prAbiChLmFhlcB1Q">London Borough data</a> that I&#39;ve <a href="http://www.jenitennison.com/blog/node/109">published using Talis</a>.</p>
+
+<!--break-->
+
+<p>Nowadays, there are a bunch of visualisation libraries around. My first experiment is going to be using the <a href="http://code.google.com/apis/visualization/">Google Visualisation API</a>, which offers a <a href="http://code.google.com/apis/visualization/documentation/gallery.html">range of different, reasonably pretty, visualisations</a> that work cross-browser using either SVG or VML. In this post, I&#39;m going to use the <a href="http://code.google.com/apis/visualization/documentation/gallery/barchart.html">barchart visualisation</a>, to create a chart of male and female life expectancy in the London Boroughs. It looks like this:</p>
+
+<p><img src="/blog/files/LondonBoroughBarchart.jpg" alt="London Borough life expectancy bar chart"></p>
+
+<p>One of the interesting things about the Google Visualisation API is that you can provide the data for every visualisation using a <a href="http://code.google.com/apis/visualization/documentation/dev/implementing_data_source.html">Data Source</a>. A Data Source is any web page that, in the face of particular requests, returns JSON in a particular format. The format basically encodes a table with named (and typed) columns and a number of rows containing cells which have values for each of those columns.</p>
+
+<p>For the London Borough data, the JSON needs to look something like:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">google.visualization.Query.setResponse({
+  version:0.6,
+  status:&#39;ok&#39;,
+  reqId:0,
+  table:{
+    cols:[
+      {id:&#39;label&#39;, type:&#39;string&#39;},
+      {id:&#39;maleLE&#39;, type:&#39;number&#39;},
+      {id:&#39;femaleLE&#39;, type:&#39;number&#39;}
+    ],
+    rows:[
+      {c:[
+        {v:&#39;Barking &amp; Dagenham&#39;},
+        {v:76.3},
+        {v:80.3}]},
+      {c:[
+        {v:&#39;Barnet&#39;},
+        {v:79.5},
+        {v:83.6}]},
+      {c:[
+        {v:&#39;Bexley&#39;},
+        {v:78.7},
+        {v:82.7}]},
+      ...
+    ]}
+})
+</code></pre></div>
+<p>Now we already know, from my <a href="http://www.jenitennison.com/blog/node/110">last couple</a> <a href="http://www.jenitennison.com/blog/node/111">of blog posts</a>, how to query the Talis platform through its <a href="http://n2.talis.com/wiki/Store_Sparql_Service">SPARQL endpoint</a>, and how to use <a href="http://n2.talis.com/wiki/Transformation_Service">Talis&#39; transformation service</a> to invoke an XSLT transformation over the XML that we get back from that. The same principle applies:</p>
+
+<ol>
+<li>create a SPARQL query that will return the information we want</li>
+<li>create an XSLT transformation that will tidy the result into the format we want it</li>
+<li>set up a PHP page to access the relevant URI and pass through the results</li>
+<li>create an .htaccess file so that invoking the PHP can be done without revealing it&#39;s PHP</li>
+</ol>
+
+<p>First, the SPARQL query. As I said, a Data Source is essentially a table of named columns. While we could do a <code>DESCRIBE</code> or <code>CREATE</code> query, a <code>SELECT</code> query is a lot closer match to the tabular layout that the Data Source needs because it&#39;s also essentially a table of named columns (the variables you select). For the data that we want in the table, an appropriate SPARQL query would be:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">SELECT ?label ?maleLE ?femaleLE
+WHERE {
+  ?borough a &lt;http://www.jenitennison.com/ontology/data#LondonBorough&gt; .
+  ?borough &lt;http://www.w3.org/2000/01/rdf-schema#label&gt; ?label .
+  ?borough &lt;http://www.jenitennison.com/ontology/data#maleLifeExpectancy&gt; ?maleLE .
+  ?borough &lt;http://www.jenitennison.com/ontology/data#femaleLifeExpectancy&gt; ?femaleLE .
+}
+ORDER BY ?label
+</code></pre></div>
+<p>Plugging this query into the Talis SPARQL endpoint (have a go at <a href="http://api.talis.com/stores/rdfquery-dev1/services/sparql">http://api.talis.com/stores/rdfquery-dev1/services/sparql</a> if you like) gives a response in the <a href="http://www.w3.org/TR/rdf-sparql-XMLres/">SPARQL Query Results Format</a> which looks like:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;sparql xmlns=&quot;http://www.w3.org/2005/sparql-results#&quot;&gt;
+  &lt;head&gt;
+    &lt;variable name=&quot;label&quot;/&gt;
+    &lt;variable name=&quot;maleLE&quot;/&gt;
+    &lt;variable name=&quot;femaleLE&quot;/&gt;
+  &lt;/head&gt;
+  &lt;results&gt;
+    &lt;result&gt;
+      &lt;binding name=&quot;label&quot;&gt;
+        &lt;literal&gt;Barking &amp;amp; Dagenham&lt;/literal&gt;
+      &lt;/binding&gt;
+      &lt;binding name=&quot;maleLE&quot;&gt;
+        &lt;literal datatype=&quot;http://www.w3.org/2001/XMLSchema#decimal&quot;&gt;76.3&lt;/literal&gt;
+      &lt;/binding&gt;
+      &lt;binding name=&quot;femaleLE&quot;&gt;
+        &lt;literal datatype=&quot;http://www.w3.org/2001/XMLSchema#decimal&quot;&gt;80.3&lt;/literal&gt;
+      &lt;/binding&gt;
+    &lt;/result&gt;
+    &lt;result&gt;
+      &lt;binding name=&quot;label&quot;&gt;
+        &lt;literal&gt;Barnet&lt;/literal&gt;
+      &lt;/binding&gt;
+      &lt;binding name=&quot;maleLE&quot;&gt;
+        &lt;literal datatype=&quot;http://www.w3.org/2001/XMLSchema#decimal&quot;&gt;79.5&lt;/literal&gt;
+      &lt;/binding&gt;
+      &lt;binding name=&quot;femaleLE&quot;&gt;
+        &lt;literal datatype=&quot;http://www.w3.org/2001/XMLSchema#decimal&quot;&gt;83.6&lt;/literal&gt;
+      &lt;/binding&gt;
+    &lt;/result&gt;
+    &lt;result&gt;
+      &lt;binding name=&quot;label&quot;&gt;
+        &lt;literal&gt;Bexley&lt;/literal&gt;
+      &lt;/binding&gt;
+      &lt;binding name=&quot;maleLE&quot;&gt;
+        &lt;literal datatype=&quot;http://www.w3.org/2001/XMLSchema#decimal&quot;&gt;78.7&lt;/literal&gt;
+      &lt;/binding&gt;
+      &lt;binding name=&quot;femaleLE&quot;&gt;
+        &lt;literal datatype=&quot;http://www.w3.org/2001/XMLSchema#decimal&quot;&gt;82.7&lt;/literal&gt;
+      &lt;/binding&gt;
+    &lt;/result&gt;
+    ...
+  &lt;/results&gt;
+&lt;/sparql&gt;
+</code></pre></div>
+<p>The second step -- transforming this SPARQL result into JSON -- just take a little bit of XSLT (1.0, remember, because that&#39;s all the Talis&#39; Transformation Service can manage). My aim in this post is to show that anyone, even if they don&#39;t have write access to a Talis data store, can create these visualisations, so I&#39;ve just put the XSLT on my site at <a href="http://www.jenitennison.com/visualisation/data/SRXtoGoogleVisData.xsl">http://www.jenitennison.com/visualisation/data/SRXtoGoogleVisData.xsl</a>. I&#39;m not going to duplicate it here; it&#39;s generic enough for reuse should you want to.</p>
+
+<p>The third step is to create some PHP that handles a query from the Google Visualisation. The requests will include <a href="http://code.google.com/apis/visualization/documentation/dev/implementing_data_source.html#requestformat">two parameters</a>:</p>
+
+<ul>
+<li><code>tqx</code> defines details about how the data should be returned, such as its format</li>
+<li><code>tq</code> defines a query in the <a href="http://code.google.com/apis/visualization/documentation/querylanguage.html">Google Visualisation API query language</a> that identifies precisely the data that should be returned</li>
+</ul>
+
+<p>I want this PHP to be reusable, so I&#39;ve created a <code>utils.php</code> that looks like this:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;?php
+  $store = &#39;rdfquery-dev1&#39;;
+
+  function proxy($filter, $order) {
+    global $store;
+    $tqx = $_GET[&#39;tqx&#39;];
+    $tq = $_GET[&#39;tq&#39;];
+
+    // Parse tq parameter
+    if ($tq) {
+      $select = stristr($tq, &#39;select &#39;);
+      $select = substr($select, 7);
+      $select = explode(&#39;,&#39;, $select);
+      foreach ($select as $var) {
+        $var = trim($var);
+        $vars[] = &quot;?$var&quot;;
+      }
+      $vars = implode(&#39; &#39;, $vars);
+    } else {
+      $vars = &#39;*&#39;;
+    }
+    $sparql = &quot;SELECT $vars WHERE { $filter } ORDER BY $order&quot;;
+
+    $params = array(&#39;query&#39; =&gt; $sparql, &#39;output&#39; =&gt; &#39;xml&#39;);
+    $query = http_build_query($params);
+    $rdfURL = &quot;http://api.talis.com/stores/$store/services/sparql?$query&quot;;
+
+    // URL for the transformation
+    $params = array(&#39;xml-uri&#39; =&gt; $rdfURL, 
+      &#39;xsl-uri&#39; =&gt; &quot;http://www.jenitennison.com/visualisation/data/SRXtoGoogleVisData.xsl&quot;,
+      &#39;tqx&#39; =&gt; $tqx);
+    $query = http_build_query($params);
+    $txURL = &quot;http://api.talis.com/tx?$query&quot;;
+
+    $resource = fopen($txURL, &#39;rb&#39;);
+    header(&#39;Content-Type: application/json&#39;, true);
+    fpassthru($resource);
+    return;
+  }
+?&gt;
+</code></pre></div>
+<p>Things to note here are about the processing of the <code>tq</code> and <code>tqx</code> parameters that are sent by the Google Visualisation to control what and how the data appears. The <code>tqx</code> parameter gets passed through into the stylesheet as a parameter, and parsed there. The <code>tq</code> parameter is used to construct the SPARQL query itself, specifically which variables will get included within the result. The rest of the SPARQL query -- the filter and the ordering -- are set in the code which calls the <code>proxy()</code> function, which is in <code>london-borough.php</code> within the same directory, and looks like:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;?php
+  include &quot;utils.php&quot;;
+  proxy(&#39;?borough a &lt;http://www.jenitennison.com/ontology/data#LondonBorough&gt; .
+         ?borough &lt;http://www.w3.org/2000/01/rdf-schema#label&gt; ?label .
+         ?borough &lt;http://www.jenitennison.com/ontology/data#maleLifeExpectancy&gt; ?maleLE .
+         ?borough &lt;http://www.jenitennison.com/ontology/data#femaleLifeExpectancy&gt; ?femaleLE .&#39;, 
+        &#39;?label&#39;);
+?&gt;
+</code></pre></div>
+<p>This code defines the names of the variables that can be used within the <code>tq</code> parameter, and therefore selected and displayed within the graph. So for example, if I request:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">http://www.jenitennison.com/visualisation/data/london-borough?tq=select+label,+maleLE
+</code></pre></div>
+<p>this translates into the SPARQL query:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">SELECT ?label ?maleLE
+WHERE {
+  ?borough a &lt;http://www.jenitennison.com/ontology/data#LondonBorough&gt; .
+  ?borough &lt;http://www.w3.org/2000/01/rdf-schema#label&gt; ?label .
+  ?borough &lt;http://www.jenitennison.com/ontology/data#maleLifeExpectancy&gt; ?maleLE .
+  ?borough &lt;http://www.jenitennison.com/ontology/data#femaleLifeExpectancy&gt; ?femaleLE .
+}
+ORDER BY ?label
+</code></pre></div>
+<p>At the moment, the PHP just uses the <code>select</code> portion of the <code>tq</code> parameter to determine which data to display. It would be possible to map other aspects of the Google Visualisation query language onto SPARQL, but this will do for now.</p>
+
+<p>The final step is to amend the .htaccess to do a basic rewrite to prevent people from having to put .php at the end of the URI because I don&#39;t like URIs that indicate the technology they&#39;re using. In this case it looks like:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;IfModule mod_rewrite.c&gt;
+  RewriteEngine on
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+
+  RewriteRule ^(.+) $1.php [L,QSA]
+&lt;/IfModule&gt;
+</code></pre></div>
+<p>as this gives me flexibility later on to add more PHP files that can do similar things.</p>
+
+<p>So now we have a Data Source that can provide the label, male life expectancy and female life expectancy for the London Boroughs. Using it requires a copy and tweak of an example from Google:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;html&gt;
+  &lt;head&gt;
+    &lt;script type=&quot;text/javascript&quot; src=&quot;http://www.google.com/jsapi&quot;&gt;&lt;/script&gt;
+    &lt;script type=&quot;text/javascript&quot;&gt;
+      google.load(&quot;visualization&quot;, &quot;1&quot;, {packages:[&quot;barchart&quot;]});
+      google.setOnLoadCallback(drawChart);
+      function drawChart() {
+        // Replace the data source URL on next line with your data source URL.
+        var query = new google.visualization.Query(&#39;http://www.jenitennison.com/visualisation/data/london-borough&#39;);
+        query.setQuery(&#39;select label, maleLE, femaleLE&#39;);
+        // Send the query with a callback function.
+        query.send(handleQueryResponse);
+      };
+      function handleQueryResponse(response) {
+        if (response.isError()) {
+          alert(&#39;Error in query: &#39; + response.getMessage() + &#39; &#39; + response.getDetailedMessage());
+          return;
+        }
+
+        var data = response.getDataTable();
+        data.setColumnLabel(1, &#39;Male Life Expectancy&#39;);
+        data.setColumnLabel(2, &#39;Female Life Expectancy&#39;);
+        var chart = new google.visualization.BarChart(document.getElementById(&#39;chart_div&#39;));
+        chart.draw(data, {
+          width: 600, 
+          height: 450, 
+          is3D: false, 
+          title: &#39;Life Expectancy in London Boroughs&#39;,
+          axisFontSize: 10,
+          colors: [&#39;#4162B5&#39;, &#39;#CF413A&#39;]});
+      };
+    &lt;/script&gt;
+  &lt;/head&gt;
+
+  &lt;body&gt;
+    &lt;div id=&quot;chart_div&quot;&gt;&lt;/div&gt;
+  &lt;/body&gt;
+&lt;/html&gt;
+</code></pre></div>
+<p>The <code>drawChart()</code> function is where the URL to the Data Source gets set. It&#39;s actually done in two parts:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">var query = new google.visualization.Query(&#39;http://www.jenitennison.com/visualisation/data/london-borough&#39;);
+</code></pre></div>
+<p>sets the base URI to be used, and:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">query.setQuery(&#39;select label, maleLE, femaleLE&#39;);
+</code></pre></div>
+<p>sets the value of the <code>tq</code> parameter without you having to worry about escaping the special characters it may contain.</p>
+
+<p>After getting the data, I set the column labels in the code itself: they aren&#39;t provided in the Data Source because it&#39;s easier and more generic this way. Plus I set a bunch of other display options within the HTML page, so it seems like the right place for it.</p>
+
+<p>The result of all this is a graph that you can see at <a href="http://www.jenitennison.com/visualisation/london-borough-life-expectancy.html">http://www.jenitennison.com/visualisation/london-borough-life-expectancy.html</a>.</p>
+
+<p>If you want to do something similar, feel free to grab hold of <code>utils.php</code>. You can either reuse my hosted copy of <code>SRXtoGoogleVisData.xsl</code> or move it onto your own site. Then all you have to do is:</p>
+
+<ol>
+<li>adjust the graph variable in <code>utils.php</code>, and the location of <code>SRXtoGoogleVisData.xsl</code> if you need to</li>
+<li>create another PHP file similar to <code>london-borough.php</code> that defines a filter and an ordering over a set of data</li>
+<li>tweak your .htaccess if you want to</li>
+<li>create an HTML page that references your Data Source to create a Google Visualisation</li>
+</ol>
+
+<p>My current plan is to continue to refine <code>utils.php</code> and <code>SRXtoGoogleVisData.xsl</code> to make it easy to create SPARQL-backed visualisations. More soon.</p>

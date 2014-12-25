@@ -1,0 +1,96 @@
+<p>Today, I&#39;m going to moan about the lack of features in SPARQL that are necessary to do many kinds of data analysis and visualisation. Going from raw data, held in RDF, to data like</p>
+
+<ul>
+<li>the <em>average</em> traffic flow along the M5</li>
+<li>the <em>total</em> amount claimed by each MP</li>
+<li>the <em>number of</em> corporate insolvency notices published each day</li>
+</ul>
+
+<p>cannot be done with SPARQL on its own. These calculations involve <a href="http://www.w3.org/TR/sparql-features/#Aggregates">aggregation, grouping</a> and <a href="http://www.w3.org/TR/sparql-features/#Project_expressions">projection</a> which are planned for SPARQL vNext, but not here yet (at least, not in any standard way or in every triplestore).</p>
+
+<p>Here&#39;s the pretty graph to illustrate today&#39;s rant:</p>
+
+<p><img src="/blog/files/insolvency-smooth.jpg" alt="Corporate insolvency notices per day from the London Gazette since 1st May 2008, averaged over 20 days" style="width: 100%" /></p>
+
+<!--break-->
+
+<p>The graph shows the number of notices of certain types placed in the <a href="http://www.london-gazette.co.uk/">London Gazette</a> each day. The notices it summarises are those related to <a href="http://www.insolvency.gov.uk/compulsoryliquidation/whatiscompulsoryliquidation.htm">companies being liquidated</a>, indicated by:</p>
+
+<ul>
+<li><a href="http://www.london-gazette.co.uk/issues/recent/10/corp-insolvency-winding-up-court/petitions-companies/start=1">winding-up petitions</a> indicating compulsory liquidation</li>
+<li><a href="http://www.london-gazette.co.uk/issues/recent/10/corp-insolvency-winding-up-members/resolution/start=1">members resolutions for winding-up</a> indicating members&#39; voluntary liquidation</li>
+<li><a href="http://www.london-gazette.co.uk/issues/recent/10/corp-insolvency-winding-up-creditors/resolution/start=1">creditors resolutions for winding-up</a> indicating creditors&#39; voluntary liquidation</li>
+<li><a href="http://www.london-gazette.co.uk/issues/recent/10/corp-insolvency-administration/appointments/start=1">appointment of administrators</a> indicating companies going into administration</li>
+</ul>
+
+<p>The graph is a version of:</p>
+
+<p><img src="/blog/files/insolvency-raw.jpg" alt="Corporate insolvency notices per day from the London Gazette since 1st May 2008" style="width: 100%" /></p>
+
+<p>with each data point averaged over 20 days. (The raw data spikes every Wednesday, presumably due to notices building up over the weekend and taking two days to appear in the Gazette.) It shows how the number of creditors&#39; voluntary liquidations (indicating companies that go insolvent and are unable to pay their creditors) doubled from around 30/day in May 2008 to around 60/day in the Spring of this year, but seems to be falling again (as far as we can tell; the data is not up-to-date).</p>
+
+<p>This data is brought to you by the RDFa embedded by <a href="http://www.tso.co.uk/">TSO</a> in the notices on the London Gazette website and the scraping of said data into the <a href="http://api.talis.com/stores/datagovuk">datagovuk datastore</a> held on the <a href="http://www.talis.com/platform/">Talis platform</a>, for both of which we have <a href="http://www.opsi.gov.uk/">OPSI</a> to thank.</p>
+
+<p>The visualisation is brought to you by a touch of experimental &quot;AJAR&quot; in <a href="http://code.google.com/p/rdfquery">rdfQuery</a> and the graphing power of <a href="http://code.google.com/p/flot/">Flot</a>. Here are the lengths I have to go to to get the pretty graph:</p>
+
+<p>First, I use rdfQuery to request a list of London Gazette issues since 1st May 2008. The SPARQL for the request is:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">PREFIX corp-insolvency: &lt;http://www.gazettes-online.co.uk/ontology/corp-insolvency#&gt;
+PREFIX g: &lt;http://www.gazettes-online.co.uk/ontology#&gt;
+PREFIX xsd: &lt;http://www.w3.org/2001/XMLSchema#&gt;
+
+CONSTRUCT {
+  ?issue a g:Issue .
+  ?issue g:hasPublicationDate ?date .
+}
+WHERE {
+  ?issue a g:Issue .
+  ?issue g:hasPublicationDate ?date .
+  FILTER ( ?date &gt; &quot;2008-05-01&quot;^^xsd:date ) .
+}
+</code></pre></div>
+<p>This is a <code>CONSTRUCT</code> request because the resulting RDF/XML can be loaded into rdfQuery for querying. I <em>could</em> do a <code>SELECT</code> query and request JSON as the output format, but I&#39;m doing a kind of end-to-end RDF thing here. So I use rdfQuery to make the request, load the result into an rdfQuery object, query it, and iterate over the results.</p>
+
+<p>For each of the returned issues (all 293 of them), I make a <em>separate</em> request for all the relevant notices within that issue. The SPARQL looks like this:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">PREFIX corp-insolvency: &lt;http://www.gazettes-online.co.uk/ontology/corp-insolvency#&gt;
+PREFIX g: &lt;http://www.gazettes-online.co.uk/ontology#&gt;
+
+CONSTRUCT {
+  ?notice a ?type
+}
+WHERE {
+  ?notice g:isInIssue $issue .
+  { ?notice a corp-insolvency:MembersResolutionsForWindingUpNotice } UNION
+  { ?notice a corp-insolvency:CreditorsResolutionsForWindingUpNotice } UNION
+  { ?notice a corp-insolvency:AppointmentOfAdministratorNotice } UNION
+  { ?notice a corp-insolvency:PetitionsToWindUpCompaniesNotice } .
+  ?notice a ?type .
+}
+</code></pre></div>
+<p>Once I&#39;ve got the RDF for those notices, I can use rdfQuery to select just those of a particular type, then count how many there are and use the result to plot the graph.</p>
+
+<p>Creating the graph involves 294 requests to the Talis store via the proxy that I&#39;m using to get around the cross-site scripting issues, each of which takes (in my experience) between 200ms and 4s. So it&#39;s pretty server-intensive for both the Talis servers and my proxy server (which is why I&#39;m not actually going to make the page available generally). It&#39;s also slow.</p>
+
+<p>What I <em>want</em> to do is to be able to make four SPARQL requests that return RDF that summarise the number of notices of each of the different types on each date (or in each issue). I <em>want</em> to write SPARQL queries that look something like:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">PREFIX corp-insolvency: &lt;http://www.gazettes-online.co.uk/ontology/corp-insolvency#&gt;
+PREFIX g: &lt;http://www.gazettes-online.co.uk/ontology#&gt;
+
+CONSTRUCT {
+  ?issue a g:Issue .
+  ?issue g:hasPublicationDate ?date .
+  ?issue corp-insolvency:membersResolutionsForWindingUpNotices COUNT(?notice) .
+}
+WHERE {
+  ?issue a g:Issue .
+  ?issue g:hasPublicationDate ?date .
+  ?notice g:isInIssue ?issue .
+  ?notice a corp-insolvency:MembersResolutionsForWindingUpNotice .
+}
+GROUP BY ?issue
+</code></pre></div>
+<p>Four requests would be <em>so</em> much better than 294.</p>
+
+<p>The thing of it is that this kind of facility is available as standard in SQL, the <a href="http://code.google.com/apis/visualization/documentation/querylanguage.html#Group_By">Google Visualisation API&#39;s simple query language</a>, or in the &quot;reduce&quot; part of <a href="http://en.wikipedia.org/wiki/MapReduce">map/reduce</a>. If we&#39;re to think of triplestores as a serious alternative to either relational or non-relational databases, and SPARQL as a serious alternative to either SQL or <a href="http://en.wikipedia.org/wiki/Nosql">NoSQL</a>, then it really must support these operations. And Real Soon.</p>
+
+<p>In the meantime, I think the lesson for the publishers of linked data is to provide aggregated values for the obvious kinds of aggregations that people might want to do over your data. In the London Gazette data, that would be the counts of the various kinds of notices it contains. In the traffic flow data it would be the average, minimum and maximum traffic flow over each of the measured days, at each hour over the known dates and overall for each point.</p>
+
+<p>On a more philosophical note, it strikes me that the concept of aggregation contradicts the Open World assumption. I can only know that the number of members&#39; winding-up order notices was exactly 30 if I know that I know of <em>all</em> the members&#39; winding-up order notices that exist. Pragmatically, in many cases this is going to be just fine, because we know that the datasets that we&#39;re using are complete (our World is Closed), but it does slightly concern me that it&#39;s impossible to do much useful data analysis without contradicting one of the fundamental tenets of the Semantic Web.</p>

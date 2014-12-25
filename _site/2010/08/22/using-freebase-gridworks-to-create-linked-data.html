@@ -1,0 +1,558 @@
+<p>When we encourage people to put their data on the web as linked data, the biggest question is &quot;How?&quot;. There are so many &quot;How?&quot; questions to answer:</p>
+
+<ul>
+<li>how do we choose what URIs to use for things?</li>
+<li>how do we choose what vocabularies to use?</li>
+<li>how do we handle changing data?</li>
+<li>how do we tell people how the data was created?</li>
+<li>how do we publish it?</li>
+<li>how will other people know about it?</li>
+</ul>
+
+<p>and, of course:</p>
+
+<ul>
+<li>how do we create it?</li>
+</ul>
+
+<!--break-->
+
+<p>Our goal within the linked data part of data.gov.uk (and I know we haven&#39;t achieved it yet) is to both answer these questions and to make the answers as simple as possible. The answers to the questions <em>cannot</em> either require up-front knowledge of all possible types of data that might be published or depend on the availability of linked data for all the things we want to talk about. It <em>cannot</em> require registration at centralised services. It <em>cannot</em> require everyone to do everything in the same way or at the same pace.</p>
+
+<p>We must take adopt an approach that encourages people to make their data available in forms that are easier for other people to pick up and use <strong>because they see the benefits for them</strong> and their stakeholders and because the effort of doing so is not too high to bear. We must grow, adapt and evolve incrementally. If linked data eventually wins, it will be due to its benefits, not to faith.</p>
+
+<p>Anyway, enough rant. The point of this blog post is to talk about one of the answers to the &#39;How do we create it?&#39; question: using <a href="http://code.google.com/p/freebase-gridworks/">Freebase Gridworks</a>. For those who haven&#39;t encountered it, Gridworks is an incredibly useful application that enables you to easily analyse, clean and manipulate tabular data. In a few steps, it can be used to generated linked datasets which can then be published on the web just like any other file, ready for other people to reuse without jumping through hoops. I&#39;m going to assume that you can <a href="http://code.google.com/p/freebase-gridworks/wiki/Downloads?tm=2">download it</a> and <a href="http://code.google.com/p/freebase-gridworks/wiki/GettingStarted">install it</a> following the instructions provided on the Gridworks site.</p>
+
+<p>In this post, I&#39;m going to talk about how to use Gridworks to generate linked data, using an example of local government spending data from <a href="http://www.rbwm.gov.uk/web/finance_payments_to_suppliers.htm">Windsor and Maidenhead council</a>. Like a good train journey, there&#39;s quite a lot to see along the way.</p>
+
+<p><em>Note: Many thanks to Dave Reynolds for his work on this data and comments on an earlier version of this post.</em></p>
+
+<h2>Importing Data</h2>
+
+<p>The first step is to import the data into Gridworks. If you just take the Windsor &amp; Maidenhead data and import it directly, you&#39;ll get a single not-very-useful column as shown in the following screenshot:</p>
+
+<p><img src="/blog/files/bad-import.jpg" title="Bad import into Gridworks" style="width: 100%" /></p>
+
+<p>If you look at the spreadsheet in a normal spreadsheet programme then you&#39;ll see why. Like a lot of spreadsheets created by normal people, who want to create something readable by human beings rather than computers, it has some extra lines at the top to explain what the spreadsheet contains, as shown in the following screenshot:</p>
+
+<p><img src="/blog/files/spreadsheet.jpg" title="Original spreadsheet" style="width: 100%" /></p>
+
+<p>Fortunately, Gridworks lets us easily skip over these first few lines. When you import the data, put the number <code>1</code> in the box for &quot;Ignore X initial non-blank lines&quot;, as shown here:</p>
+
+<p><img src="/blog/files/import-dialog.jpg" title="Import dialog" style="text-align: center" /></p>
+
+<p>(You need the number <code>1</code> because although there are three lines before the table really starts, the second two of those are blank.)</p>
+
+<p>That done, the data should look a lot more useful, as shown in the following screenshot:</p>
+
+<p><img src="/blog/files/good-import.jpg" title="Good import into Gridworks" style="width: 100%" /></p>
+
+<h2>Cleaning Data</h2>
+
+<p>The next thing to do is to explore the data a bit to get a handle on what&#39;s there and work out whether any cleaning or rationalisation is necessary to improve its quality.</p>
+
+<p>With columns that hold names, such as &#39;Directorate&#39;, &#39;Service&#39; or &#39;Supplier Name&#39;, you&#39;re looking for slight misspellings caused by bad data entry. Gridworks helps you find these by creating a list of the distinct values for a particular column and telling you how many instances there are of each. Use the arrow at the side of the column name to pull down the menu, then choose <code>Facet &gt; Text Facet</code> to create this list, as shown here:</p>
+
+<p><img src="/blog/files/facet-menu.jpg" title="Choosing from the facet menu" style="text-align: center" /></p>
+
+<p>Once you&#39;ve chosen <code>Text Facet</code>, the list pops up on the left hand side of the window. You can click on these to filter the table to contain just those rows that have that value for that column, but you can then scan through this to spot any places where there looks to be a typo or two entries that should really be the same. For example, the Services list holds both &#39;Libraries &amp; Information Services&#39; and &#39;Library &amp; Information Services&#39;, as shown here:</p>
+
+<p><img src="/blog/files/services-list.jpg" title="Repetition in the Services list" style="text-align: center" /></p>
+
+<p>It&#39;s unlikely that there are really two distinct services with such similar names, so we&#39;d like to clean up this data by standardising on one name or another. You can quickly change all occurrences of one value to another using the <code>edit</code> option that appears just to the right of the value when you hover over it. This brings up a dialog that enables you to change all of those values to something else, as shown here:</p>
+
+<p><img src="/blog/files/edit-value-dialog.jpg" title="Editing a value across the spreadsheet" style="text-align: center" /></p>
+
+<p>You can do something similar with numeric columns, such as the &#39;Amount excl vat £&#39; column. This time choose <code>Numeric Facet</code> rather than <code>Text Facet</code> and you&#39;ll get a histogram up as shown here:</p>
+
+<p><img src="/blog/files/amount-facet.jpg" title="Amount histogram" style="text-align: center" /></p>
+
+<p>This is useful for identifying outliers. If you grab the handle on the left of the histogram and move it to the centre, the rows will get filtered to only those that have an amount within that range. For example, moving it to only show rows between £500,000 and £1,500,000 shows that there are three payments of this size, all made by Children&#39;s Services to Wilmott Dixon Construction Limited, as shown in this screenshot:</p>
+
+<p><img src="/blog/files/high-value-transactions.jpg" title="High value transactions" style="width: 100%" /></p>
+
+<p>Although these values are much higher than most of the others in the spreadsheet, they don&#39;t seem to be errors -- I guess a new school was being built or something -- so there&#39;s nothing to correct here, but it shows how numeric facets can be used to explore the data.</p>
+
+<p>Another approach to exploring and cleaning the data is to use the clustering algorithms that are built into Gridworks to identify duplicates. To do this, pull down the column menu and this time choose <code>Edit Cells... &gt; Cluster and Edit</code>, as shown in the following screenshot, this time for the &#39;Supplier Name&#39; column:</p>
+
+<p><img src="/blog/files/edit-cells-menu.jpg" title="Choosing from the Edit Cells menu" style="text-align: center" /></p>
+
+<p>This brings up a dialog that groups together values that look similar. In this case, &#39;Siemens plc&#39; and &#39;Siemens PLC&#39;, as shown in the following screenshot:</p>
+
+<p><img src="/blog/files/cluster-dialog.jpg" title="Clustering values in a column" style="width: 100%" /></p>
+
+<p>You can use this dialog to change all the similar values to a standard one. Check the <code>Merge</code> checkbox for the clusters of values that should be merged, edit the <code>New Cell Value</code> field to whatever standard value you want to adopt, and choose <code>Apply &amp; Re-cluster</code> or simply <code>Apply &amp; Close</code> to make the change.</p>
+
+<p>You will often find that the default clustering algorithm (key collision/fingerprint) doesn&#39;t come up with any clusters as it&#39;s fairly conservative. It&#39;s worth playing around a bit with different algorithms to look for other duplicates by selecting other possibilities from the drop-down menus. For example, choosing the &#39;nearest neighbour&#39; method with the Levenstein distance function and a radius of 2 (edits) results in four possible duplicates within the Suppliers list, as shown here:</p>
+
+<p><img src="/blog/files/levenstein-cluster.jpg" title="Clustering values with Levenstein distance" style="width: 100%" /></p>
+
+<p>If you&#39;re not sure about whether the cluster is due to a typo or not, hover over the row and click on the <code>Browse this cluster</code> link that appears. That will bring up a separate window that will show you just the rows in the cluster, from which you should be able to make a judgement. For example, it&#39;s not clear whether &#39;Academia Ltd&#39; is a typo for &#39;Academics Ltd&#39; but browsing the cluster shows that the Cost Centre codes and the Types of the transactions are completely different for the two Suppliers, so they are probably different.</p>
+
+<h2>Deriving Data</h2>
+
+<p>The next step is to derive some data from what we have within the spreadsheet. Since our goal is to produce linked data, the kind of derived data that we&#39;re interested in are URIs.</p>
+
+<p>At this point we need to start making decisions about what URIs to use. If you look at the <a href="http://www.rbwm.gov.uk/web/finance_payments_to_suppliers.htm">list of spending data from Windsor and Maidenhead</a>, you&#39;ll see that there are a whole bunch of these spreadsheets. It would be really useful if we could tie these spreadsheets together by using the same URIs for the same things across the datasets. For that reason, the only URI that&#39;s going to be local to the dataset is the URI for each line (or data point if you like) itself. On the other hand, most of the things that are named here are going to be local to Windsor &amp; Maidenhead: &#39;Abba Cars&#39; may be sufficient to identify a single company within Windsor &amp; Maidenhead, but certainly wouldn&#39;t be nationwide. So the URIs I&#39;m going to create here are mostly going to be within the <code>www.rbwm.gov.uk</code> domain.</p>
+
+<p>Here&#39;s the table of the columns and the associated URIs that I&#39;m going to use. I should stress that this is just for example purposes, but I&#39;ve used the following principles:</p>
+
+<ul>
+<li>URIs for datasets are just like URIs for any other web document, but shouldn&#39;t have an extension because the data itself should be available in many formats</li>
+<li>URIs for real-world things should have <code>/id</code> at the start of the path, and URIs for conceptual things should have <code>/def</code> at the start of their paths; both should result in a 303 redirection to a suitable web page</li>
+</ul>
+
+<p>This is what we&#39;re doing within data.gov.uk, but it&#39;s an important principle of the web that different councils might well choose their own URI schemes, depending on the kind of technology support that they have, without any bad side-effects on the interpretation of the data.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Column</th>
+      <th>URI pattern</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>(Dataset)</th>
+      <td>http://www.rbwm.gov.uk/public/finance_supplier_payments_2010_q2</td>
+    </tr>
+    <tr>
+      <th>(Row/ExpenditureLine)</th>
+      <td>http://www.rbwm.gov.uk/public/finance_supplier_payments_2010_q2#{row-number}</td>
+    </tr>
+    <tr>
+      <th>(Council)</th>
+      <td>http://statistics.data.gov.uk/id/local-authority/00ME</td>
+    </tr>
+    <tr>
+      <th>Directorate</th>
+      <td>http://www.rbwm.gov.uk/id/directorate/{directorate-slug}</td>
+    </tr>
+    <tr>
+      <th>Updated</th>
+      <td>http://reference.data.gov.uk/id/day/{date}</td>
+    </tr>
+    <tr>
+      <th>TransNo/Payment</th>
+      <td>http://www.rbwm.gov.uk/id/transaction/{transaction-number}</td>
+    </tr>
+    <tr>
+      <th>Service</th>
+      <td>http://www.rbwm.gov.uk/id/service/{service-slug}</td>
+    </tr>
+    <tr>
+      <th>Cost Centre</th>
+      <td>http://www.rbwm.gov.uk/def/cost-centre/{cost-centre-code}</td>
+    </tr>
+    <tr>
+      <th>Supplier Name</th>
+      <td>http://www.rbwm.gov.uk/id/supplier/{supplier-slug}</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>As you can see, those of the columns that contain text fields have, as part of their URI, a <a href="http://en.wikipedia.org/wiki/Slug_(production)">&#39;slug&#39;</a>. This is a shortened, normalised value suitable for putting in a URI: basically ensuring that the string doesn&#39;t contain any punctuation or spaces. For example, &#39;Adult &amp; Community Services&#39; would turn into &#39;adult-community-services&#39;.</p>
+
+<p>Our first task will be to create these slugs. To do this, we&#39;ll create a new column based on the existing ones by choosing <code>Edit Column &gt; Add Column Based on This Column ...</code> from the drop-down menu on the appropriate column:</p>
+
+<p><img src="/blog/files/edit-column-menu.jpg" title="Edit Column menu" style="text-align: center" /></p>
+
+<p>Selecting this will bring up a dialog which will ask you to name the new column and then enter a formula to calculate the new value, as shown here:</p>
+
+<p><img src="/blog/files/create-slug.jpg" title="Edit Column menu" style="text-align: center" /></p>
+
+<p>The default language for this formula is Gridworks&#39; own, though there are other options available. To create the slug, we need to:</p>
+
+<ol>
+<li>turn the value to lower case</li>
+<li>replace all spaces with hyphens</li>
+<li>remove anything that isn&#39;t a letter, number, or hyphen</li>
+<li>replace all sequences of two hyphens with a single hyphen</li>
+</ol>
+
+<p>This is done in two steps. The first three steps can be done using the formula:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">replace(replace(toLowercase(value), &#39; &#39;, &#39;-&#39;), /[^-a-z0-9]/, &#39;&#39;)
+</code></pre></div>
+<p>Gridworks helps by listing the original and resulting values for the first several rows of the spreadsheet, so that you can see whether it&#39;s working as expected. When you&#39;re happy, hitting <code>OK</code> creates the new column.</p>
+
+<p>The last step (replacing all sequences of two hyphens with a single hyphen) can be done by editing the cells in the new column. Bring up the <code>Edit Cells... &gt; Transform...</code> dialog using the menu:</p>
+
+<p><img src="/blog/files/edit-cells-menu-2.jpg" title="Edit Cells menu" style="text-align: center" /></p>
+
+<p>and use the formula:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">replace(value, &#39;--&#39;, &#39;-&#39;)
+</code></pre></div>
+<p>then check the <code>Re-transform until no change</code> checkbox so that any pairs of hyphens are repeatedly replaced with single hyphens, as shown here:</p>
+
+<p><img src="/blog/files/transform.jpg" title="Edit Cells menu" style="text-align: center" /></p>
+
+<p>The other tabs in the new column and edit cells dialogs are really helpful. The <code>History</code> tab lets you choose formulae that you&#39;ve used before to use again. This is useful here because we want to create the slugs for the Service and Supplier Name in the same way. The <code>Help</code> tab lists all the functions that you can use within the formula.</p>
+
+<p>Creating the URIs for the columns proceeds in the same way, except this time the formulae are more like:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&#39;http://www.rbwm.gov.uk/id/directorate/&#39; + value
+</code></pre></div>
+<p>There are two that are slightly different. First, there&#39;s the URI for the date, which needs to be constructed from the date/time value held by Gridworks as follows. We can do this in two stages. First, to construct a new column called &#39;Date&#39; to hold the formatted date:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">datePart(value, &#39;year&#39;) + &#39;-&#39; + 
+if (datePart(value, &#39;month&#39;) &lt; 9, &#39;0&#39;, &#39;&#39;) + replace(datePart(value, &#39;month&#39;) + 1, &#39;.0&#39;, &#39;&#39;) + &#39;-&#39; + 
+if (datePart(value, &#39;day&#39;) &lt; 10, &#39;0&#39;, &#39;&#39;) + datePart(value, &#39;day&#39;)
+</code></pre></div>
+<p>(note that the <code>datePart()</code> function returns a 0-based count for the month) and then to create the Date URI column based on this:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&#39;http://reference.data.gov.uk/id/day/&#39; + value
+</code></pre></div>
+<p>Second, there&#39;s the URI for the row (an expenditure line) itself, which needs to be constructed using the row number. It&#39;s useful to construct it as a local URI (ie just the fragment) as this means the same code can be used to construct the column across different datasets, so it&#39;s just:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&#39;#&#39; + rowIndex
+</code></pre></div>
+<h2>Exporting Data</h2>
+
+<p>Once the extra columns have been made, it&#39;s time to export data from Gridworks. While Gridworks makes it easy to export to CSV or into Freebase, it&#39;s also possible to export in any format you want using templates. Use the <code>Project</code> menu and choose <code>Export Filtered Rows &gt; Templating ...</code>, as shown in the following screenshot:</p>
+
+<p><img src="/blog/files/project-menu.jpg" title="Project menu" style="text-align: center" /></p>
+
+<p>Note that this will only export the rows that you currently have selected, so if you want to export everything, make sure that you deselect any facets that you&#39;ve currently got selected.</p>
+
+<p>Choosing the <code>Templating ...</code> option will open up a dialog that you can use to create whatever format you want. The default, as shown in the following screenshot, is JSON.</p>
+
+<p><img src="/blog/files/template-dialog-json.jpg" title="Templating dialog to create JSON" style="width: 100%" /></p>
+
+<p>On the left are four fields:</p>
+
+<ul>
+<li><strong>Prefix</strong> is content that&#39;s put at the top of the exported data</li>
+<li><strong>Row Template</strong> is content that&#39;s generated for each row</li>
+<li><strong>Row Separator</strong> is content that&#39;s put between each row</li>
+<li><strong>Suffix</strong> is content that&#39;s put at the bottom of the exported data</li>
+</ul>
+
+<p>One thing to be extremely careful of here is that any changes you made to the fields on the left here <strong>will not be saved</strong> when the dialog is closed. For that reason, it&#39;s a good idea to create your templates in a separate text file and copy and paste them in. Also note that the sample data on the right is only for the first set of rows, not for the whole spreadsheet.</p>
+
+<p>We&#39;re going to generate Turtle using the template, so the next stage is to work out precisely what Turtle to generate. We&#39;ve been working on small vocabulary for payment data based on the <a href="http://publishing-statistical-data.googlecode.com/svn/trunk/specs/src/main/html/cube.html">Data Cube vocabulary</a> and that&#39;s what I&#39;ll use here, although it isn&#39;t quite complete and available yet as it will be. We&#39;ll start at the bottom, with the individual rows, and then add extra surrounding information as we go.</p>
+
+<h3>Row Template</h3>
+
+<p>Within this data, each row corresponds to a <code>payment:ExpenditureLine</code> within the dataset. The expenditure lines can be organised into groups based on the <code>payment:Payment</code> that they&#39;re associated with, which is indicated through the &#39;TransNo&#39; column in the database. Within the payment vocabulary we&#39;re using, we can assign individual expenditure lines to the payment using the <code>payment:expenditureLine</code> property.</p>
+
+<p>The <code>payment:payer</code> of each <code>payment:Payment</code> is Windsor &amp; Maidenhead council. The <code>payment:payee</code> is the &#39;Supplier&#39; listed in the spreadsheet. The <code>payment:date</code> is the &#39;Updated&#39; date.</p>
+
+<p>Each individual line in the spreadsheet is a <code>payment:ExpenditureLine</code> which is associated with one of these payments. The <code>payment:expenditureCode</code> is the &#39;Cost Centre&#39; and the actual <code>payment:amountExcludingVAT</code> is the &#39;Amount excl vat £&#39; value. Some example Turtle for the first line is thus:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;http://www.rbwm.gov.uk/public/finance_supplier_payments_2010_q2&gt;
+  qb:slice &lt;http://www.rbwm.gov.uk/id/transaction/2650750&gt; .
+
+&lt;http://www.rbwm.gov.uk/id/transaction/2650750&gt;
+  a payment:Payment , qb:Slice ;
+  rdfs:label &quot;Transaction 2650750&quot;@en ;
+  qb:sliceStructure payment:payment-slice ;
+  payment:transactionReference &quot;2650750&quot; ;
+  payment:payer &lt;http://statistics.data.gov.uk/id/local-authority/00ME&gt; ;
+  payment:payee &lt;http://www.rbwm.gov.uk/id/supplier/1st-choice-d-b-driveways-limited&gt; ;
+  payment:date &lt;http://reference.data.gov.uk/id/day/2010-04-09&gt; ;
+  payment:expenditureLine &lt;http://www.rbwm.gov.uk/public/finance_supplier_payments_2010_q2#0&gt; .
+
+&lt;http://www.rbwm.gov.uk/public/finance_supplier_payments_2010_q2#0&gt;
+  a payment:ExpenditureLine , qb:Observation ;
+  rdfs:label &quot;Expenditure Line 0&quot;@en ;
+  qb:dataSet &lt;http://www.rbwm.gov.uk/public/finance_supplier_payments_2010_q2&gt; ;
+  payment:expenditureCode &lt;http://www.rbwm.gov.uk/def/cost-centre/LM05&gt; ;
+  payment:amountExcludingVAT 1875.00 .
+</code></pre></div>
+<p>That&#39;s the basic data for each line, but there&#39;s also some other information which should be brought out for each line:</p>
+
+<ul>
+<li>the name of the payee</li>
+<li>the date, year, month and day-of-month for the payment, which may help further analysis of the data</li>
+<li>the meaning of the expenditure code (particularly its association to a particular service)</li>
+</ul>
+
+<p>In each of these cases, pulling the information out from each line is going to lead to a lot of repetition, because the same payee, date and so on will be described in multiple lines, but we don&#39;t have any choice and we can tidy it up by removing duplicates afterwards. The Turtle for the first line will look like:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;http://www.rbwm.gov.uk/id/supplier/1st-choice-d-b-driveways-limited&gt;
+  a org:Organization ;
+  rdfs:label &quot;1st Choice - D B Driveways Limited&quot;@en .
+
+&lt;http://reference.data.gov.uk/id/day/2010-04-09&gt;
+  a interval:CalendarDay ;
+  rdfs:label &quot;2010-04-09&quot; ;
+  time:hasBeginning &lt;http://reference.data.gov.uk/id/gregorian-instant/2010-04-09T00:00:00&gt; ;
+  interval:ordinalYear 2010 ;
+  interval:ordinalMonthOfYear 4 ;
+  interval:ordinalDayOfMonth 9 .
+
+&lt;http://reference.data.gov.uk/id/gregorian-instant/2010-04-09T00:00:00&gt;
+  a time:Instant ;
+  time:inXSDDateTime &quot;2010-04-09T00:00:00&quot;^^xsd:dateTime .
+
+&lt;http://www.rbwm.gov.uk/def/cost-centre/LM05&gt;
+  a rbwm:CostCentre , skos:Concept ;
+  rdfs:label &quot;Cost Centre LM05&quot;@en ;
+  rbwm:costCentreCode &quot;LM05&quot;^^rbwm:CostCentreCode ;
+  rbwm:service &lt;http://www.rbwm.gov.uk/id/service/magnet-leisure-centre&gt; .
+
+&lt;http://www.rbwm.gov.uk/id/service/magnet-leisure-centre&gt;
+  a rbwm:Service ;
+  rdfs:label &quot;Magnet Leisure Centre&quot;@en ;
+  rbwm:providedBy &lt;http://www.rbwm.gov.uk/id/directorate/adult-community-services&gt; .
+
+&lt;http://www.rbwm.gov.uk/id/directorate/adult-community-services&gt;
+  a rbwm:Directorate ;
+  rdfs:label &quot;Adult &amp; Community Services&quot;@en ;
+  org:unitOf &lt;http://statistics.data.gov.uk/id/local-authority/00ME&gt; ;
+  rbwm:provides &lt;http://www.rbwm.gov.uk/id/service/magnet-leisure-centre&gt; .
+
+&lt;http://statistics.data.gov.uk/id/local-authority/00ME&gt;
+  org:hasUnit &lt;http://www.rbwm.gov.uk/id/directorate/adult-community-services&gt; .
+</code></pre></div>
+<p>You&#39;ll see that in the last part of this I&#39;ve introduced some properties and classes with a <code>rbwm:</code> prefix. These are for classes and properties that are here in this data, but aren&#39;t part of the payment vocabulary. The basic schema is:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">rbwm:CostCentre a rdfs:Class ;
+  rdfs:label &quot;Cost Centre&quot;@en ;
+  rdfs:comment &quot;A cost centre.&quot;@en .
+
+rbwm:Service a rdfs:Class ;
+  rdfs:label &quot;Service&quot;@en ;
+  rdfs:comment &quot;A service provided by the council.&quot;@en .
+
+rbwm:Directorate a rdfs:Class ;
+  rdfs:label &quot;Directorate&quot;@en ;
+  rdfs:comment &quot;A directorate within the council&quot;@en .
+
+rbwm:service a rdf:Property , owl:ObjectProperty ;
+  rdfs:label &quot;Service&quot;@en ;
+  rdfs:comment &quot;The service associated with a particular cost centre.&quot;@en ;
+  rdfs:domain rbwm:CostCentre ;
+  rdfs:range rbwm:Service .
+
+rbwm:providedBy a rdf:Property , owl:ObjectProperty ;
+  rdfs:label &quot;Provided By&quot;@en ;
+  rdfs:comment &quot;The directorate that provides this service.&quot;@en ;
+  rdfs:domain rbwm:Service ;
+  rdfs:range rbwm:Directorate .
+
+rbwm:provides a rdf:Property , owl:ObjectProperty ;
+  rdfs:label &quot;Provides&quot;@en ;
+  rdfs:comment &quot;A service provided by this directorate.&quot;@en ;
+  rdfs:domain rbwm:Directorate ;
+  rdfs:range rbwm:Service .
+
+rbwm:costCentreCode a rdf:Property , owl:DatatypeProperty ;
+  rdfs:label &quot;Cost Centre Code&quot;@en ;
+  rdfs:comment &quot;The code of this cost centre.&quot;@en ;
+  rdfs:domain rbwm:CostCentre ;
+  rdfs:range rbwm:CostCentreCode .
+
+rbwm:CostCentreCode a rdfs:Datatype ;
+  rdfs:label &quot;Cost Centre Code&quot;@en ;
+  rdfs:comment &quot;A cost centre code consisting of two capital letters followed by two digits.&quot;@en .
+</code></pre></div>
+<p>This illustrates how individual councils might extend the information that they make available in RDF without having to seek any kind of prior agreement from anyone else. If, later on, a third party starts to make available ontologies for cost centres, services and directorates, Windsor &amp; Maidenhead could start to link up their RDF with those more widely standardised classes and properties, with appropriate use of <code>rdfs:subClassOf</code> or <code>rdfs:subPropertyOf</code>.</p>
+
+<p>Now we have an idea about what data we can extract for a single row, we can turn this into a Gridworks template. The templates are fairly straight forward. Wherever you want to insert a value from a particular column, you use the syntax <code>${Column Name}</code>. If you want to do any further processing, you can use the syntax `` to insert the result of a calculation.</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;http://www.rbwm.gov.uk/public/finance_supplier_payments_2010_q2&gt;
+  qb:slice &lt;${Transaction URI}&gt; .
+
+&lt;${Transaction URI}&gt;
+  a payment:Payment , qb:Slice ;
+  rdfs:label &quot;Transaction ${TransNo}&quot;@en ;
+  qb:sliceStructure payment:payment-slice ;
+  payment:transactionReference &quot;${TransNo}&quot; ;
+  payment:payer &lt;http://statistics.data.gov.uk/id/local-authority/00ME&gt; ;
+  payment:payee &lt;${Supplier URI}&gt; ;
+  payment:date &lt;${Date URI}&gt; ;
+  payment:expenditureLine &lt;http://www.rbwm.gov.uk/public/finance_supplier_payments_2010_q2${Line URI}&gt; .
+
+&lt;http://www.rbwm.gov.uk/public/finance_supplier_payments_2010_q2${Line URI}&gt;
+  a payment:ExpenditureLine , qb:Observation ;
+  rdfs:label &quot;Expenditure Line &quot;@en ;
+  qb:dataSet &lt;http://www.rbwm.gov.uk/public/finance_supplier_payments_2010_q2&gt; ;
+  payment:expenditureCode &lt;${Cost Centre URI}&gt; ;
+  payment:amountExcludingVAT  .
+</code></pre></div>
+<p>Note that the last line here uses the expression <code>cells[&#39;Amount excl vat £&#39;].value + 0</code> in order to ensure that every figure has a decimal place, which makes them into <code>xsd:decimal</code> values within the resulting RDF.</p>
+
+<p>I won&#39;t do the rest of the row template here, though it&#39;s <a href="/blog/files/finance_supplier_payments_2010_q2_provenance.ttl">available in full in a separate file</a>.</p>
+
+<p>The other parts of the template are easier to complete. The prefix needs to contain any namespace prefixes that are used within the RDF. It&#39;s also useful to put a base URI here and describe the dataset itself. The RDF for the dataset should contain a number of properties about the dataset as a whole. There are a number of levels at which the dataset can be described:</p>
+
+<ul>
+<li>basic metadata such as its title and the license that it&#39;s available under</li>
+<li>statistical metadata including what dimensions it has and how it&#39;s sliced</li>
+<li>linked data metadata such as how this dataset links out to other linked datasets</li>
+</ul>
+
+<p>The Turtle for this description is shown here:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;http://www.rbwm.gov.uk/public/finance_supplier_payments&gt;
+  a void:Dataset ;
+  void:subset &lt;http://www.rbwm.gov.uk/public/finance_supplier_payments_2010_q2&gt; .
+
+&lt;http://www.rbwm.gov.uk/public/finance_supplier_payments_2010_q2&gt;
+  a payment:PaymentDataset , void:Dataset ;
+  # basic metadata
+  rdfs:label &quot;Windsor &amp; Maidenhead Supplier Payments where charge to specific cost centre is &gt;= £500 for period April 2010 - June 2010&quot;@en ;
+  dct:license &lt;http://data.gov.uk/id/licence&gt; ;
+  dct:temporal [
+    # this time is retrieved from the Last-Modified date on the original spreadsheet
+    time:hasBeginning &lt;http://reference.data.gov.uk/id/gregorian-instant/2010-08-02T08:37:02&gt;
+  ] ;
+
+  # statistical metadata
+  qb:structure payment:payments-with-expenditure-structure ;
+  qb:sliceKey payment:payment-slice ;
+  payment:currency &lt;http://dbpedia.org/resource/Pound_sterling&gt; ;
+
+  # linked data metadata
+  void:exampleResource
+    &lt;http://www.rbwm.gov.uk/id/transaction/2650750&gt; ,
+    &lt;http://www.rbwm.gov.uk/public/finance_supplier_payments_2010_q2#0&gt; ;
+  void:vocabulary payment: , qb: , rbwm: ;
+  void:subset [
+    a void:Linkset ;
+    void:linkPredicate qb:slice ;
+    void:subjectsTarget &lt;http://www.rbwm.gov.uk/public/finance_supplier_payments_2010_q2&gt; ;
+    void:objectsTarget &lt;http://www.rbwm.gov.uk/id/transaction&gt; ;
+  ] , [
+    a void:Linkset ;
+    void:linkPredicate payment:payer ;
+    void:subjectsTarget &lt;http://www.rbwm.gov.uk/id/transaction&gt; ;
+    void:objectsTarget &lt;http://statistics.data.gov.uk/id/local-authority&gt; ;
+  ] , [
+    a void:Linkset ;
+    void:linkPredicate payment:payee ;
+    void:subjectsTarget &lt;http://www.rbwm.gov.uk/id/transaction&gt; ;
+    void:objectsTarget &lt;http://www.rbwm.gov.uk/id/supplier&gt; ;
+  ] , [
+    a void:Linkset ;
+    void:linkPredicate payment:date ;
+    void:subjectsTarget &lt;http://www.rbwm.gov.uk/id/transaction&gt; ;
+    void:objectsTarget &lt;http://reference.data.gov.uk/id/day&gt; ;
+  ] , [
+    a void:Linkset ;
+    void:linkPredicate payment:expenditureLine ;
+    void:subjectsTarget &lt;http://www.rbwm.gov.uk/id/transaction&gt; ;
+    void:objectsTarget &lt;http://www.rbwm.gov.uk/public/finance_supplier_payments_2010_q2&gt; ;
+  ] , [
+    a void:Linkset ;
+    void:linkPredicate payment:expenditureCode ;
+    void:subjectsTarget &lt;http://www.rbwm.gov.uk/public/finance_supplier_payments_2010_q2&gt; ;
+    void:objectsTarget &lt;http://www.rbwm.gov.uk/def/cost-centre&gt; ;
+  ] , [
+    a void:Linkset ;
+    void:linkPredicate rbwm:service ;
+    void:subjectsTarget &lt;http://www.rbwm.gov.uk/def/cost-centre&gt; ;
+    void:objectsTarget &lt;http://www.rbwm.gov.uk/id/service&gt; ;
+  ] , [
+    a void:Linkset ;
+    void:linkPredicate rbwm:providedBy ;
+    void:subjectsTarget &lt;http://www.rbwm.gov.uk/id/service&gt; ;
+    void:objectsTarget &lt;http://www.rbwm.gov.uk/id/directorate&gt; ;
+  ] , [
+    a void:Linkset ;
+    void:linkPredicate rbwm:provides ;
+    void:subjectsTarget &lt;http://www.rbwm.gov.uk/id/directorate&gt; ;
+    void:objectsTarget &lt;http://www.rbwm.gov.uk/id/service&gt; ;
+  ] , [
+    a void:Linkset ;
+    void:linkPredicate org:hasUnit ;
+    void:subjectsTarget &lt;http://statistics.data.gov.uk/id/local-authority&gt; ;
+    void:objectsTarget &lt;http://www.rbwm.gov.uk/id/directorate&gt; ;
+  ] , [
+    a void:Linkset ;
+    void:linkPredicate org:unitOf ;
+    void:subjectsTarget &lt;http://www.rbwm.gov.uk/id/directorate&gt; ;
+    void:objectsTarget &lt;http://statistics.data.gov.uk/id/local-authority&gt; ;
+  ] .
+</code></pre></div>
+<h2>Provenance</h2>
+
+<p>I&#39;ve described here, verbally, exactly what I&#39;ve done in terms of the cleaning of the data, deriving new columns, and the template that I&#39;ve used to create a Turtle rendition of the data in this spreadsheet. One of the things that we&#39;ve worked hard on within data.gov.uk is finding ways of expressing this provenance information in RDF. There are two reasons for this:</p>
+
+<ol>
+<li>Providing provenance increases transparency and enables you to check the processing that the data has been through, increasing your trust in the data.</li>
+<li>Describing the process in sufficient detail for you to replicate that process enables you to modify and repeat the process, which both enables you to add value and to apply the same processing to your own situation, thus spreading best practice.</li>
+</ol>
+
+<p>The basic provenance vocabulary that we&#39;re using within data.gov.uk is the <a href="http://code.google.com/p/opmv/">Open Provenance Model Vocabulary</a>. This vocabulary talks about Artifacts, Processes that create and use them, and Agents that control those processes. We&#39;ve created an extension of this vocabulary specifically to help describe this kind of scenario, where a spreadsheet is processed using Gridworks and then exported using a template. I&#39;ll put this provenance information in a separate file simply because embedding provenance information, which includes a template, in the template itself gets us into nasty recursion issues.</p>
+
+<p>As well as the template, there are two supplementary artifacts that we need to record the provenance of this data:</p>
+
+<ul>
+<li>the Gridworks project itself</li>
+<li>the JSON description of the set of operations performed by Gridworks</li>
+</ul>
+
+<p>The first can be exported using the <code>Project</code> menu. The second is accessed through the <code>Undo/Redo</code> tab as shown in the following screenshot:</p>
+
+<p><img src="/blog/files/undo-redo.jpg" title="Undo/Redo tab" style="text-align: center" /></p>
+
+<p>This tab shows the actions that have been carried out on the data, and enables you to undo them in sequence. The <code>extract</code> link at the bottom opens up the dialog shown in the following screenshot:</p>
+
+<p><img src="/blog/files/extract-dialog.jpg" title="Extract Operations dialog" style="width: 100%" /></p>
+
+<p>You have to manually copy and paste the JSON description from the right of this dialog into a separate file in order to save it.</p>
+
+<p>We can then start describing the provenance of the RDF; this needs to go in the Turtle file itself. We start by saying that the RDF that we&#39;ve created was created from the Gridworks project and through an extraction operation. A simple link to the spreadsheet that was used as the source of the data also provides a quick link back to the original data:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;http://www.rbwm.gov.uk/public/finance_supplier_payments_2010_q2&gt;
+  a opmv:Artifact ;
+  dct:source &lt;http://www.rbwm.gov.uk/public/finance_supplier_payments_2010_q2.xls&gt; ;
+  gridworks:wasExportedBy &lt;finance_supplier_payments_2010_q2_provenance#gridworks-export&gt; ;
+  gridworks:wasExportedFrom &lt;finance_supplier_payments_2010_q2_project.tar.gz&gt; .
+</code></pre></div>
+<p>The provenance information then needs to describe the export process:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;#gridworks-export&gt;
+  a gridworks:ExportUsingTemplate , opmv:Process ;
+  rdfs:label &quot;Process for Exporting Windsor &amp; Maidenhead data as Turtle&quot; ;
+  gridworks:project &lt;finance_supplier_payments_2010_q2_project.tar.gz&gt; ;
+  gridworks:template &lt;#gridworks-template&gt; .
+</code></pre></div>
+<p>The project itself was created from the original Excel spreadsheet. The details of how it was generated are through an import that ignored a single non-blank header row and then went through the set of operations described by the JSON.</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;finance_supplier_payments_2010_q2_project.tar.gz&gt;
+  a gridworks:Project , opmv:Artifact ;
+  rdfs:label &quot;Windsor &amp; Maidenhead Supplier Payments April 2010 - June 2010 Gridworks Project&quot;@en ;
+  gridworks:wasCreatedFrom &lt;http://www.rbwm.gov.uk/public/finance_supplier_payments_2010_q2.xls&gt; ;
+  opmv:wasGeneratedBy &lt;#gridworks-processing&gt; .
+
+&lt;#gridworks-processing&gt;
+  a gridworks:Process , opmv:Process ;
+  rdfs:label &quot;Processing on the Gridworks Project&quot;@en ;
+  common:usedData &lt;http://www.rbwm.gov.uk/public/finance_supplier_payments_2010_q2.xls&gt; ;
+  gridworks:ignore 1 ;
+  gridworks:operationDescription &lt;finance_supplier_payments_2010_q2_operations.json&gt; .
+
+&lt;finance_supplier_payments_2010_q2_operations.json&gt;
+  a gridworks:OperationDescription , opmv:Artifact ;
+  rdfs:label &quot;Dump of the Processing carried out by Gridworks on Windsor &amp;amp; Maidenhead Supplier Payments April 2010 - June 2010 data&quot;@en ;
+  gridworks:wasExportedFrom &lt;finance_supplier_payments_2010_q2_project.tar.gz&gt; ;
+  gridworks:wasExportedBy &lt;#gridworks-operation-description-extraction&gt; .
+
+&lt;#gridworks-operation-description-extraction&gt;
+  a gridworks:ExtractOperationDescription , opmv:Process ;
+  rdfs:label &quot;Extraction of the operation description from the Windsor &amp;amp; Maidenhead Supplier Payments April 2010 - June 2010 Project from Gridworks&quot;@en ;
+  gridworks:project &lt;finance_supplier_payments_2010_q2_project.tar.gz&gt; .
+</code></pre></div>
+<p>The template is described in terms of the separate parts; in fact it&#39;s useful to use this provenance file as the record of the template that you use, given that Gridworks won&#39;t save the template in the project itself.</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;#gridworks-template&gt;
+  a gridworks:Template , opmv:Artifact ;
+  gridworks:prefix &quot;&quot;&quot;
+...
+&quot;&quot;&quot;^^xsd:string ;
+  gridworks:rowTemplate &quot;&quot;&quot;
+...
+&quot;&quot;&quot;^^^xsd:string .
+</code></pre></div>
+<h2>Rinse and Repeat</h2>
+
+<p>Gridworks makes it easy to repeat a given set of operations on another spreadsheet that follows the same structure. If you download the <a href="http://www.rbwm.gov.uk/web/finance_payments_to_suppliers.htm">Windsor and Maidenhead spending data from 2009 Q4</a> and import it into Gridworks, you&#39;ll see that it uses the same set of columns as the 2010 Q2 data that we&#39;ve been looking at. (Strangely enough, the 2010 Q1 data doesn&#39;t quite follow the same structure as it doesn&#39;t include the &#39;TransNo&#39; column.)</p>
+
+<p>There are a couple of differences:</p>
+
+<ul>
+<li>the &#39;Updated&#39; column isn&#39;t recognised as holding dates on import; you can use <code>Edit Cells... &gt; Transform</code> to change these values into dates using the <code>toDate(value)</code> formula</li>
+<li>the &#39;Amount excl vat £&#39; column isn&#39;t recognised as holding numbers on import because the values have commas in them; you can use the formula <code>toNumber(replace(value, &#39;,&#39;, &#39;&#39;))</code> to rectify this</li>
+</ul>
+
+<p>You might want to do some more cleaning, for example to check for duplicates, but once that is done, you use the <code>apply</code> link at the bottom of the <code>Undo/Redo</code> tab to apply the JSON operation description that you imported for the previous spreadsheet on this one. The templates require only a little tweaking to give different filenames and labels, but otherwise can be used as-is.</p>
+
+<p>So while the process of cleaning data, deriving values and creating a template for exporting as Turtle is a bit of effort, the likelihood is that you will be able to repeat the same operations on similar data with a minimal amount of work.</p>
+
+<h2>Conclusions</h2>
+
+<p>Gridworks is a simply amazing tool for data cleansing, analysis and, as we&#39;ve seen, transformation. It&#39;s set to become more so for our purposes in the near future, as it comes to support the mapping of names for things to URIs using configurable reconciliation services (which might allow it to automatically map Government Department names to URIs, for example), and the creation of RDF using a more intuitive and user-friendly approach than the templates that I&#39;ve illustrated here.</p>
+
+<p>Of course there are issues, particularly for UK civil servants who typically have to operate on locked-down machines running IE7 (if they&#39;re lucky). Gridworks also only deals with the fairly simple cases of data that fits in a spreadsheet-like structure, without the complexities of annotations on rows, columns or individual cells that we often see in government data.</p>
+
+<p>Nevertheless, there&#39;s huge potential here to provide a fairly easy route to the publication of linked data for people who are familiar with spreadsheets, in particular one that can be tweaked and extended to allow for the variety and complexity of real-world data.</p>

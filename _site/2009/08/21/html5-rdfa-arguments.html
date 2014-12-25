@@ -1,0 +1,96 @@
+<p>When I came back from holiday, I caught up with the recent <a href="http://lists.w3.org/Archives/Public/public-rdf-in-xhtml-tf/2009Aug/thread.html">discussions around RDFa and HTML5</a>. It&#39;s exhausting reading so many posts repetitively reiterating the positions of people who all have the best of intentions but fundamentally different priorities. And such a shame that so much energy is spent on fruitless discussion when it could be spent at the very least improving specifications, if not testing, implementing, experimenting or otherwise in some very minor way changing the world.</p>
+
+<!--break-->
+
+<p>The particular thread&#39;s subject was the use of prefixes, which are used to provide a shorthand for URIs, which are used to name properties such as <code>http://xmlns.com/foaf/0.1/firstName</code>. It&#39;s unquestionable, really, that prefixes are a source of problems:</p>
+
+<ul>
+<li>with copy-and-paste, because it&#39;s easy to lose the bindings that are used to construct the full URI</li>
+<li>in general understandability, because people just don&#39;t get the idea that the prefix <code>foaf</code> could be used for something other than <code>http://xmlns.com/foaf/0.1/</code> or that <code>http://xmlns.com/foaf/0.1/</code> might be bound to a prefix other than <code>foaf</code></li>
+<li>when declared using namespace declarations, because of differences in interpretation between HTML and XHTML and for the general namespaces-in-content problems that we see in XML</li>
+</ul>
+
+<p>I think it&#39;s generally the case that the Semantic Web community, who are used to using syntaxes such as RDF/XML and Turtle which use prefixes all the time, judge these as being less disadvantageous than the members of the HTML5 community, who are much more in touch with and concerned about the &quot;common user&quot;.</p>
+
+<p>But underlying the arguments about the costs of prefixes are arguments about whether these disadvantages are important enough to stop</p>
+
+<ol>
+<li>giving people shorthands for URIs and/or</li>
+<li>using URIs when naming properties and/or</li>
+<li>using RDF as the data model for data on the web</li>
+</ol>
+
+<p>Fundamentally, members of the Semantic Web (capital S, capital W) community take it as a matter of faith that the correct data model to use for expressing data about things both on and off the web is RDF. If there&#39;s anything that defines the Semantic Web community, it&#39;s that underlying assumption. (Well, probably: I&#39;m sure there are still some who hanker after Topic Maps.)</p>
+
+<p>Further, they think it is absolutely essential that if a property such as &#39;first name&#39; is used within a page, you can <code>GET</code> a URI to find interesting information about the property. For example, with <code>http://xmlns.com/foaf/0.1/firstName</code>, you will get</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">  &lt;rdf:Property rdf:about=&quot;http://xmlns.com/foaf/0.1/firstName&quot; 
+    vs:term_status=&quot;testing&quot; 
+    rdfs:label=&quot;firstName&quot; 
+    rdfs:comment=&quot;The first name of a person.&quot;&gt;
+    &lt;rdf:type rdf:resource=&quot;http://www.w3.org/2002/07/owl#DatatypeProperty&quot;/&gt;
+    &lt;rdfs:domain rdf:resource=&quot;http://xmlns.com/foaf/0.1/Person&quot;/&gt;
+    &lt;rdfs:range rdf:resource=&quot;http://www.w3.org/2000/01/rdf-schema#Literal&quot;/&gt;
+    &lt;rdfs:isDefinedBy rdf:resource=&quot;http://xmlns.com/foaf/0.1/&quot;/&gt;
+  &lt;/rdf:Property&gt;
+</code></pre></div>
+<p>which among other things includes a human-readable label that you might use in a display of information about things that have the property, and a statement about the domain of the property, from which you can tell that anything that has a <code>http://xmlns.com/foaf/0.1/firstName</code> property is a <code>http://xmlns.com/foaf/0.1/Person</code>.</p>
+
+<p>Given that you need URIs for properties, members of the Semantic Web community generally think that you need a way to shorten those URIs to make them palatable to people who might be embedding metadata in their pages. The cost of that is that you have to use prefixes, with the disadvantages that I&#39;ve outlined above, but it&#39;s a cost that&#39;s worth paying to gain resolvability and concision. And since it can be done in RDF/XML and Turtle and SPARQL and almost every other syntax in existence for expressing RDF, it seems unnatural not to be able to do it in the metadata embedded within webpages.</p>
+
+<p>At an equally fundamental level, members of the HTML5 community are unconvinced that RDF is a necessary or useful model to use for data. They do not see how it offers significant advantages over Javascript object structures, for example.</p>
+
+<p>Part of the reason for not being convinced of the utility of RDF is that members of the HTML5 community think it simply isn&#39;t important for properties to be named with resolvable URIs. After all, <a href="http://microformats.org/">microformats</a> have illustrated that applications can derive meaning without having a machine-readable definition of the semantics of a property.</p>
+
+<p>I haven&#39;t heard them make these arguments, but they could also point out that there are vastly more mash-ups constructed with the developer having knowledge and understanding of the data that they are mashing up (and therefore requiring human-readable but not machine-readable definitions), than there are generic applications that could, or do, actually retrieve and reason with schemas or ontologies.</p>
+
+<p>Some within the HTML5 community even think it is <em>dangerous</em> to use information from a property or class&#39;s URI, because if the metadata within an HTML page can only be accurately understood when coupled with information from an external document, applications that are built on being able to locate that external information are in real trouble if (when) that document disappears, either temporarily or permanently.</p>
+
+<p>For example, say that I have a page that contains the triple:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;http://www.jenitennison.com/#me&gt; 
+  &lt;http://xmlns.com/foaf/0.1/firstName&gt; &quot;Jenifer&quot;^^&lt;http://www.w3.org/2001/XMLSchema#token&gt; .
+</code></pre></div>
+<p>If it is the case that an application that resolves that triple also (a) retrieves the information available about the property and (b) reasons using it and any information derived from it, then having that triple in my page entails:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;http://www.jenitennison.com/#me&gt; 
+  a &lt;http://xmlns.com/foaf/0.1/Person&gt; ,
+  a &lt;http://xmlns.com/foaf/0.1/Agent&gt; ,
+  a &lt;http://www.w3.org/2000/10/swap/pim/contact#Person&gt; ,
+  a &lt;http://www.w3.org/2000/10/swap/pim/contact#SocialEntity&gt; ,
+  a &lt;http://www.w3.org/2003/01/geo/wgs84_pos#SpatialThing&gt; .
+</code></pre></div>
+<p>but this information can only be known by collecting the documents at:</p>
+
+<ul>
+<li><code>http://xmlns.com/foaf/0.1/firstName</code></li>
+<li><code>http://xmlns.com/foaf/0.1/Person</code> (actually the same document as <code>http://xmlns.com/foaf/0.1/firstName</code> but I can&#39;t know that)</li>
+<li><code>http://xmlns.com/foaf/0.1/Agent</code> (as with <code>http://xmlns.com/foaf/0.1/Person</code>, actually the same document as <code>http://xmlns.com/foaf/0.1/firstName</code>)</li>
+<li><code>http://www.w3.org/2000/10/swap/pim/contact</code></li>
+<li><code>http://www.w3.org/2003/01/geo/wgs84_pos</code> (resolving this doesn&#39;t actually tell me anything extra, but I have to do it all the same to check)</li>
+</ul>
+
+<p>In these circumstances, if, say, <code>http://xmlns.com/foaf/0.1/Person</code> can&#39;t be located (my connection dips out for a second or whatever) then suddenly the page&#39;s metadata <em>means</em> something different, which is surely a problem in a <em>Semantic</em> Web.</p>
+
+<p>Putting aside all that, even if you did need URIs for properties, the HTML5 community feels that the costs in usability of using prefixes to shorten URIs are simply too high to justify the benefit of concision. Why not simply use the full URI within an attribute?</p>
+
+<p>In summary, you will not be able to persuade members of the HTML5 community that it&#39;s worth paying the usability cost of prefixes until you have persuaded them:</p>
+
+<ul>
+<li>that RDF has significant advantages as a way of modelling data over and above Javascript object structures</li>
+<li>that the ability to resolve the URIs that are used to name properties is not dangerous, and can even be helpful</li>
+<li>that it is ugly and tedious to have to use full URIs when naming properties</li>
+</ul>
+
+<p>Really I&#39;m just trying to draw attention to the fact that the HTML5 community has very reasonable concerns about things much more fundamental than using prefix bindings. After redrafting this concluding section many times, the things that I want to say are:</p>
+
+<ul>
+<li>so wouldn&#39;t things be better if we put as much effort into understanding each other as persuading each other (hah, what an idealist!)</li>
+<li>so we will make more progress in discussions if we focus on the underlying arguments</li>
+<li>so we need to talk in a balanced way about the advantages and disadvantages of RDF</li>
+</ul>
+
+<p>or, in a more realistic frame of mind:</p>
+
+<ul>
+<li>so it&#39;s just not going to happen for HTML5</li>
+<li>so why not just stop arguing and use the spare time and energy <em>doing</em>?</li>
+<li>so why not demonstrate RDF&#39;s power in real-world applications?</li>
+</ul>

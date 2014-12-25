@@ -1,0 +1,158 @@
+<p>To me, the biggest deficiency in RDF is how hard it is to associate metadata with statements. I&#39;ve <a href="http://www.jenitennison.com/blog/node/85" title="Jeni&#39;s Musings: Metadata about RDF triples: reification and Linked Data">talked before</a> about the requirement in the genealogical application I&#39;m toying with to provide metadata such as who made a statement, when, based on which source, the certainty in it and so on. But there&#39;s one type of metadata that I think is required in practically every domain: the temporal scoping of statements.</p>
+
+<!--break-->
+
+<p>In the <a href="http://2008.xtech.org/public/schedule/detail/528" title="XTech 2008: SemWebbing the London Gazette">London Gazette RDFa work</a> that we&#39;ve been doing for <a href="http://www.opsi.gov.uk/" title="Office of Public Sector Information">OPSI</a> at <a href="http://www.tso.co.uk/" title="The Stationery Office">TSO</a>, there are frequently notices that contain a statement that is not true at the time the notice is published, but will become true on a particular date in the future. Take this example from <a href="http://www.london-gazette.co.uk/issues/58976/notices/732083" title="Issue 58976: Notice 732083">a notice published on 10th February 2009</a>:</p>
+
+<blockquote>
+<p>Jikoa Chiwete Monu, ceased to be a Partner in John &amp; Co Solicitors, of Suites G, H &amp; I, 1st Floor, 135-143 Stockwell Road, London SW9 9TN, with effect from 30 January 2009.</p>
+</blockquote>
+
+<p>We know that Jikoa Chiwete Monu was a partner in John &amp; Co Solicitors <em>up to</em> 30 January 2009, and was not a partner in John &amp; Co Solicitors <em>after</em> 30 January 2009. We know that on 10 February 2009, the address of John &amp; Co Solicitors was the one given in the notice, but we don&#39;t know that was their address a year ago.</p>
+
+<p>Notices like this are published every day in the London Gazette. The assertions in the notices reflect the state of the world on the day the notice is published, or (as in this case) at some other known date. Also, the date on which a notice is published is important: in many cases it has legal significance. But it would be wrong to believe that the statements in the notices continue to be true indefinitely, or that they were true before the date of publication.</p>
+
+<p>There seem to be two acceptable ways of handling the problem, and one unacceptable way. The unacceptable way is to give a reified triple and hang metadata from that reified object. Something like:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">:triple1 a rdf:Statement ;
+  rdf:subject :JikoaChiweteMonu ;
+  rdf:predicate partnerships:isMemberOf ;
+  rdf:object :JohnAndCoSolicitors ;
+  dc:temporal [ 
+    g:endDate &quot;2009-01-30&quot;^^xsd:date 
+  ] .
+
+:triple2 a rdf:Statement ;
+  rdf:subject :JohnAndCoSolicitors ;
+  rdf:predicate organisation:hasAddress ;
+  rdf:object [
+    a vcard:Address ;
+    vcard:street-address &quot;135-143 Stockwell Road&quot; ;
+    vcard:locality &quot;London&quot; ;
+    vcard:postal-code &quot;SW9 9TN&quot;
+  ] ;
+  dc:temporal [
+    g:includesDate &quot;2009-02-10&quot;^^xsd:date 
+  ] .
+</code></pre></div>
+<p>The reason that this is unacceptable is that reified statements aren&#39;t incorporated into triplestores in the same way as normal statements, so you can&#39;t query as naturally on these statements as you can on unreified statements. It&#39;s even more of a problem when some of the triples are reified and some aren&#39;t.</p>
+
+<p>On to the acceptable ways of representing the temporal scope of the statements. One is to create objects that represent things like &#39;membership&#39; and &#39;occupation&#39;. Then you can do things like:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">:membership a partnerships:Membership ;
+  partnerships:hasMember :JikoaChiweteMonu ;
+  partnerships:hasPartnership :JohnAndCoSolicitors ;
+  dc:temporal [
+    g:endDate &quot;2009-01-30&quot;^^xsd:date 
+  ] .
+
+:occupation a organisation:Occupation ;
+  organisation:isOccupiedBy :JohnAndCoSolicitors ;
+  organisation:hasAddress [
+    a vcard:Address ;
+    vcard:street-address &quot;135-143 Stockwell Road&quot; ;
+    vcard:locality &quot;London&quot; ;
+    vcard:postal-code &quot;SW9 9TN&quot;
+  ] ;
+  dc:temporal [
+    g:includesDate &quot;2009-02-10&quot;^^xsd:date
+  ] .
+</code></pre></div>
+<p>The other approach is to use named graphs to provide metadata about the statements. This next example uses <a href="http://www4.wiwiss.fu-berlin.de/bizer/TriG/" title="TriG Syntax">TriG syntax</a>, in which statements can be clustered into named graphs:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">:G1 {
+  :JikoaChiweteMonu partnerships:isMemberOf :JohnAndCoSolicitors .
+}
+:G2 {
+  :JohnAndCoSolicitors organisation:hasAddress [
+    a vcard:Address ;
+    vcard:street-address &quot;135-143 Stockwell Road&quot; ;
+    vcard:locality &quot;London&quot; ;
+    vcard:postal-code &quot;SW9 9TN&quot;
+  ] .
+}
+{
+  :G1 dc:temporal [
+    g:endDate &quot;2009-01-30&quot;^^xsd:date 
+  ] .
+  :G2 dc:temporal [
+    g:includesDate &quot;2009-02-10&quot;^^xsd:date 
+  ] .
+}
+</code></pre></div>
+<p>I prefer the latter approach because it doesn&#39;t require any forward planning: you don&#39;t have to think before hand about the ways in which things might change over time in order to make statements about the temporal scope of assertions. If you look at existing ontologies, such as FOAF, they don&#39;t really address the fact that people might change their name or (even more likely) place of work over time.</p>
+
+<p>If you think about it long term (which we have to given that the Gazette goes back 350 years or thereabouts), even the details of an address can change over time, as streets can change name, be reclassified as boundaries change to belong to different localities and regions, and can change their postcode. Introducing additional resources for all these temporally scoped statements would cause an amazing amount of bloat and lots of indirection.</p>
+
+<p>The named graph method also, in my opinion, enables more natural querying of the dataset. You can do something like:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">SELECT ?locality
+WHERE {
+  :JohnAndCoSolicitors organisation:hasAddress ?address .
+  ?address vcard:locality ?locality .
+}
+</code></pre></div>
+<p>rather than:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">SELECT ?locality
+WHERE {
+  ?occupation organisation:isOccupiedBy :JohnAndCoSolicitors ;
+              organisation:hasAddress ?address .
+  ?address vcard:locality ?locality .
+}
+</code></pre></div>
+<p>Named graphs can be queried with SPARQL. So with the named graph method, it&#39;s possible to find look for partners of <code>:JohnAndCoSolicitors</code> prior to a particular date:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">SELECT ?partner
+WHERE {
+  GRAPH ?graph {
+    ?person partnerships:isMemberOf :JohnAndCoSolicitors .
+  }
+  OPTIONAL {
+    ?graph dc:temporal ?scope .
+    ?scope g:endDate ?date .
+    FILTER (?date &gt; &quot;2009-01-01&quot;^^xsd:date) 
+  }
+}
+</code></pre></div>
+<p>But the standard way of naming a graph seems to be to use the location from which the graph was retrieved. This makes a lot of sense as a default: you can infer the provenance, and that the statements on the page were true on the day the RDF representation was retrieved. But it doesn&#39;t work in cases like that above where there are several statements on the page with different provenance or certainty or temporal scope (or any other statement metadata you might care to mention).</p>
+
+<p>We&#39;re serving the London Gazette notices as RDFa, so the challenge is how to incorporate information about the graph in which a triple appears within RDFa.</p>
+
+<p>A generalised way to do it would be to introduce a new <code>graph</code> attribute, defaulting to the base URI of the page. Then we could do:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;meta about=&quot;[:G2]&quot; property=&quot;g:onDate&quot; content=&quot;2009-02-10&quot; datatype=&quot;xsd:date&quot; /&gt;
+...
+&lt;p graph=&quot;[:G1]&quot; about=&quot;[:JikoaChiweteMonu]&quot;&gt;
+  Jikoa Chiwete Monu, ceased to be a Partner in 
+  &lt;span rel=&quot;partnerships:isMemberOf&quot; resource=&quot;[:JohnAndCoSolicitors]&quot;&gt;
+    John &amp; Co Solicitors, of 
+    &lt;span graph=&quot;[:G2]&quot; rel=&quot;organisation:hasAddress&quot;&gt;
+      &lt;span typeof=&quot;vcard:Address&quot;&gt;
+        Suites G, H &amp; I, 1st Floor, 
+        &lt;span property=&quot;vcard:street-address&quot;&gt;135-143 Stockwell Road&lt;/span&gt;, 
+        &lt;span property=&quot;vcard:locality&quot;&gt;London&lt;/span&gt; 
+        &lt;span property=&quot;vcard:postal-code&quot;&gt;SW9 9TN&lt;/span&gt;
+      &lt;/span&gt;
+    &lt;/span&gt;
+  &lt;/span&gt;, with effect from 
+  &lt;span about=&quot;[:G1]&quot; property=&quot;g:endDate&quot; 
+    content=&quot;2009-01-30&quot; datatype=&quot;xsd:date&quot;&gt;30 January 2009&lt;/span&gt;.
+&lt;/p&gt;
+</code></pre></div>
+<p>Another possibility would be to use the <code>id</code> attribute to label parts of the page that hold statements, and use fragment identifiers in <code>about</code> attributes to provide metadata about those particular statements:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;meta about=&quot;#G2&quot; property=&quot;g:onDate&quot; content=&quot;2009-02-10&quot; datatype=&quot;xsd:date&quot; /&gt;
+...
+&lt;p id=&quot;G1&quot; about=&quot;[:JikoaChiweteMonu]&quot;&gt;
+  Jikoa Chiwete Monu, ceased to be a Partner in 
+  &lt;span rel=&quot;partnerships:isMemberOf&quot; resource=&quot;[:JohnAndCoSolicitors]&quot;&gt;
+    John &amp; Co Solicitors, of 
+    &lt;span id=&quot;G2&quot; rel=&quot;organisation:hasAddress&quot;&gt;
+      &lt;span typeof=&quot;vcard:Address&quot;&gt;
+        Suites G, H &amp; I, 1st Floor, 
+        &lt;span property=&quot;vcard:street-address&quot;&gt;135-143 Stockwell Road&lt;/span&gt;, 
+        &lt;span property=&quot;vcard:locality&quot;&gt;London&lt;/span&gt; 
+        &lt;span property=&quot;vcard:postal-code&quot;&gt;SW9 9TN&lt;/span&gt;
+      &lt;/span&gt;
+    &lt;/span&gt;
+  &lt;/span&gt;, with effect from 
+  &lt;span about=&quot;#G1&quot; property=&quot;g:endDate&quot; 
+    content=&quot;2009-01-30&quot; datatype=&quot;xsd:date&quot;&gt;30 January 2009&lt;/span&gt;.
+&lt;/p&gt;
+</code></pre></div>
+<p>The disadvantage of this approach is that you can&#39;t have statements in two different parts of the page that belong to the same graph. On the other hand, it&#39;s valid!</p>
+
+<p>I&#39;m really interested in other approaches that people have used to address the requirement of associating metadata with triples, particularly using RDFa. I&#39;m also interested to know if anyone has existing vocabularies for periods of time with known start/end dates and included dates.</p>

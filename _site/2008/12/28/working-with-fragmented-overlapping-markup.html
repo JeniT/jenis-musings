@@ -1,0 +1,245 @@
+<p>In my <a href="http://www.jenitennison.com/blog/node/97" title="Jeni&#39;s Musings: Representing Overlap in XML">last post</a> I talked about different techniques for representing overlap within XML. One technique is fragmentation. In the work that I&#39;ve been doing, I&#39;ve been using milestone-based formats similar to <a href="http://www.lmnl.org/wiki/index.php/ECLIX" title="LMNL Wiki: Extended Canonical LMNL in XML">ECLIX</a>, but my eyes were opened at the <a href="http://ilps.science.uva.nl/PoliticalMashup/2008/11/workshop-on-multi-dimensional-markup/" title="Workshop on Multi-Dimensional Markup">GODDAG workshop</a>: fragmentation would make overlap so much easier to process in XSLT, especially when dealing with localised overlap such as revision or comment markup.</p>
+
+<p>But how could fragmentation be used with full-on overlap? I had a little play and came up with <a href="http://www.jenitennison.com/blog/files/fragmentation-utils.xsl" title="fragmentation-utils.xsl">some XSLT to demonstrate</a>.</p>
+
+<!--break-->
+
+<h2>Fragmentation Example</h2>
+
+<p>First, an example of how to represent overlap using fragments. Using fragments for overlap comes straight out of the support for <a href="http://www.tei-c.org/release/doc/tei-p5-doc/en/html/SA.html#SAAG" title="TEI: Linking, Segmentation, and Alignment: Aggregation">aggregation within TEI</a> where they&#39;re used to not only represent overlapping structures but to construct completely new &quot;virtual&quot; elements that are not necessarily contiguous (and may even contain fragments in different orders from how they appear in the text). In TEI, they usually use the <code>next</code> and <code>prev</code> attributes to point from one fragment to another in order to reconstruct the element.</p>
+
+<p>In the example here, I&#39;ve done something slightly different, namely to use an ID in the <code>http://www.jenitennison.com/xslt/fragmentation</code> namespace to link the elements: all elements with the same ID are actually the same element. Here&#39;s what it looks like.</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;book xmlns:f=&quot;http://www.jenitennison.com/xslt/fragmentation&quot;&gt;
+    &lt;page f:id=&quot;page199&quot; n=&quot;199&quot;&gt;
+        ...
+    &lt;/page&gt;
+    &lt;poem&gt;
+        &lt;page f:id=&quot;page199&quot; n=&quot;199&quot;&gt;
+            &lt;title&gt;
+                &lt;pl&gt;Recueillement&lt;/pl&gt;
+            &lt;/title&gt;
+            &lt;stanza&gt;
+                &lt;sl&gt;&lt;s&gt;&lt;pl&gt;Sois sage, ô ma douleur, et tiens-toi plus &lt;/pl&gt;
+                                                          &lt;pl&gt;tranquille.&lt;/pl&gt;&lt;/s&gt;&lt;/sl&gt;
+                &lt;s&gt;
+                    &lt;sl&gt;&lt;pl&gt;Tu réclamais le Soir; il descend; le voici:&lt;/pl&gt;&lt;/sl&gt;
+                    &lt;sl&gt;&lt;pl&gt;Une atmosphère obscure enveloppe la ville,&lt;/pl&gt;&lt;/sl&gt;
+                    &lt;sl&gt;&lt;pl&gt;Aux uns portant la paix, aux autres le souci.&lt;/pl&gt;&lt;/sl&gt;
+                &lt;/s&gt;
+            &lt;/stanza&gt;
+            &lt;stanza&gt;
+              &lt;s f:id=&quot;s3&quot;&gt;
+                  &lt;sl&gt;&lt;pl&gt;Pendant que des mortels la multitude vile,&lt;/pl&gt;&lt;/sl&gt;
+                  &lt;sl&gt;&lt;pl&gt;Sous le fouet du Plaisir, ce bourreau sans merci,&lt;/pl&gt;&lt;/sl&gt;
+                  &lt;sl&gt;&lt;pl&gt;Va cueillir des remords dans la fête servile,&lt;/pl&gt;&lt;/sl&gt;
+                  &lt;sl&gt;&lt;pl&gt;Ma douleur, donne moi la main; viens par ici,&lt;/pl&gt;&lt;/sl&gt;
+        &lt;/s&gt;
+            &lt;/stanza&gt;
+            &lt;stanza&gt;
+                &lt;sl&gt;&lt;pl&gt;&lt;s f:id=&quot;s3&quot;&gt;Loin d&#39;eux. &lt;/s&gt;&lt;s f:id=&quot;s4&quot;&gt;Vois se pencher les défuntes &lt;/s&gt;&lt;/pl&gt;
+                                                                        &lt;pl&gt;&lt;s f:id=&quot;s4&quot;&gt;Années, &lt;/s&gt;&lt;/pl&gt;&lt;/sl&gt;
+                &lt;s f:id=&quot;s4&quot;&gt;
+                  &lt;sl&gt;&lt;pl&gt;Sur les balcons du ciel, en robes surannées; &lt;/pl&gt;&lt;/sl&gt;
+                  &lt;sl&gt;&lt;pl&gt;Surgir du fond des eaux le Regret souriant; &lt;/pl&gt;&lt;/sl&gt;
+        &lt;/s&gt;
+            &lt;/stanza&gt;
+        &lt;/page&gt;
+        &lt;page f:id=&quot;page200&quot;&gt;
+            &lt;stanza&gt;
+              &lt;s f:id=&quot;s4&quot;&gt;
+                  &lt;sl&gt;&lt;pl&gt;Le Soleil moribund s&#39;endormir sous une arche, &lt;/pl&gt;&lt;/sl&gt;
+                &lt;sl&gt;&lt;pl&gt;Et, comme un long linceul traînant à l&#39;Orient, &lt;/pl&gt;&lt;/sl&gt;
+                &lt;sl&gt;&lt;pl&gt;Entends, ma chère, entends la douce Nuit qui &lt;/pl&gt;
+                                                               &lt;pl&gt;marche.&lt;/pl&gt;&lt;/sl&gt;
+                &lt;/s&gt;
+            &lt;/stanza&gt;
+        &lt;/page&gt;
+    &lt;/poem&gt;
+&lt;/book&gt;
+</code></pre></div>
+<p>You can see that I&#39;ve played pretty fast and loose here with the markup language. The <code>&lt;s&gt;</code> elements can be children of <code>&lt;stanza&gt;</code> or <code>&lt;sl&gt;</code> or even <code>&lt;pl&gt;</code>, purely depending on what happens to most neatly contain them. This makes the XML inconsistent, but less verbose than it would otherwise be. Elements that are actually fragments have <code>f:id</code> attributes, and multiple elements may have the same <code>f:id</code>; this is precisely what&#39;s used to work out that they&#39;re the same element.</p>
+
+<h2>Desired Rendering</h2>
+
+<p>So what would we like to do when processing this? Say we wanted to create an HTML rendition of the poem, looking something like:</p>
+
+<blockquote style="width: 30em; ">
+  <hr />
+  <p style="text-align: right; ">page 199</p>
+  <h3>Recueillement</h3>
+  <ol start="1">
+     <li>
+        <p>Sois sage, ô ma douleur, et tiens-toi plus </p>
+        <p style="text-align: right; ">tranquille.</p>
+     </li>
+     <li>
+        <p>Tu réclamais le Soir; il descend; le voici:</p>
+     </li>
+     <li>
+        <p>Une atmosphère obscure enveloppe la ville,</p>
+     </li>
+     <li>
+        <p>Aux uns portant la paix, aux autres le souci.</p>
+     </li>
+  </ol>
+  <ol start="5">
+     <li>
+        <p>Pendant que des mortels la multitude vile,</p>
+     </li>
+     <li>
+        <p>Sous le fouet du Plaisir, ce bourreau sans merci,</p>
+     </li>
+     <li>
+        <p>Va cueillir des remords dans la fête servile,</p>
+     </li>
+     <li>
+        <p>Ma douleur, donne moi la main; viens par ici,</p>
+     </li>
+  </ol>
+  <ol start="9">
+     <li style="background-color: yellow; ">
+        <p>Loin d'eux. Vois se pencher les défuntes </p>
+        <p style="text-align: right; ">Années, </p>
+     </li>
+     <li>
+        <p>Sur les balcons du ciel, en robes surannées; </p>
+     </li>
+     <li>
+        <p>Surgir du fond des eaux le Regret souriant; </p>
+     </li>
+  </ol>
+  <hr />
+  <p style="text-align: right; ">page 200</p>
+  <ol start="12">
+     <li>
+        <p>Le Soleil moribund s'endormir sous une arche, </p>
+     </li>
+     <li>
+        <p>Et, comme un long linceul traînant à l'Orient, </p>
+     </li>
+     <li>
+        <p>Entends, ma chère, entends la douce Nuit qui </p>
+        <p style="text-align: right; ">marche.</p>
+     </li>
+  </ol>
+</blockquote>
+
+<p>The logic behind this rendition is:</p>
+
+<ol>
+<li>process the pages; for each one, create a horizontal rule followed by a paragraph giving the page number</li>
+<li>process the parts of the poem within each page; give the title if it has one in this fragment, followed by the stanzas</li>
+<li>create an ordered list for each stanza, starting at the number for the stanza line within the (whole) poem, and process the stanza lines</li>
+<li>create a list item for each stanza line; if the line contains parts of two sentences and the first of these sentences doesn&#39;t begin in this line, highlight it as this indicates an interesting overlap between prosodic and syntactic structures</li>
+<li>process the page lines within each stanza line; if there&#39;s more than one, align the second to the right</li>
+</ol>
+
+<p>It wouldn&#39;t be easy to express that logic against the fragmented XML above, for two reasons.</p>
+
+<p>First, the fragmented markup above is inconsistent: you can&#39;t tell what kinds of children a particular element will have and which elements will be fragmented. You could fix this in the markup by deciding, for example, that the prosodic hierarchy of book/poem/stanza/sl would be primary and all other elements fragmented as necessary; you could further decide which of the hierarchies would be secondary within this: whether an <code>&lt;sl&gt;</code> element would hold <code>&lt;s&gt;</code> or <code>&lt;page&gt;</code> elements as children.</p>
+
+<p>Second, though, the different logical steps require the markup to be structured in different ways: 1 requires a physical hierarchy where the markup is primarily divided into pages; 2 and 3 require a prosodic hierarchy within the page, dividing the poem into stanzas and stanza lines; 4 requires a syntactic hierarchy, where the stanza lines are split into sentences; 5 requires switching back to the physical hierarchy to see the page lines within the stanza line.</p>
+
+<p>What you can do (and what I&#39;ve done) is to write a function to help with this kind of processing by switching between the different hierarchies as and when necessary.</p>
+
+<h2>Labelling Elements</h2>
+
+<p>To prepare for switching, you must annotate the elements in the document with an indication of the trees that they belong to. The trees can be called anything you like; for the example above, I could use the labels &quot;physical&quot; (book, page, page line), &quot;syntactic&quot; (book, poem, sentence) and &quot;prosodic&quot; (book, poem, stanza, stanza line). The idea of labelling elements based on a tree that they belong to comes from the <a href="http://www.research.att.com/%7Edivesh/papers/jlssw2004-mct.pdf" title="Colorful XML: One Hierarchy Isn&#39;t Enough">multi-coloured trees</a> technique, but I think it&#39;s more useful to use meaningful labels if you can.</p>
+
+<p>You could imagine a built-in extension element that allowed you to describe the trees that different elements belonged to, and the annotation happening at the level of the XPath Data Model as its created.  But to make things easier I&#39;m using a <code>f:trees</code> attribute on each element. Adding the attribute can be done in XSLT with code like:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;xsl:template match=&quot;*&quot; mode=&quot;annotate&quot;&gt;
+  &lt;xsl:copy&gt;
+    &lt;xsl:attribute name=&quot;f:trees&quot;&gt;
+      &lt;xsl:apply-templates select=&quot;.&quot; mode=&quot;trees&quot; /&gt;
+    &lt;/xsl:attribute&gt;
+    &lt;xsl:copy-of select=&quot;@*&quot; /&gt;
+    &lt;xsl:apply-templates mode=&quot;annotate&quot; /&gt;
+  &lt;/xsl:copy&gt;
+&lt;/xsl:template&gt;
+
+&lt;xsl:template match=&quot;book&quot; mode=&quot;trees&quot;&gt;prosodic syntactic physical&lt;/xsl:template&gt;
+&lt;xsl:template match=&quot;poem&quot; mode=&quot;trees&quot;&gt;prosodic syntactic&lt;/xsl:template&gt;
+&lt;xsl:template match=&quot;title | stanza | sl&quot; mode=&quot;trees&quot;&gt;prosodic&lt;/xsl:template&gt;
+&lt;xsl:template match=&quot;s&quot; mode=&quot;trees&quot;&gt;syntactic&lt;/xsl:template&gt;
+&lt;xsl:template match=&quot;page | pl&quot; mode=&quot;trees&quot;&gt;physical&lt;/xsl:template&gt;
+</code></pre></div>
+<p>Once elements are labelled with the trees they belong to, it&#39;s possible to work out dominance hierarchies. An element A is a descendant of an element B if the elements share a tree and A starts and ends within B. If A is within B but they don&#39;t appear in the same tree, then the containment is happenstance and does not imply dominance.</p>
+
+<blockquote>
+<p><em>Note: Trees should be defined so that all the elements within a given tree fit within each other without fragmenting. I haven&#39;t considered how self-overlap should be handled here; the elements need to be part of the same tree, but they can still overlap and therefore be fragmented even when that particular tree is primary. In my experience, self-overlap usually occurs in situations like comments or revision markup, in which the self-overlapping markup is never primary anyway, so I&#39;m not sure how serious this issue is.</em></p>
+</blockquote>
+
+<h2>Swapping Hierarchies</h2>
+
+<p>Once the elements are annotated, it&#39;s possible to swap between hierarchies. The function I&#39;ve written -- <code>f:swap()</code> -- takes two or three arguments. The first is an element, and the <code>f:swap()</code> function returns this same element (actually a copy) but with its children, and possibly its parents, rearranged based on the trees listed in the second argument. The third argument defaults to the element specified as the first argument and provides a starting point from which the rearrangement takes place; the two most useful values for this argument are the element itself (which means that its children are restructured) and the root of the tree (which means that the entire document is rearranged).</p>
+
+<p>Some examples will help make this clearer. Starting with the poem above, to get the rendering I want, I need to swap to a &quot;physical&quot; view and process the pages:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;xsl:apply-templates select=&quot;$annotated/book/f:swap(., &#39;physical&#39;)/page&quot; /&gt;
+</code></pre></div>
+<p>The <code>f:swap()</code> call here returns the <code>&lt;book&gt;</code> element but with its descendants rearranged so that the physical hierarchy is primary. The new version of the <code>&lt;book&gt;</code> element will have <code>&lt;page&gt;</code> children, which will themselves have <code>&lt;pl&gt;</code> children. The <code>&lt;pl&gt;</code> elements will contain fragments of <code>&lt;poem&gt;</code>, <code>&lt;s&gt;</code>, <code>&lt;stanza&gt;</code> and <code>&lt;sl&gt;</code> elements, nested purely based on their happenstance containment within a particular <code>&lt;pl&gt;</code>.</p>
+
+<p>Here&#39;s the code for processing the <code>&lt;page&gt;</code> elements:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;xsl:template match=&quot;page&quot;&gt;
+  &lt;hr /&gt;
+  &lt;p style=&quot;text-align: right; &quot;&gt;page &lt;xsl:value-of select=&quot;@n&quot; /&gt;&lt;/p&gt;
+  &lt;xsl:apply-templates select=&quot;f:swap(., (&#39;prosodic&#39;, &#39;syntactic&#39;))/poem&quot; /&gt;
+&lt;/xsl:template&gt;
+</code></pre></div>
+<p>So each <code>&lt;page&gt;</code> generates a horizontal rule, a paragraph containing the page number and then processes... here the switch is from the physical hierarchy to a prosodic/syntactic hierarchy. The list of two items as the second argument of <code>f:swap()</code> means that the primary hierarchy is prosodic (poems, containing stanzas, containing stanza lines), but once you reach the bottom of the prosodic hierarchy (the stanza lines) you switch to a syntactic hierarchy (sentences) rather than a physical hierarchy (page lines).</p>
+
+<p>The fact that the <code>f:swap()</code> call above only has two arguments means that the rearrangement starts from the <code>&lt;page&gt;</code> element that&#39;s being processed. The ancestry of the <code>&lt;page&gt;</code> element itself stays the same, and only its content is rearranged according to the views specified in the second argument. So in this case the <code>&lt;poem&gt;</code> elements that a given <code>&lt;page&gt;</code> contains will be fragments.</p>
+
+<p>Processing the poems can continue in the normal way:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;xsl:template match=&quot;poem&quot;&gt;
+  &lt;xsl:apply-templates select=&quot;title&quot; /&gt;
+  &lt;xsl:apply-templates select=&quot;stanza&quot; /&gt;
+&lt;/xsl:template&gt;
+
+&lt;xsl:template match=&quot;title&quot;&gt;
+  &lt;h3&gt;&lt;xsl:value-of select=&quot;.&quot; /&gt;&lt;/h3&gt;
+&lt;/xsl:template&gt;
+</code></pre></div>
+<p>The next difficulty appears when I want to start the numbering for a particular stanza based on the number of the first line within the stanza. I&#39;m doing this by setting the <code>start</code> attribute like this:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;xsl:template match=&quot;stanza&quot;&gt;
+  &lt;ol&gt;
+    &lt;xsl:attribute name=&quot;start&quot;&gt;
+      &lt;xsl:number select=&quot;f:swap(., &#39;prosodic&#39;, /)/sl[1]&quot; 
+        count=&quot;sl&quot; from=&quot;poem&quot; level=&quot;any&quot; /&gt;
+    &lt;/xsl:attribute&gt;
+    &lt;xsl:apply-templates select=&quot;sl&quot; /&gt;
+  &lt;/ol&gt;
+&lt;/xsl:template&gt;
+</code></pre></div>
+<p>This illustrates the three-argument version of the <code>f:swap()</code> function. To number the stanza line, I need to know the number of that stanza line within the poem that contains it. That would be easy to do with <code>&lt;xsl:number&gt;</code> (or in other ways), but for the fact that the <code>&lt;poem&gt;</code> element the <code>&lt;stanza&gt;</code> element appears in is currently fragmented between two <code>&lt;page&gt;</code> elements. To work out the number of the line, I really want an XML document in which the physical hierarchy is completely ignored, and the elements are arranged <code>book/poem/stanza/sl</code>.</p>
+
+<p>The three-argument version of <code>f:swap()</code> allows me to swap to a prosodic hierarchy, starting from the very root of the document. It returns the element given as the first argument as it appears within the new hierarchy. Unlike the two-argument version, which only affects the descendants of the first argument, the three-argument version may also affect its ancestors, and even merge the element if it&#39;s originally fragmented or split it if it doesn&#39;t appear in the primary hierarchy. In this example, the returned <code>&lt;stanza&gt;</code> element&#39;s parent <code>&lt;poem&gt;</code> is a child of the <code>&lt;book&gt;</code> element rather than being a fragmented child of the <code>&lt;page&gt;</code> element.</p>
+
+<p>The rearrangement for the purposes of computing the start number for the list doesn&#39;t affect the tree that&#39;s being processed; the template for the <code>&lt;stanza&gt;</code> elements goes on to process the <code>&lt;sl&gt;</code> elements it contains, which use this template:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;xsl:template match=&quot;sl&quot;&gt;
+  &lt;li&gt;
+    &lt;xsl:if test=&quot;count(s) &gt; 1 and not(f:first(s[1]))&quot;&gt;
+      &lt;xsl:attribute name=&quot;style&quot;&gt;background-color: yellow; &lt;/xsl:attribute&gt;
+    &lt;/xsl:if&gt;
+    &lt;xsl:apply-templates select=&quot;f:swap(., &#39;physical&#39;)/pl&quot; /&gt;
+  &lt;/li&gt;
+&lt;/xsl:template&gt;
+</code></pre></div>
+<p>Recall that the hierarchy currently being processed is a prosodic/syntactic hierarchy. The <code>&lt;sl&gt;</code> elements contain <code>&lt;s&gt;</code> elements, and it&#39;s therefore possible to check whether the <code>&lt;sl&gt;</code> element being processed contains more than one <code>&lt;s&gt;</code>. The <code>f:first()</code> function checks whether a given fragment is the first fragment of that element, so the test in the <code>&lt;xsl:if&gt;</code> in this template checks whether the <code>&lt;sl&gt;</code> contains more than one <code>&lt;s&gt;</code> and the first <code>&lt;s&gt;</code> is not the first fragment of the sentence it represents.</p>
+
+<p>To get the rendering I want, I need to generate an HTML paragraph for each page line within the stanza line. Currently the <code>&lt;sl&gt;</code> elements contain <code>&lt;s&gt;</code> elements, so to get the page lines I need to switch once more to the physical hierarchy and process the <code>&lt;pl&gt;</code> elements that are children of this <code>&lt;sl&gt;</code>. That processing is done by the template:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;xsl:template match=&quot;pl&quot;&gt;
+  &lt;p&gt;
+    &lt;xsl:if test=&quot;preceding-sibling::pl&quot;&gt;
+      &lt;xsl:attribute name=&quot;style&quot;&gt;text-align: right; &lt;/xsl:attribute&gt;
+    &lt;/xsl:if&gt;
+    &lt;xsl:value-of select=&quot;.&quot; /&gt;
+  &lt;/p&gt;
+&lt;/xsl:template&gt;
+</code></pre></div>
+<p>and we&#39;re done.</p>
+
+<h2>Final Thoughts</h2>
+
+<p>The one thing that concerns me about the approach I&#39;m taking is the fact that because XSLT can&#39;t actually amend an existing tree, the <code>f:swap()</code> function essentially makes a copy of the entire tree every time you use it, and I don&#39;t know how well that will scale (both in terms of memory and in terms of work copying elements) when you get to documents that are larger than this toy example. Maybe processors are clever enough to discard trees they no longer need so it won&#39;t be an issue; I just don&#39;t know.</p>
+
+<p>Other than that, I think this approach is promising because it enables users to mostly use familiar tree-processing approaches rather than having to learn new paradigms for transforming overlapping markup or introducing a raft of new axes.</p>

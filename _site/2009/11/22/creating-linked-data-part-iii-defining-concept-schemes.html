@@ -1,0 +1,198 @@
+<p>This is the third instalment in a series that I&#39;m writing about turning data into linked data. I&#39;m using traffic count data as the example, since that&#39;s a dataset that I&#39;m currently working on. In the last two instalments, I talked about <a href="http://www.jenitennison.com/blog/node/135">analysing and modelling the data</a> and about <a href="http://www.jenitennison.com/blog/node/136">designing URIs</a> for the <em>things</em> in that model.</p>
+
+<p>Within the model, there are three sets of things that are <strong>concepts</strong>:</p>
+
+<ul>
+<li>road categories</li>
+<li>vehicle types</li>
+<li>cardinal directions</li>
+</ul>
+
+<p>As I discussed last time, cardinal directions have URIs defined within DBPedia which are good enough for our purposes. The categorisation of roads and vehicles, on the other hand, is something specific to UK transport data, so they are up to us to define.</p>
+
+<p>There&#39;s a really useful RDF vocabulary called <a href="http://www.w3.org/TR/skos-primer/">SKOS</a> which is designed precisely for defining the kind of concept schemes that we want to use here. SKOS provides classes for concepts, concept schemes and collections (groupings of concepts within a scheme), and properties for linking them and providing labels, codes, definitions and so forth. Many of the SKOS properties can be used outside concept schemes -- for example <code>skos:prefLabel</code> can be used anywhere you want to indicate the preferred label for a thing -- so it&#39;s good to get to know them.</p>
+
+<h2>Vehicle Types</h2>
+
+<p>Before we dive into RDF, let&#39;s take some time to understand the classification that we need to model. We&#39;re modelling vehicle types because counts are made of each different type of vehicle passing a traffic count point over a particular hour. Within the CSV data, the relevant column headings are:</p>
+
+<ul>
+<li><code>Pedal cycles</code></li>
+<li><code>Two wheeled motor vehicles</code></li>
+<li><code>Cars and taxis</code></li>
+<li><code>Buses and coaches</code></li>
+<li><code>Light vans</code></li>
+<li><code>HGVr2</code></li>
+<li><code>HGVr3</code></li>
+<li><code>HGVr4+</code></li>
+<li><code>HGVa3/4</code></li>
+<li><code>HGVa5</code></li>
+<li><code>HGVa6</code></li>
+<li><code>All HGV</code></li>
+<li><code>All motor vehicles</code></li>
+</ul>
+
+<p>These classifications are detailed in the <a href="http://www.dft.gov.uk/matrix/forms/definitions.aspx">Department for Transport documentation of the dataset</a>. It&#39;s clear that it&#39;s not a flat classification, but can be arranged into a hierarchy as follows:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">+- Pedal cycles
++- All motor vehicles
+   +- Two wheeled motor vehicles
+   +- Cars and taxis
+   +- Buses and coaches
+   +- Light vans
+   +- All HGV
+      +- Rigid HGV
+      |  +- HGVr2
+      |  +- HGVr3
+      |  +- HGVr4+
+      +- Articulated HGV
+         +- HGVa3/4
+         +- HGVa5
+         +- HGVa6
+</code></pre></div>
+<p>So all we have to do is define that in SKOS. We&#39;ve already decided that the URIs will look like:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">http://transport.data.gov.uk/def/vehicle-category/{type}
+</code></pre></div>
+<p>so for URI-hackability reasons we&#39;ll call the concept scheme:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">http://transport.data.gov.uk/def/vehicle-category/
+</code></pre></div>
+<p>It&#39;s probably easiest to just show what the concept scheme looks like. This is in <a href="http://www.w3.org/TeamSubmission/turtle/">Turtle</a>.</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">@prefix skos: &lt;http://www.w3.org/2004/02/skos/core#&gt; .
+@base &lt;http://transport.data.gov.uk/def/vehicle-category/&gt; .
+
+&lt;&gt; a skos:ConceptScheme ;
+  skos:prefLabel &quot;Vehicle Types&quot;@en ;
+  skos:hasTopConcept &lt;bicycle&gt; ;
+  skos:hasTopConcept &lt;motor-vehicle&gt; .
+...
+&lt;motor-vehicle&gt; a skos:Concept ;
+  skos:prefLabel &quot;Motor Vehicle&quot;@en ;
+  skos:topConceptOf &lt;&gt; ;
+  skos:narrower &lt;motorbike&gt; ;
+  skos:narrower &lt;car&gt; ;
+  skos:narrower &lt;bus&gt; ;
+  skos:narrower &lt;van&gt; ;
+  skos:narrower &lt;HGV&gt; .
+...
+&lt;HGV&gt; a skos:Concept ;
+  skos:prefLabel &quot;Heavy Goods Vehicle&quot;@en ;
+  skos:altLabel &quot;HGV&quot;@en ;
+  skos:definition &quot;Goods vehicles over 3,500 kgs gross vehicle weight.&quot;@en ;
+  skos:scopeNote &quot;Includes tractors (without trailers), road rollers, box vans and similar large vans. A two axle motor tractive unit without trailer is also included.&quot;@en ;
+  skos:broader &lt;motor-vehicle&gt; ;
+  skos:narrower &lt;HGVr&gt; ;
+  skos:narrower &lt;HGVa&gt; ;
+  skos:inScheme &lt;&gt; .
+...
+</code></pre></div>
+<p>The properties shown here are:</p>
+
+<ul>
+<li><code>skos:prefLabel</code> - the preferred label for something; there can only be one in any given language</li>
+<li><code>skos:altLabel</code> - an alternative label for the thing; there can be any number</li>
+<li><code>skos:definition</code> - provides a definition of the term</li>
+<li><code>skos:scopeNote</code> - provides information about the scope of the term (eg what&#39;s included or excluded)</li>
+<li><code>skos:broader</code>/<code>skos:narrower</code> - link together concepts into a hierarchy</li>
+<li><code>skos:hasTopConcept</code>/<code>skos:topConceptOf</code> - links together the concept schemes and the concepts at the top of the concept hierarchy defined within the scheme</li>
+<li><code>skos:inScheme</code> - points from a concept the concept scheme it&#39;s defined in; it&#39;s necessary to use either this or <code>skos:topConceptOf</code> on every <code>skos:Concept</code> otherwise it&#39;s not clear which concept scheme they belong to</li>
+</ul>
+
+<p>Note that in the RDF I&#39;ve assigned every string a language (English). That&#39;s good practice when values are textual; a Welsh translation could be provided for each one as well, for example.</p>
+
+<h2>Road Categories</h2>
+
+<p>Road categories are also described within the documentation for this dataset. The hierarchy is shown in the documentation as:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">+- Major Roads
+|  +- Motorways
+|  |  +- Trunk
+|  |  +- Principal
+|  +- A Roads
+|     +- Trunk
+|     |  +- Urban
+|     |  +- Rural
+|     +- Principal
+|        +- Urban
+|        +- Rural
++- Minor Roads
+   +- B Roads
+   |  +- Urban
+   |  +- Rural
+   +- C Roads
+   |  +- Urban
+   |  +- Rural
+   +- Unclassified Roads
+      +- Urban
+      +- Rural
+</code></pre></div>
+<p>But this is actually the result of three sets of overlapping concepts:</p>
+
+<ul>
+<li>roads by classification (major/minor, motorway/A/B/C/unclassified)</li>
+<li>roads by locale (urban/rural)</li>
+<li>major roads by maintenance responsibility (trunk/principal)</li>
+</ul>
+
+<p>These kinds of subdivisions of concepts can be managed in SKOS through <code>skos:Collection</code>s, which group together concepts without being broader than those concepts. Here&#39;s a snippet from the concept scheme that shows how this works.</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">@prefix skos: &lt;http://www.w3.org/2004/02/skos/core#&gt; .
+@base &lt;http://transport.data.gov.uk/def/road-category/&gt; .
+
+&lt;&gt; a skos:ConceptScheme ;
+  skos:prefLabel &quot;Road Categories&quot;@en ;
+  skos:hasTopConcept &lt;major&gt; ;
+  skos:hasTopConcept &lt;minor&gt; ;
+  skos:hasTopConcept &lt;urban&gt; ;
+  skos:hasTopConcept &lt;rural&gt; .
+
+&lt;classification&gt; a skos:Collection ;
+  skos:prefLabel &quot;Road by Classification&quot;@en ;
+  skos:member &lt;major&gt; ;
+  skos:member &lt;minor&gt; .
+
+&lt;maintenance&gt; a skos:Collection ;
+  skos:prefLabel &quot;Major Road by Maintenance Responsibility&quot;@en ;
+  skos:member &lt;principal&gt; ;
+  skos:member &lt;trunk&gt; .
+
+&lt;major&gt; a skos:Concept ;
+  skos:prefLabel &quot;Major Road&quot;@en ;
+  skos:altLabel &quot;Major&quot;@en ;
+  skos:scopeNote &quot;Include motorways and A roads. These roads usually have high traffic flows and are often the main arteries to major destinations.&quot;@en ;
+  skos:narrower &lt;motorway&gt; ;
+  skos:narrower &lt;a&gt; ;
+  skos:narrower &lt;principal&gt; ;
+  skos:narrower &lt;trunk&gt; ;
+  skos:topConceptOf &lt;&gt; .
+
+&lt;motorway&gt; a skos:Concept ;
+  skos:prefLabel &quot;Motorway&quot;@en ;
+  skos:broader &lt;major&gt; ;
+  skos:scopeNote &quot;Major roads often used for long distance travel. They are usually three or more lanes in each direction and generally have the maximum speed limit of 70mph.&quot;@en ;
+  skos:inScheme &lt;&gt; .
+...
+&lt;trunk&gt; a skos:Concept ;
+  a skos:Concept ;
+  skos:prefLabel &quot;Trunk Road&quot;@en ;
+  skos:altLabel &quot;Trunk&quot;@en ;
+  skos:scopeNote &quot;Most motorways and many of the long distance rural A roads are trunk roads.&quot;@en ;
+  skos:note &quot;The responsibility for the maintenance of trunk roads lies with the Secretary of State and they are managed by the Highways Agency in England, the National Assembly of Wales in Wales and the Scottish Executive in Scotland (National Through Routes).&quot;@en ;
+  skos:broader &lt;major&gt; ;
+  skos:inScheme &lt;&gt; .
+...
+</code></pre></div>
+<p>In a hierarchy, these multiple overlapping concepts can be shown as:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">+- &lt;Road by Classification&gt;
+|  +- Major Road
+|  |  +- &lt;Major Road by Classification&gt;
+|  |  |  +- Motorway
+|  |  |  +- A Road
+|  |  +- &lt;Major Road by Maintenance Responsibility&gt;
+|  |     +- Principal Road
+|  |     +- Trunk Road
+|  +- Minor Road
+|     +- B Road
+|     +- C Road
+|     +- Unclassified Road
++- &lt;Road by Locale&gt;
+   +- Urban Road
+   +- Rural Road
+</code></pre></div>
+<p>That&#39;s our concept schemes done. Next it will be time to turn to defining a vocabulary for the particular <em>things</em> that we want to describe from this dataset.</p>

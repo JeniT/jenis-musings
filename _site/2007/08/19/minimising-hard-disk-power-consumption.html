@@ -1,0 +1,60 @@
+<p>Me: You know that new laptop I was talking about? The <a href="http://www.dell.com/content/products/productdetails.aspx/xpsnb_m1330" title="Dell XPS M1330">Dell XPS M1330</a>? The one where you can get it with a 32Gb solid-state drive?</p>
+
+<p>Him (wary): Yeeesss...</p>
+
+<p>Me: Well listen to <a href="http://news.digitaltrends.com/news/story/12556/samsung_announces_64_gb_solid_state_drive" title="Digital Trends: Samsung Announces 64Gb Solid State Drive">this</a>: &quot;a 64 GB solid-state drive can read 64 MB/S, write 45 MB/s, and consumes just half a Watt when operating (one tenth of a Watt when idle). In comparison, an 80 GB 1.8-inch hard drive reads at 15 MB/s, writes at 7 MB/s, and eats 1.5 Watts either operating or when idle.&quot;</p>
+
+<p>Him: So what you&#39;re saying is, if you get this laptop you&#39;ll be saving the planet.</p>
+
+<p>Me: Precisely!</p>
+
+<!--break-->
+
+<hr>
+
+<p>Until such time as I can afford said Dell, I&#39;m trying other ways of limiting the power consumption of our computer equipment. I <a href="http://www.jenitennison.com/blog/node/46" title="here, a week ago, in &#39;And she&#39;s back&#39;">mentioned</a> that my dad&#39;s set me up nicely with a <a href="http://en.wikipedia.org/wiki/NSLU2" title="Wikipedia: NSLU2">NSLU2</a>. One of its USB ports has a 2Gb USB key stuck in it: that holds the core operating system. The other&#39;s got a 500Gb hard drive attached to it; that holds the data.</p>
+
+<p>The NSLU2 acts as my file server and mail server. It runs all the time, so one of its attractions is its low power consumption. But having a hard drive spun-up all the time isn&#39;t very efficient, particularly during the night when there&#39;s no need for constant disk access and the noise might disturb people sleeping in the spare room where the server&#39;s located. On the other hand, you don&#39;t want to do a huge amount of spinning up and spinning down because it strains the hardware.</p>
+
+<p>The disk Barry (my dad) bought powers down after about 15 minutes of non-activity. Which is great, until you realise that what you think of as non-activity (&quot;I&#39;m not even logged in!&quot;) isn&#39;t what counts. Background processes writing to logs is enough to keep the disk spun up.</p>
+
+<p>So the first challenge was to identify those processes that were writing to disk and keeping it spun up. Barry wrote the following script to do it:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">#!/bin/sh
+
+# script by barry, intended for cron.hourly,
+# to log (under /root/disk-access-logs)
+#  (without accessing the hd unnecessarily)
+# the atime and mtime of
+# files on /var (one partition of the mounted usb-hd)
+# which have been accessed in the last hour
+
+# AND (later, maybe temporarily also) the value in 
+#  /var/lib/ntp/ntp.drift to a different logfile
+
+# LOG_FILE=log-`date +%y%m%d-%H%M`
+
+LOG_FILE=/root/disk-access-logs/log-`date +%y%m%d`
+[ -f $LOG_FILE ] || touch $LOG_FILE
+
+echo &quot;Result of:  find /var -mmin -59 -printf &quot;%a %t %p\n&quot; |sort -t &quot;:&quot; -k4nr -k5nr&#39; at:&quot; &gt;&gt;$LOG_FILE
+echo `date +%y%m%d-%H%M` &gt;&gt;$LOG_FILE
+find /var -mmin -59 -printf &quot;%a %t %p\n&quot; |sort -t &quot;:&quot; -k4nr -k5nr &gt;&gt;$LOG_FILE
+echo &quot;------&quot; &gt;&gt;$LOG_FILE
+</code></pre></div>
+<p>This reveals things like <a href="http://en.wikipedia.org/wiki/Fetchmail" title="Wikpedia: fetchmail">fetchmail</a> (pretty obviously) writing every five minutes when it wakes up to check for new mail on my POP3 server. It reveals <a href="http://en.wikipedia.org/wiki/Exim" title="Wikipedia: exim">exim</a> writing to its log every half hour. It reveals <a href="http://en.wikipedia.org/wiki/Network_Time_Protocol" title="Wikipedia: Network Time Protocol">ntp</a> collecting statistics (and, still unresolved, writing to <code>daemon.log</code> in the early hours of the morning). It also revealed that <a href="http://us3.samba.org/samba/" title="Samba website">Samba</a>, which we&#39;d previously been using to give me Windows-based access to the hard drives, was doing a lot of logging, and this was part of the reason we stopped using it. And that <a href="http://en.wikipedia.org/wiki/Syslog" title="Wikipedia: syslog">syslog</a> was also logging frequently.</p>
+
+<p>The ntp logging was minimised by editing <code>/etc/ntp.conf</code> and the syslog logging by setting a long &quot;mark&quot; interval in <code>/etc/default/syslogd</code>. Having a <a href="http://en.wikipedia.org/wiki/Cron" title="Wikipedia: cron">cron</a> job that stops all the processes that don&#39;t need to be constantly running overnight is working reasonably well at the moment. My crontab currently looks like this:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text"># Fixed the PATH to provide access to start-stop-daemon, 
+# env and rm that /etc/init.d/exim4 requires
+
+PATH=/usr/bin:/bin:/sbin:$PATH
+
+# m h  dom mon dow   command
+00 23 * * * /etc/init.d/fetchmail stop &gt; /dev/null &amp;
+00 23 * * * /etc/init.d/exim4 stop &gt; /dev/null &amp;
+00 07 * * * /etc/init.d/exim4 start &gt; /dev/null &amp;
+00 07 * * * /etc/init.d/fetchmail start &gt; /dev/null &amp;
+</code></pre></div>
+<p>but I&#39;m probably going to tweak it to take care of the ntp thing and to remain spun down on days when I&#39;m not constantly at the computer.</p>
+
+<p>Any other ideas?</p>

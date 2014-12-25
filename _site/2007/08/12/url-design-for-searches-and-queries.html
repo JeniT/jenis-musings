@@ -1,0 +1,58 @@
+<p>Another <a href="http://www.dehora.net/journal/2007/08/web_resource_mapping_criteria_for_frameworks.html" title="Bill de hÓra: Web resource mapping criteria for frameworks">fascinating post from Bill de hÓra</a>, this time on URL design for resources:</p>
+
+<blockquote>
+<p>Let&#39;s take editing some resource, like a document, and let&#39;s look at browsers and HTML forms in particular, which don&#39;t a do a good job of allowing you to cleanly affect resource state. What you would like to do in this suboptimal environment is provide an &quot;edit-uri&quot; of some kind. There are basically 5 options for this; here they are going from most to least desirable</p>
+
+<ol>
+<li>Uniform method. Alter the state by sending a PUT to the document&#39;s URL. The edit-uri is the resource URL. URL format: http://example.org/document/xyz</li>
+<li>Function passing. Allow the document resource to accept a function as an argument. URL format: http://example.org/document/xyz?f=edit</li>
+<li>Surrogate. Create another resource that will accept edits on behalf of the document. URL format: http://example.org/document/xyz/edit</li>
+<li>CGI/RPC explicit: send a POST to an &quot;edit-document&quot; script passing the id of the document as a argument. URL format: http://example.org/edit-document?id=xyz</li>
+<li>CGI/RPC stateful: send a POST to an &quot;edit-document&quot; script and fetch the id of the document from server state, or a cookie. URL format: http://example.org/edit-document</li>
+</ol>
+</blockquote>
+
+<!--break-->
+
+<p>My current task at work is to look at how to add <a href="http://www.w3.org/TR/xhtml-rdfa-primer/" title="W3C: RDFa Primer">RDFa</a> to a website that is completely driven by &quot;CGI/RPC explicit&quot; URLs. That includes URLs for the resources themselves, by the way, we&#39;re not even talking about edit URLs here. Take a look at the URL for <a href="http://www.statutelaw.gov.uk/content.aspx?LegType=All+Legislation&amp;title=wine&amp;Year=2007&amp;searchEnacted=0&amp;extentMatchOnly=0&amp;confersPower=0&amp;blanketAmendment=0&amp;sortAlpha=0&amp;TYPE=QS&amp;PageNumber=1&amp;NavFrom=0&amp;parentActiveTextDocId=3032571&amp;ActiveTextDocId=3032571&amp;filesize=16218" title="Statute Law Database Legislation">this page</a>, for example (this isn&#39;t the actual website that I&#39;m working on, but it&#39;s more or less the same in terms of URL design). The URL is</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">http://www.statutelaw.gov.uk/content.aspx?LegType=All+Legislation&amp;title=wine&amp;Year=2007&amp;searchEnacted=0&amp;extentMatchOnly=0&amp;confersPower=0&amp;blanketAmendment=0&amp;sortAlpha=0&amp;TYPE=QS&amp;PageNumber=1&amp;NavFrom=0&amp;parentActiveTextDocId=3032571&amp;ActiveTextDocId=3032571&amp;filesize=16218
+</code></pre></div>
+<p>So here I am trying to construct RDF examples, and all the URLs look like this mess. What URI am I supposed to use in RDF to talk about the resource itself, rather than a particular view (table of contents, actual content, etc) of that resource?</p>
+
+<p>In this case, the thing that identifies the resource in the URL is the value of the <code>ActiveTextDocId</code> request parameter: you can do</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">http://www.statutelaw.gov.uk/content.aspx?ActiveTextDocId=3032571
+</code></pre></div>
+<p>and see the same legislation; this could be mapped to a resource-oriented URL such as</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">http://www.statutelaw.gov.uk/legislation/3032571
+</code></pre></div>
+<p>very easily. It isn&#39;t, but it could.</p>
+
+<p>However, doing that, you do lose some context about what the original search was that led you to this page. In the case of the above URI, the fact that I searched for all 2007 legislation with &quot;wine&quot; in the title gets lost. And this is important because the <a href="http://www.statutelaw.gov.uk/content.aspx?LegType=All+Legislation&amp;title=wine&amp;Year=2007&amp;searchEnacted=0&amp;extentMatchOnly=0&amp;confersPower=0&amp;blanketAmendment=0&amp;sortAlpha=0&amp;TYPE=QS&amp;PageNumber=1&amp;NavFrom=0&amp;parentActiveTextDocId=3032571&amp;ActiveTextDocId=3032571&amp;filesize=16218#breadcrumb" title="Breadcrumb on legislation page">breadcrumb</a> on the page has to take me back to that original search.</p>
+
+<p>Now, you could argue that this is bad website design: after all, you can navigate back to a search page using *gasp* the <strong>Back</strong> button, and not doing so just adds unnecessary items to your history. But what about providing <strong>previous</strong> and <strong>next</strong> links for navigating through the items found in a search? There, surely, you do need some state information that indicates how we got to this particular item?</p>
+
+<p>Well, no. When you&#39;re navigating through the results of a search, the primary resource that you&#39;re viewing is the <em>collection</em> of items that have been identified by the search. Even if you&#39;re just viewing one of the items in that collection, if the collection still matters then that item should be viewed as just a subresource of the collection.</p>
+
+<p>In this case, the search has three fields -- title, year and (legislation) number -- so the search URL has three parts after the initial one. The general scheme (using <a href="http://bitworking.org/projects/URI-Templates/draft-gregorio-uritemplate-01.html" title="URI Template Internet-Draft">URI template syntax</a>) is</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">http://www.statutelaw.gov.uk/search/{title}/{year}/{number}
+</code></pre></div>
+<p>So here, I could use</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">http://www.statutelaw.gov.uk/search/wine/2007/_
+</code></pre></div>
+<p>as a URL that would give me a list of all the 2007 legislation with any number whose title contained &quot;wine&quot;, and then</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">http://www.statutelaw.gov.uk/search/wine/2007/_/1
+</code></pre></div>
+<p>would show me the first piece of legislation found in the context of that search, with a <strong>next</strong> button taking me to</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">http://www.statutelaw.gov.uk/search/wine/2007/_/2
+</code></pre></div>
+<p>An individual resource itself could occur in many searches, and thus you would get many URLs for the resource in the context of those particular searches, but that&#39;s OK so long as there is one URI that identifies the resource itself. You should link to the actual resource from the page, of course, both in a <code>&lt;link&gt;</code> in the header and a <code>&lt;a&gt;</code> in the body (it feels like there should be a &quot;this is the real resource&quot; value for the <code>rel</code> attribute of <code>&lt;link&gt;</code> or <code>&lt;a&gt;</code>, but I don&#39;t know of one).</p>
+
+<p>The kind of URL above works fine when you have a fixed number of fields for searches, but what if you&#39;re doing more complicated searches: something that requires a proper query language? Well, you can stuff a query language into a URL. See <a href="http://www.25hoursaday.com/weblog/2007/07/13/GoogleBaseDataAPIVsAstoriaTwoApproachesToSQLlikeQueriesInARESTfulProtocol.aspx" title="Dare Obasanjo: Google Base Data API vs. Astoria: Two Approaches to SQL-like Queries in a RESTful Protocol">Dare Obasanjo&#39;s comparison of Google and Astoria APIs for queries</a> to see what that looks like.</p>
+
+<p>Alternatively, several years ago Paul Prescod introduced me to the notion that the query itself is a resource -- it&#39;s something that you&#39;ll probably want to save and edit -- and can be assigned a unique identifier in the same way as other resources. So you visit</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">http://www.example.com/queries/new
+</code></pre></div>
+<p>to create a new query, which gets assigned the URL</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">http://www.example.com/queries/4328
+</code></pre></div>
+<p>and you can then visit that page to see a list of the results of the query. Unlike with a simple search, the query parameters themselves don&#39;t get used in the URL: they&#39;re stored on the server. So you can&#39;t hack the URL to change the query, but you do have a simple URL that you can easily share with other people if you want to.</p>

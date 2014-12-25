@@ -1,0 +1,26 @@
+<p>The project I&#39;m working on at the moment aims to use RDFa (in XHTML) to expose some of the semantics in some natural-language text. We&#39;re aiming moderately low -- marking up dates, addresses, people&#39;s names, and various other more domain-specific things -- at least at the moment.</p>
+
+<p>The problem we&#39;re getting into now is how to get that information marked up. Because the information comes from various pretty unregulated sources, there&#39;s no way we can force the authors to do the mark up. And the scope for making it &quot;worth their while&quot; (in terms of making their authoring job easier or more effective or even offering financial rewards) is very low.</p>
+
+<p>So we&#39;re taking a look at the technologies we might use for automating the markup, specifically <a href="http://www.gate.ac.uk/" title="GATE: A General Architecture for Text Engineering">GATE</a> and <a href="http://incubator.apache.org/uima/" title="Apache UIMA: Unstructured Information Management Applications">UIMA</a>.</p>
+
+<!--break-->
+
+<p>These technologies basically use pipelines of components which each add some (out of line) annotations to the text. The annotations are done out of line because they might overlap, but you can (usually) serialize them into XML, which is what we want to do.</p>
+
+<p>I find these technologies frustrating for a number of reasons:</p>
+
+<ul>
+<li>any configuration we do will be specific to that particular application; it&#39;ll be hard to for us to change to another implementation later on, and reuse by others will be limited to those who use the same implementation</li>
+<li>they involve a fair bit of proper coding (by which I mean Java or C++)</li>
+<li>where components can be configured through declarative means (such as keyword lists), there&#39;s no way to reuse (XML/RDF) resources that we already have; we&#39;ll have to manage transformations from them into the accepted formats through some external means, and I just <em>know</em> they&#39;ll get out of sync</li>
+<li>their user documentation is dreadful; it seems like you need to have a good understanding of natural language processing to have a hope of even getting started</li>
+</ul>
+
+<p>It strikes me that the really powerful part of each of these technologies is the pipelining. The pipelining allows you to string together relatively simple operations (tokenising text, extrapolating sentences, marking up keywords, resolving ambiguities based on context etc.) which together give you something reasonably sophisticated.</p>
+
+<p>Using <a href="http://www.w3.org/TR/xproc/" title="W3C Working Draft: XProc: An XML Pipeline Language">XProc</a> to coordinate the pipeline would alleviate many of my frustrations. XProc can and will be implemented on many platforms, in many languages, so it&#39;ll be possible to move the pipeline from place to place (assuming that the components of the pipelines are similarly generic). It&#39;s declarative, so no &quot;proper coding&quot;. We&#39;ll be able to incorporate any transformations from existing XML/RDF data to the required configuration formats right into the pipeline. And... OK, it won&#39;t automatically give us great user documentation or GUIs, but they&#39;ll come.</p>
+
+<p>The big problem is that XProc is still a Working Draft and the XProc ecosystem isn&#39;t well-developed. If we were one or two years down the line, XProc would be a Recommendation, there&#39;d be a .NET implementation readily available, and even perhaps extension XProc step types for tokenising, grouping and the other things we&#39;d need to do; anything that was missing we could pull together using XSLT.</p>
+
+<p>As it is, we&#39;re in that annoying in-between-time when the Right technology isn&#39;t ready and it looks like we&#39;re going to have to put effort into working with what feels like the Wrong technology just to get things done. But perhaps I&#39;m overlooking something in GATE or UIMA, or have missed another technology that would help us. Anyone out there got some experience that could help guide us?</p>

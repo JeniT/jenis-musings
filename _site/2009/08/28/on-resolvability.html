@@ -1,0 +1,151 @@
+<p>In my <a href="http://www.jenitennison.com/blog/node/124">last post about RDFa and HTML</a> I talked about how one of the gulfs that separates the HTML5 and Semantic Web communities is the attitude to the resolvability of property (and class) URIs.</p>
+
+<p>I&#39;m currently experimenting with introducing the ability to automatically locate information about properties and other resources that are referenced within triples to <a href="http://code.google.com/p/rdfquery">rdfQuery</a>, so now is a good time, as far as I&#39;m concerned, to look more closely at what the ability to resolve properties gives you and how to avoid problems if the property URI is (temporarily or permanently) unresolvable or resolvable to something new.</p>
+
+<p>I&#39;m going to attempt to answer:</p>
+
+<ul>
+<li>How do or might applications use property and class URIs?</li>
+<li>How can data and ontology publishers assist them in doing so?</li>
+<li>What should frameworks (such as rdfQuery) do to help application developers?</li>
+</ul>
+
+<!--break-->
+
+<h2>Application Developers</h2>
+
+<p>We can divide applications using online data into three general categories:</p>
+
+<ul>
+<li><strong>data-specific applications</strong> are constructed around particular data sets that are known to the developer of the application; the <a href="http://www.jenitennison.com/blog/node/125">visualisations</a> <a href="http://www.jenitennison.com/blog/node/123">that</a> <a href="http://www.jenitennison.com/blog/node/119">I&#39;ve been</a> <a href="http://www.jenitennison.com/blog/node/113">doing</a> are examples of data-specific applications</li>
+<li><strong>vocabulary-specific applications</strong> are constructed around particular vocabularies, wherever the data might be found that uses them; <a href="http://code.google.com/apis/socialgraph/">Google&#39;s Social Graph API</a> and <a href="http://developer.search.yahoo.com/start">Yahoo! SearchMonkey</a> are examples</li>
+<li><strong>generic applications</strong> are constructed to navigate through any RDF that they find; <a href="http://www.w3.org/2005/ajar/tab">Tabulator</a> is one example</li>
+</ul>
+
+<p>Most mashups are data-specific applications. When you, as a developer, create a data-specific application, the thing that you need to know most of all is what information the dataset contains. Part of that is working out the meaning of a particular property (or class). What the data publisher needs to do is make sure that the data they publish is documented.</p>
+
+<p>There are three ways of locating the documentation about a particular property or class:</p>
+
+<ul>
+<li>looking through the general documentation the data publisher has provided</li>
+<li>resolving the URI of the class or property</li>
+<li>searching</li>
+</ul>
+
+<p>For a developer, it&#39;s very useful to find out about a property by bunging its URI into a browser and hitting return. Want to know what <code>http://xmlns.com/foaf/0.1/name</code> means? Look up that URI. By comparison, if you want to know what a <code>vevent</code> is, your best bet is a search engine. In the results I get from Google, the microformat definition of <code>vevent</code> is currently second on the list. (The Microdata definition of <code>vevent</code> doesn&#39;t even feature.) <strong>Even if a property isn&#39;t available at its URI, its URI gives a more unique identifier to search for than an short term</strong>: you&#39;re more likely to find relevant information if you search for <code>http://xmlns.com/foaf/0.1/name</code> than if you search for <code>name</code>.</p>
+
+<p>But there&#39;s no requirement for data-specific applications to use computer-readable information about properties or classes. If you know the data that&#39;s available in a dataset, you can find out the semantics of the properties and classes it contains and hard-code those within your application. Most applications that reuse data are currently of this type, and it tends to be the only kind that non-Semantic Web people think about.</p>
+
+<p>Vocabulary-specific and generic applications will have some vocabularies built in but may also operate with unknown vocabularies. For example, an application that cares about FOAF profiles is almost certainly going to want to hard-code information about FOAF rather than download its schema every time it&#39;s used. </p>
+
+<p>There are three reasons for building-in knowledge about particular vocabularies:</p>
+
+<ul>
+<li>some information about a vocabulary simply can&#39;t be represented in a schema or ontology; if you want special handling for particular properties, you&#39;re going to want to hard-code it</li>
+<li>downloading, parsing and interpreting a schema that you know you&#39;re going to need every time you run the application is really inefficient</li>
+<li>relying on the network to provide information about a vocabulary you know you&#39;re going to need makes your application fragile, especially if you do not have control over the publication of the schema yourself</li>
+</ul>
+
+<blockquote>
+<p><em>It&#39;s worth noting that applications increasingly do rely on the availability of networked resources in order to operate -- that&#39;s what <a href="http://en.wikipedia.org/wiki/Cloud_computing">cloud computing</a> is all about -- but the resources are usually ones that the application developers have some kind of control over.</em></p>
+</blockquote>
+
+<p><strong>It helps to use URIs for properties and classes for well-known vocabularies only in as much as it means that property and class names from different vocabularies won&#39;t clash</strong>, so you don&#39;t have to worry about your application confusing <code>http://xmlns.com/foaf/0.1/title</code> with <code>http://purl.org/dc/terms/title</code>.</p>
+
+<p>On the other hand, if data uses an unknown vocabulary, vocabulary-specific and generic applications would like to get hold of extra information. This falls into three categories:</p>
+
+<ul>
+<li><strong>human-readable information</strong> includes things that help with the display of data, such as human-readable labels for properties and classes; the expected datatype of the values of a property might also fall into this category</li>
+<li><strong>mapping information</strong> helps applications map unknown properties and classes onto known ones; for example, if <code>http://people.example.org/ontology/fullName</code> is defined as a sub-property of <code>http://xmlns.com/foaf/0.1/name</code> then the application can use or display the value of <code>http://people.example.org/ontology/fullName</code> in exactly the same way as the value of <code>http://xmlns.com/foaf/0.1/name</code></li>
+<li><strong>reasoning information</strong> helps applications draw further conclusions about the resources for which there&#39;s information based on what they already know; for example, if <code>http://people.example.org/ontology/fullName</code> has a domain of <code>http://xmlns.com/foaf/0.1/Person</code> then anything that has the property <code>http://people.example.org/ontology/fullName</code> must be a <code>http://xmlns.com/foaf/0.1/Person</code></li>
+</ul>
+
+<p>These are in descending order of priority: many applications will want to interact with the user in some way, in which case human-readable information is vital. Applications that have built-in knowledge about one or more vocabularies are likely to have special handling for those vocabularies, so being able to map unknown properties and classes into those known vocabularies will enhance the behaviour of the application, although it adds a bit of complexity in the implementation to do so. Further reasoning has the potential to increase the value of sparse data but again increases the complexity of implementation.</p>
+
+<p><strong>Using URIs for classes and properties provides a mechanism for applications to get hold of this extra information about unknown vocabularies</strong>. They might try four tactics, in order of priority:</p>
+
+<ul>
+<li><strong>look at the data they already know</strong>; the information they need about the unknown properties and classes may be included in the files they&#39;ve already accessed (including those containing data)</li>
+<li><strong>look in an application-specific (possibly cloud-hosted) cache</strong> of vocabularies that the application has already downloaded</li>
+<li><strong>resolve the URI</strong> of the class or property by performing an HTTP GET (and add it to the application-specific cache)</li>
+<li><strong>look in a general-purpose cache</strong>, such as <a href="http://www.archive.org/">the Internet Archive</a> or an ontology repository such as <a href="http://swoogle.umbc.edu/">Swoogle</a></li>
+</ul>
+
+<p>Robust applications will not break if they don&#39;t manage to locate the definition of a property or class. They can certainly continue to parse any data that they come across. To create a human-readable label, they might use the part of the URI after the last <code>#</code> or <code>/</code>. It&#39;s no loss (to the application) if they cannot perform other reasoning: they might display the data in some default way or simply ignore it.</p>
+
+<p>It&#39;s worth noting, because of the fear of <a href="http://en.wikipedia.org/wiki/Denial-of-service_attack">DDoS attacks</a> that some people have, that the majority of applications won&#39;t need to actually <code>GET</code> property or class URIs, either because they are data-specific applications or because they only work with vocabularies that are hard-coded into them. Applications that are good web citizens will avoid DDoS attacks on popular vocabularies by hard-coding knowledge about those vocabularies and/or maintaining a cache, either locally or in the cloud, of vocabularies that have already been resolved.</p>
+
+<h2>Publishers</h2>
+
+<p>With what I&#39;ve said above in mind, what can publishers do to help applications to understand the data that they provide?</p>
+
+<p>If a publisher is only concerned about data-specific, point-to-point mashups, all they <em>have</em> to provide is the data itself. It will help developers if there is some documentation of the dataset and the properties and classes used within it. But data publishers who only want their data to be discoverable by <em>people</em> can rely on human intelligence for locating information, and for them using URIs for properties and classes may seem like overkill.</p>
+
+<p>But in a linked data world, publishers should really support their data being discovered automatically via the links from other data. Here we&#39;re talking about making life easier for vocabulary-specific and generic applications to use the data that you provide.</p>
+
+<p>The vocabularies that you use within your data fall into three general categories:</p>
+
+<ul>
+<li><strong>well-known vocabularies</strong> are vocabularies that are commonly enough used that vocabulary-specific and generic applications are likely to have them built-in; these vocabularies tend to be useful across domains, such as FOAF, which is useful whenever you want to express information about people or organisations</li>
+<li><strong>local vocabularies</strong> are vocabularies that are specific to the dataset that you are publishing; you have as much control over their publication as you do over the publication of the data itself</li>
+<li><strong>reused vocabularies</strong> are vocabularies that you are using that are owned by other people but that do not have the take-up of well-known vocabularies; these are typically domain-specific; one example is <a href="http://www.metalex.eu/">Metalex</a>, which is a vocabulary about legislation</li>
+</ul>
+
+<p>As a data publisher, the first thing you can do is to <strong>use well-known vocabularies in your data wherever possible</strong>, even if you also use local or reused vocabularies to express the same properties or classes.</p>
+
+<p>For example, say you have some data describing a cricket team and use <code>http://cricket.example.org/ontology#name</code> for the name of a member of a team, and that you mean it to be a sub-property of <code>http://xmlns.com/foaf/0.1/name</code> (which is itself a sub-property of <code>http://www.w3.org/2000/01/rdf-schema#label</code>). If you <em>just</em> publish the <code>http://cricket.example.org/ontology#name</code> property then the only way that a generic application can know that <code>http://cricket.example.org/ontology#name</code> can be used as a label for a resource (which is a person) is by attempting to resolve <code>http://cricket.example.org/ontology</code> and reasoning based on what it finds. On the other hand, if you <em>also</em> provide <code>http://xmlns.com/foaf/0.1/name</code> and <code>http://www.w3.org/2000/01/rdf-schema#label</code> properties, applications are no longer dependent on the network, nor on having the ability to reason, to use that information.</p>
+
+<p>You <em>could</em> also provide mappings onto any reused vocabularies that you specialise, but this is less worthwhile given that vocabulary-specific and generic applications are unlikely to understand them either. </p>
+
+<p>The second thing you can do is to <strong>include information about the properties that you use within the data that you publish</strong>. This isn&#39;t important for well-known vocabularies (because they&#39;re... uh... well-known) and it&#39;s only useful for local vocabularies if you&#39;re not publishing those vocabularies, because if someone can access your data, odds are they&#39;re able to access your local vocabulary&#39;s property URIs as well. But it is useful for reused vocabularies, where you can&#39;t guarantee access, in just the same way as it&#39;s useful to provide basic labelling information about any resources you reference.</p>
+
+<blockquote>
+<p><em>If you&#39;re publishing your data embeddded within a web page, as well as marking up the *</em>data<strong>, you can mark up the **labels</strong> that you use for those values, which more than likely appear as headings in a table or something similar.*</p>
+</blockquote>
+
+<p>If you are publishing a schema or ontology that describes your properties and types, there are also things that you can do to help applications. The most important thing is to assist caches in their caching of the ontology, which will reduce the number of times that it needs to be accessed directly and help you avoid DDoS attacks: see <a href="http://www.mnot.net/cache_docs/">Mark Nottingham&#39;s Caching Tutorial</a>. You can also reduce the number of hits on your server by using hash URIs for your property and class names and use standard load-balancing techniques to manage the traffic.</p>
+
+<p>If you&#39;re referring to reused vocabularies within your own, you can also embed information about the relevant properties and classes from those vocabularies within your own ontology. This can save applications an extra hop, and lessens the risk of the reused vocabulary disappearing (perhaps forever).</p>
+
+<p>If you want to help people who might reuse your ontology, you can make the process of copying it easier by publishing it as a single file, or broken up into segments that are likely to be reused individually. At a non-technical level, it&#39;s also a good idea to provide a announcement mailing list or a feed so that people who reuse your vocabulary can be kept up to date with any changes you make to it.</p>
+
+<h2>Framework Developers</h2>
+
+<p>Bearing all this in mind, what should I (and other framework developers) do to support the reusers of data? I think I need to make it easy for application developers to:</p>
+
+<ul>
+<li>load in known ontologies from known locations</li>
+<li>hard-code relevant semantics in the script</li>
+<li>create catalogs that map known property or class names onto known locations of documents that contain details about them</li>
+<li>use caching proxies when accessing unknown vocabularies</li>
+<li>access vocabularies directly at the relevant URI</li>
+<li>fallback on archives when the URI cannot be found</li>
+</ul>
+
+<p>In other words, I need to make it easy for people to use a range of strategies for getting hold of information about a property or class, aside from simply trying to access it at its URI. I think that means that it&#39;s better to provide a lightweight solution, giving developers the opportunity to be in control of which URIs get resolved rather than automatically downloading extra information from the URI that&#39;s actually used for the property or class. It also means I need to provide hooks in the code that they can use to trigger that resolution.</p>
+
+<p>It would also be useful, of course, for developers to be able to use information about properties and classes easily, in particular to reason with it. That kind of support is something I&#39;ve been working on for rdfQuery. It&#39;s not quite ready yet.</p>
+
+<h2>Conclusions</h2>
+
+<p>My (somewhat contentious) view is that we place too much emphasis on the resolvability of property and class names, and that this can put people off the idea of the Semantic Web. You can do useful things with data without resolving properties or classes. And for a large number of useful applications, being able to actually <em>reason</em> over the data you get at the end of a property URI would have a high implementation cost without providing a great deal of functional benefit. </p>
+
+<p>Further, for data publishers, the requirement to enable the resolution of every property and class URI you use within your data just adds to the publishing burden, especially if you&#39;re made to feel it has to resolve to some kind of grand OWL ontology.</p>
+
+<p>There&#39;s a concept in psychology of the <a href="http://en.wikipedia.org/wiki/Zone_of_proximal_development">zone of proximal development</a>. The idea is that if someone is operating at a particular level then as a teacher you should help them to achieve something <em>slightly</em> above that level, rather than trying to get them to do everything straight away.</p>
+
+<p>The same is true here. We need to help publishers make the small steps that they can make, one at a time, to gradually get them to full Semantic Web goodness:</p>
+
+<ol>
+<li>publish a dataset in some kind of open format (CSV, XML etc) so that people can get hold of it</li>
+<li>publish the data with distinct URIs for distinct resources so that people can reference them</li>
+<li>publish the data in a machine-readable format so that people can easily reuse it</li>
+<li>publish the data in a way that can be interpreted as RDF, with URIs for properties and types, to avoid conflicts with other vocabularies and so that the data can be &quot;understood&quot; even when discovered automatically</li>
+<li>put some human-readable documentation at the end of the property/type URIs, so that developers can easily discover what your data&#39;s about</li>
+<li>embed machine-readable labels and descriptions for your properties/types within your data, so that applications can display it</li>
+<li>embed <code>rdfs:subPropertyOf</code>/<code>rdfs:subClassOf</code> mappings from your properties/types to well-known properties/types within your data, so that it can be displayed in custom ways</li>
+<li>put the machine-readable information about the properties/types at the end of the property/type URIs, so that you can update your vocabulary easily and so that other people can reuse it</li>
+<li>add other RDFS and OWL statements about the properties/types, so that reasoners can add value to your data</li>
+</ol>
+
+<p>The biggest leap, the one that requires the most persuasion and the most justification, is probably from simply publishing the data in a machine-readable format to using the RDF model with URIs for properties and types. But if you remove the cost of having to provide anything at the end of the URI and factor in the potential benefits you may reap in the future (as you step further up that ladder), the question becomes less &quot;why?&quot; and more &quot;why not?&quot;.</p>

@@ -1,0 +1,70 @@
+<p>There were a couple of comments on my previous post about <a href="http://www.jenitennison.com/blog/node/67" title="Jeni&#39;s Musings: Web 2.0 project: RDF and uncertainty">RDF and uncertainty in our Web 2.0 genealogy project</a> concerning the problems of privacy in a genealogy app. My ideas about this aren&#39;t fully thought-through, let alone implemented, but I thought I&#39;d share them anyway.</p>
+
+<p>First, the things we could restrict access to are:</p>
+
+<ul>
+<li>sources of information (eg birth records)</li>
+<li>personas (eg Charles Darwin) and assertions about them</li>
+<li>events (eg the Beagle Voyage) and assertions about them</li>
+<li>groups (eg the Royal Society) and assertions about them</li>
+</ul>
+
+<p>There are different kinds of things you might do to the resources:</p>
+
+<ul>
+<li>who can know it <em>exists</em>?</li>
+<li>who can <em>read</em> it?</li>
+<li>who can <em>change</em> it?</li>
+<li>who can <em>delete</em> it?</li>
+</ul>
+
+<p>and different levels of access for each of those things:</p>
+
+<ul>
+<li>global (public)</li>
+<li>group (restricted)</li>
+<li>user (private)</li>
+</ul>
+
+<p>I imagine that at any point, a user will have a default set of permissions in play. For example, they might be generating information that anyone can know exists and can read, but only a restricted set of people can change, and only the user themselves can delete.</p>
+
+<h2>Searchability</h2>
+
+<p>I&#39;m going to side-track for a second here to explain why I&#39;ve separated out &quot;knowing something exists&quot; from &quot;readable&quot;.</p>
+
+<p>Our genealogy application is evidence-based, which means that to say that someone exists you must have a source for that information, be it a birth certificate or a picture or the transcription of an interview. The <em>persona</em> that you believe to exist on the basis of one source may or may not be the same persona that you believe to exist on the basis of a different source. A separate step is required to link the two personas together.</p>
+
+<p>The intention is that our application will help you link personas (and events, groups and anything else that might be quoted in more than one piece of evidence) together through searching through other personas (etc) to find those that are similar. They might have similar names, but most of the evidence for similarity will come from similar assertions having been made about them.</p>
+
+<p>Now say that I have some evidence about Charles Darwin and enter it into the system, and you similarly have some evidence about Charles Darwin that you enter into the system. We both create &quot;Charles Darwin&quot; personas based on our evidence. I&#39;d like it to be the case that, even if we don&#39;t want the information we&#39;ve captured about Charles Darwin to be readable by others, we can still make it searchable so that others can find out we&#39;re working on that person too so that (after some interpersonal negotiation) the two sets of information can be brought together.</p>
+
+<p>So the &quot;who can know it exists?&quot; access is about making your information searchable, even if the details aren&#39;t readable.</p>
+
+<h2>Default access</h2>
+
+<p>As I understand it, in genealogy circles it would be bad form to make any information about living people publicly available. Some would argue that any information that is currently publicly available (on the web, or even off it, in electoral rolls, phone books, wherever) is fair game: if it&#39;s already &quot;out there&quot; then you can use it. But I don&#39;t agree with that. There&#39;s a big difference between there being multiple disparate, human-readable sources of information about an individual &quot;out there somewhere&quot; and providing a single aggregated public source for all this data in a computer-readable format. In short, I agree with Jeff &quot;Coding Horror&quot; Atwood&#39;s recent post on privacy in which he characterises <a href="http://www.codinghorror.com/blog/archives/001027.html" title="Coding Horror: An Inalienable Right to Privacy">privacy as an inalienable right</a>.</p>
+
+<p>Also, some people make money from doing genealogical research, and it would be short-sighted to prevent people from using the application if they simply wanted to keep what they were doing private for their own reasons.</p>
+
+<p>So there must be a setting such that information can be kept entirely private, to the extent that only the person who constructed it knows that it exists.</p>
+
+<p>On the other hand, many of the benefits of Web 2.0 applications come from integrating your own material with other people&#39;s. Genealogy is a good example of this, because there&#39;s a distinct thrill in hooking into other people&#39;s research and discovering other branches of the family.</p>
+
+<p>So there must be a setting such that information can be made globally available to all and sundry, even to the extent of others changing and deleting it.</p>
+
+<p>I think the default has to be that the information you enter is completely private. I&#39;d like to encourage people to share their information, but I think that the way to do that is through social mechanisms (eg the more useful information you share, the more kudos you get) rather than technological ones.</p>
+
+<h2>User Groups</h2>
+
+<p>Public and private access aside, there&#39;s a huge middle ground of access that&#39;s somehow restricted to a subset of users. I don&#39;t think I&#39;m being particularly radical if I say that the current state of the art of social software access control isn&#39;t great, that the &quot;restricted&quot; subset is usually to &quot;my friends&quot;, but people don&#39;t have one social circle: they operate in different spheres, and have a different set of friends/colleagues in each.</p>
+
+<p>The same is true in our genealogy app. A given user might be working (collaboratively) on several projects, with different teams. For example, I might work on a family tree with my mother for her side of the family and my father for his, with no need for either of them to be aware of the other (unless they overlap, in which case &quot;searchability&quot; comes into play).</p>
+
+<p>So I think it makes sense to use the familiar notion from *nix of &quot;user groups&quot;, and assign each item (sources/people/events/groups) to one or more user groups. User groups will probably mostly arise from those working on particular projects, but could be more arbitrary. I&#39;m thinking:</p>
+
+<ul>
+<li>moderated (by-invitation) and open (by-subscription) user groups</li>
+<li>private, public and restricted permissions on the user groups</li>
+</ul>
+
+<p>The other thing I was considering here was having a notion of &quot;degrees of separation&quot;. If I entered details about our daughters into a family tree, I might be happy for immediate family, and their immediate family, to see them: a separation of two. I don&#39;t know whether this kind of network-based user group would be useful or a pain to manage, or even implementable; it&#39;s just an idea I had.</p>

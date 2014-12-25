@@ -1,0 +1,838 @@
+<p>This post is part of a three-part series that analyses the differences in features and syntax between microdata and RDFa. The series attempts:</p>
+
+<ul>
+<li>to identify the differences in approach and functionality of the two languages, which should help developers choose between them</li>
+<li>to identify any guidelines for developers of vocabularies for use with both languages</li>
+<li>to identify a subset of functionality that is common between the two languages, which developers might want to stick to to make switching and mixing easier</li>
+<li>to identify mapping rules that might be applied to automatically or manually map from one language to another if the simple subset is used</li>
+</ul>
+
+<p>I&#39;ve done this by looking at converting microdata examples to RDFa and vice versa, and the lessons to be drawn from that exercise. The three posts are on:</p>
+
+<ul>
+<li><a href="http://www.jenitennison.com/blog/node/163">converting microdata to RDFa</a></li>
+<li><a href="http://www.jenitennison.com/blog/node/164">converting RDFa to microdata</a></li>
+<li><a href="http://www.jenitennison.com/blog/node/165">lessons learned from this exercise</a></li>
+</ul>
+
+<p>This post is the second of these, which looks at how RDFa might be mapped to microdata.  In this case, I will aim to express the RDF created from the RDFa as the equivalent microdata JSON, and aim to create that JSON with the microdata.</p>
+
+<!--break-->
+
+<p>To create the microdata JSON, I&#39;ve used the rule that the URI of the first type of a resource is processed to provide a namespace that is stripped from the URIs of the properties (to create simple names where possible). In addition, when a resource has no properties, it will be represented as a string (URI) value rather than as a nested item. Other than that I hope the mapping will be obvious; I&#39;ll point out where it involves a loss of information. I&#39;m assuming that the document is at <code>http://example.org/</code> throughout.</p>
+
+<p>I have based what&#39;s written here on the latest specifications of both microdata (in its <a href="http://www.whatwg.org/specs/web-apps/current-work/multipage/microdata.html">WHAT WG</a> and <a href="http://dev.w3.org/html5/md/Overview.html">W3C</a> variants) and <a href="http://www.w3.org/2010/02/rdfa/drafts/2011/ED-rdfa-core-20110814/">RDFa Core</a> and <a href="http://dev.w3.org/html5/rdfa/">HTML+RDFa</a> but I haven&#39;t consulted with anyone involved in these efforts and may well have got things wrong. <a href="http://foolip.org/microdatajs/live/">Philip Jägenstedt&#39;s Live Microdata service</a> has proved invaluable for testing, so many thanks to him for providing that service.</p>
+
+<p>The post is rather heavy going and you might want to just <a href="http://www.jenitennison.com/blog/node/165">skip to the summary</a> instead of reading the whole thing.</p>
+
+<p>The post goes through the examples from the RDFa specification plus one additional example from the wild. I haven&#39;t included examples that don&#39;t illustrate anything new, so there are some that are skipped. Other examples would be welcome.</p>
+
+<h2>Page Metadata</h2>
+
+<blockquote>
+<p>When parsing begins, the current subject will be the IRI of the document being parsed, or a value as set by a Host Language-provided mechanism (e.g., the base element in (X)HTML). This means that by default any metadata found in the document will concern the document itself:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;html&gt;
+  &lt;head&gt;
+    &lt;title&gt;Jo&#39;s Friends and Family Blog&lt;/title&gt;
+    &lt;link rel=&quot;foaf:primaryTopic&quot; href=&quot;#bbq&quot; /&gt;
+    &lt;meta property=&quot;dc:creator&quot; content=&quot;Jo&quot; /&gt;
+  &lt;/head&gt;
+  &lt;body&gt;
+    ...
+  &lt;/body&gt;
+&lt;/html&gt;
+</code></pre></div></blockquote>
+
+<p>The equivalent microdata JSON for this document that we&#39;d want to create is (<strong>note: invalid example</strong>):</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">{ &quot;items&quot;: [
+  {
+    &quot;id&quot;: &quot;http://example.org/&quot; ,
+    &quot;properties&quot;: {
+      &quot;http://xmlns.com/foaf/0.1/primaryTopic&quot;: [ &quot;http://example.org/#bbq&quot; ],
+      &quot;http://purl.org/dc/terms/creator&quot;: [ &quot;Jo&quot; ]
+    }
+  }
+]}
+</code></pre></div>
+<p>and we&#39;d want to create it with (<strong>note: invalid example</strong>):</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;html&gt;
+  &lt;head itemscope itemid=&quot;.&quot;&gt;
+    &lt;title&gt;Jo&#39;s Friends and Family Blog&lt;/title&gt;
+    &lt;link itemprop=&quot;http://xmlns.com/foaf/0.1/primaryTopic&quot; href=&quot;#bbq&quot; /&gt;
+    &lt;meta itemprop=&quot;http://purl.org/dc/terms/creator&quot; content=&quot;Jo&quot; /&gt;
+  &lt;/head&gt;
+  &lt;body&gt;
+    ...
+  &lt;/body&gt;
+&lt;/html&gt;
+</code></pre></div>
+<p>However, this is is not valid according to the microdata specification. In microdata, <a href="http://www.whatwg.org/specs/web-apps/current-work/multipage/microdata.html#attr-itemid">only items that have types are allowed to have identifiers</a>. Rather than losing the identifier, we&#39;ll add a type; I&#39;m going to use <code>rdfs:Resource</code>. It&#39;s not the nicest of URIs to type, but it&#39;s got something close to the correct semantics. So we&#39;ll aim for the microdata JSON:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">{ &quot;items&quot;: [
+  {
+    &quot;type&quot;: &quot;http://www.w3.org/2000/01/rdf-schema#Resource&quot; ,
+    &quot;id&quot;: &quot;http://example.org/&quot; ,
+    &quot;properties&quot;: {
+      &quot;http://xmlns.com/foaf/0.1/primaryTopic&quot;: [ &quot;http://example.org/#bbq&quot; ] ,
+      &quot;http://purl.org/dc/terms/creator&quot;: [ &quot;Jo&quot; ]
+    }
+  }
+]}
+</code></pre></div>
+<p>which means we need:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;html&gt;
+  &lt;head itemscope itemtype=&quot;http://www.w3.org/2000/01/rdf-schema#Resource&quot; itemid=&quot;.&quot;&gt;
+    &lt;title&gt;Jo&#39;s Friends and Family Blog&lt;/title&gt;
+    &lt;link itemprop=&quot;http://xmlns.com/foaf/0.1/primaryTopic&quot; href=&quot;#bbq&quot; /&gt;
+    &lt;meta itemprop=&quot;http://purl.org/dc/terms/creator&quot; content=&quot;Jo&quot; /&gt;
+  &lt;/head&gt;
+  &lt;body&gt;
+    ...
+  &lt;/body&gt;
+&lt;/html&gt;
+</code></pre></div>
+<p>Notes:</p>
+
+<ul>
+<li>The <code>itemscope</code> is necessary for the page to be recognised as containing any data at all.</li>
+<li>The <code>itemid</code> can&#39;t just be empty: the <code>.</code> is the shortest URI you can use to reference the page itself.</li>
+<li>I put the <code>itemscope</code>, <code>itemtype</code> and <code>itemid</code> on the <code>&lt;head&gt;</code> element rather than the <code>&lt;html&gt;</code> element so that they wouldn&#39;t be inherited into the <code>&lt;body&gt;</code>: it seems to make sense for any data within the <code>&lt;head&gt;</code> to be about the page itself.</li>
+<li>The <code>foaf:</code> and <code>dc:</code> prefixes are built-in to RDFa, so it&#39;s easy for people to use classes and properties in those common vocabularies without having to remember their full URI. In microdata, that URI and the one for the <code>rdfs:Resource</code> class have to be spelled out in full.</li>
+</ul>
+
+<h2>Base URI</h2>
+
+<blockquote>
+<p>In (X)HTML the value of base may change the initial value of current subject:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;html&gt;
+  &lt;head&gt;
+    &lt;base href=&quot;http://www.example.org/jo/blog&quot; /&gt;
+    &lt;title&gt;Jo&#39;s Friends and Family Blog&lt;/title&gt;
+    &lt;link rel=&quot;foaf:primaryTopic&quot; href=&quot;#bbq&quot; /&gt;
+    &lt;meta property=&quot;dc:creator&quot; content=&quot;Jo&quot; /&gt;
+  &lt;/head&gt;
+  &lt;body&gt;
+    ...
+  &lt;/body&gt;
+&lt;/html&gt;
+</code></pre></div></blockquote>
+
+<p>This changes the id of the item generated:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">{ &quot;items&quot;: [
+  {
+    &quot;type&quot;: &quot;http://www.w3.org/2000/01/rdf-schema#Resource&quot; ,
+    &quot;id&quot;: &quot;http://www.example.org/jo/blog&quot; ,
+    &quot;properties&quot;: {
+      &quot;http://xmlns.com/foaf/0.1/primaryTopic&quot;: [ &quot;http://www.example.org/jo/blog#bbq&quot; ] ,
+      &quot;http://purl.org/dc/terms/creator&quot;: [ &quot;Jo&quot; ]
+    }
+  }
+]}
+</code></pre></div>
+<p>In the microdata, the <code>itemid</code> can still be <code>.</code> as the base URI set by the <code>&lt;base&gt;</code> element is used to resolve it:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;html&gt;
+  &lt;head itemscope itemtype=&quot;http://www.w3.org/2000/01/rdf-schema#Resource&quot; itemid=&quot;.&quot;&gt;
+    &lt;base href=&quot;http://www.example.org/jo/blog&quot; /&gt;
+    &lt;title&gt;Jo&#39;s Friends and Family Blog&lt;/title&gt;
+    &lt;link itemprop=&quot;http://xmlns.com/foaf/0.1/primaryTopic&quot; href=&quot;#bbq&quot; /&gt;
+    &lt;meta itemprop=&quot;http://purl.org/dc/terms/creator&quot; content=&quot;Jo&quot; /&gt;
+  &lt;/head&gt;
+  &lt;body&gt;
+    ...
+  &lt;/body&gt;
+&lt;/html&gt;
+</code></pre></div>
+<h2>Explicit Subjects / ItemIds</h2>
+
+<blockquote>
+<p>To illustrate how this affects the statements, note in this markup how the properties inside the (X)HTML body element become part of a new calendar event object, rather than referring to the document as they do in the head of the document:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;html prefix=&quot;cal: http://www.w3.org/2002/12/cal/ical#&quot;&gt;
+  &lt;head&gt;
+    &lt;title&gt;Jo&#39;s Friends and Family Blog&lt;/title&gt;
+    &lt;link rel=&quot;foaf:primaryTopic&quot; href=&quot;#bbq&quot; /&gt;
+    &lt;meta property=&quot;dc:creator&quot; content=&quot;Jo&quot; /&gt;
+  &lt;/head&gt;
+  &lt;body&gt;
+    &lt;p about=&quot;#bbq&quot; typeof=&quot;cal:Vevent&quot;&gt;
+      I&#39;m holding
+      &lt;span property=&quot;cal:summary&quot;&gt;
+        one last summer barbecue
+      &lt;/span&gt;,
+      on
+      &lt;span property=&quot;cal:dtstart&quot; content=&quot;2015-09-16T16:00:00-05:00&quot; 
+            datatype=&quot;xsd:dateTime&quot;&gt;
+        September 16th at 4pm
+      &lt;/span&gt;.
+    &lt;/p&gt;
+  &lt;/body&gt;
+&lt;/html&gt;
+</code></pre></div></blockquote>
+
+<p>In microdata JSON, this would be:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">{ &quot;items&quot;: [
+  {
+    &quot;type&quot;: &quot;http://www.w3.org/2000/01/rdf-schema#Resource&quot; ,
+    &quot;id&quot;: &quot;http://example.org/&quot; ,
+    &quot;properties&quot;: {
+      &quot;http://xmlns.com/foaf/0.1/primaryTopic&quot;: [ &quot;http://example.org/#bbq&quot; ],
+      &quot;http://purl.org/dc/terms/creator&quot;: [ &quot;Jo&quot; ]
+    }
+  } ,
+  {
+    &quot;type&quot;: &quot;http://www.w3.org/2002/12/cal/ical#Vevent&quot; ,
+    &quot;id&quot;: &quot;http://example.org/#bbq&quot; ,
+    &quot;properties&quot;: {
+      &quot;summary&quot;: [ &quot;one last summer barbecue&quot; ] ,
+      &quot;dtstart&quot;: [ &quot;2015-09-16T16:00:00-05:00&quot; ] ,
+    }
+  }
+]}
+</code></pre></div>
+<p>Note that this mapping loses the fact that the value of the <code>dtstart</code> property is a date-and-time. Processors of this JSON are expected to know that the <code>dtstart</code> property takes a date/time value and would have to sniff the value to work out that it&#39;s a date-and-time rather than a date.</p>
+
+<p>In-browser microdata processors can identify the value as a date/time value because the property element itself is accessed through the <code>element.properties</code> IDL attribute; processors that work with this DOM API can tell that it&#39;s a <code>&lt;time&gt;</code> element, get hold of the date/time itself and access the content of the element for the human-readable representation used on the page. However, this information isn&#39;t part of the core <a href="http://www.w3.org/TR/microdata/#the-microdata-model">microdata data model</a>.</p>
+
+<p>To create this JSON from microdata you need:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;html&gt;
+  &lt;head itemscope itemtype=&quot;http://www.w3.org/2000/01/rdf-schema#Resource&quot; itemid=&quot;.&quot;&gt;
+    &lt;title&gt;Jo&#39;s Friends and Family Blog&lt;/title&gt;
+    &lt;link itemprop=&quot;http://xmlns.com/foaf/0.1/primaryTopic&quot; href=&quot;#bbq&quot; /&gt;
+    &lt;meta itemprop=&quot;http://purl.org/dc/terms/creator&quot; content=&quot;Jo&quot; /&gt;
+  &lt;/head&gt;
+  &lt;body&gt;
+    &lt;p itemscope itemid=&quot;#bbq&quot; itemtype=&quot;http://www.w3.org/2002/12/cal/ical#Vevent&quot;&gt;
+      I&#39;m holding
+      &lt;span itemprop=&quot;summary&quot;&gt;
+        one last summer barbecue
+      &lt;/span&gt;,
+      on
+      &lt;time itemprop=&quot;dtstart&quot; datetime=&quot;2015-09-16T16:00:00-05:00&quot;&gt;
+        September 16th at 4pm
+      &lt;/time&gt;.
+    &lt;/p&gt;
+  &lt;/body&gt;
+&lt;/html&gt;
+</code></pre></div>
+<p>Notes:</p>
+
+<ul>
+<li>There are no prefix definitions in microdata, so the type has to be spelled out in full. However, with the mapping I&#39;m assuming from RDFa to microdata JSON, the properties in that same namespace for items in that class don&#39;t.</li>
+<li>The <code>itemscope</code> has to be added despite the <code>&lt;p&gt;</code> element having both an <code>itemid</code> and an <code>itemtype</code>; if the <code>itemscope</code> is forgotten, the item isn&#39;t recognised.</li>
+<li>The original <code>&lt;span&gt;</code> element has to be changed to a <code>&lt;time&gt;</code> element because it isn&#39;t conformant microdata for a date/time value to be supplied by any other element.</li>
+</ul>
+
+<h2>Items from the <code>src</code> Attribute</h2>
+
+<blockquote>
+<p>If @about is not present, then @src is next in priority order, for setting the subject of a statement. A typical use would be to indicate the licensing type of an image:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;img src=&quot;photo1.jpg&quot; rel=&quot;license&quot; 
+     resource=&quot;http://creativecommons.org/licenses/by/2.0/&quot; /&gt;
+</code></pre></div></blockquote>
+
+<p>This should generate the microdata JSON:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">{ &quot;items&quot;: [
+  {
+    &quot;type&quot;: &quot;http://www.w3.org/2000/01/rdf-schema#Resource&quot; ,
+    &quot;id&quot;: &quot;http://example.org/photo1.jpg&quot; ,
+    &quot;properties&quot;: {
+      &quot;http://www.w3.org/1999/xhtml/vocab#license&quot;: [ &quot;http://creativecommons.org/licenses/by/2.0/&quot; ] ,
+    }
+  }
+]}
+</code></pre></div>
+<p>The <code>src</code> attribute in microdata is only used for a value, so creating the microdata about the image means a wrapper <code>&lt;span&gt;</code> element and a separate <code>&lt;link&gt;</code> element:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text"> &lt;span itemscope itemtype=&quot;http://www.w3.org/2000/01/rdf-schema#Resource&quot; itemid=&quot;photo1.jpg&quot;&gt;
+   &lt;img src=&quot;photo1.jpg&quot; /&gt;
+   &lt;link itemprop=&quot;http://www.w3.org/1999/xhtml/vocab#license&quot; href=&quot;http://creativecommons.org/licenses/by/2.0/&quot; /&gt;
+ &lt;/span&gt;
+</code></pre></div>
+<p>Note:</p>
+
+<ul>
+<li>The <code>license</code> property is part of the built-in set of link relationships in HTML, but there is no easy way to refer to that property from microdata; they have to be spelled out as full URLs.</li>
+</ul>
+
+<h2>Additional Properties for Images</h2>
+
+<blockquote>
+<p>Since there is no difference between @src and @about, then the information expressed in the last example in the section on @about (the creator of an image), could be expressed as follows:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;img src=&quot;photo1.jpg&quot;
+  rel=&quot;license&quot; resource=&quot;http://creativecommons.org/licenses/by/2.0/&quot;
+  property=&quot;dc:creator&quot; content=&quot;Mark Birbeck&quot;
+/&gt;
+</code></pre></div></blockquote>
+
+<p>This is a simple additional property in the microdata JSON:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">{ &quot;items&quot;: [
+  {
+    &quot;type&quot;: &quot;http://www.w3.org/2000/01/rdf-schema#Resource&quot; ,
+    &quot;id&quot;: &quot;http://example.org/photo1.jpg&quot; ,
+    &quot;properties&quot;: {
+      &quot;http://www.w3.org/1999/xhtml/vocab#license&quot;: [ &quot;http://creativecommons.org/licenses/by/2.0/&quot; ] ,
+      &quot;http://purl.org/dc/terms/creator&quot;: [ &quot;Mark Birbeck&quot; ]
+    }
+  }
+]}
+</code></pre></div>
+<p>which can be created through a <code>&lt;meta&gt;</code> element within the <code>&lt;span&gt;</code>:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;span itemscope itemtype=&quot;http://www.w3.org/2000/01/rdf-schema#Resource&quot; itemid=&quot;photo1.jpg&quot;&gt;
+  &lt;img src=&quot;photo1.jpg&quot; /&gt;
+  &lt;link itemprop=&quot;http://www.w3.org/1999/xhtml/vocab#license&quot; href=&quot;http://creativecommons.org/licenses/by/2.0/&quot; /&gt;
+  &lt;meta itemprop=&quot;http://purl.org/dc/terms/creator&quot; content=&quot;Mark Birbeck&quot; /&gt;
+&lt;/span&gt;
+</code></pre></div>
+<h2>Nested Images</h2>
+
+<blockquote>
+<p>Since normal chaining rules will apply, the image IRI can also be used to complete hanging triples:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;div about=&quot;http://www.blogger.com/profile/1109404&quot; rel=&quot;foaf:img&quot;&gt;
+  &lt;img src=&quot;photo1.jpg&quot;
+    rel=&quot;license&quot; resource=&quot;http://creativecommons.org/licenses/by/2.0/&quot;
+    property=&quot;dc:creator&quot; content=&quot;Mark Birbeck&quot;
+  /&gt;
+&lt;/div&gt;
+</code></pre></div></blockquote>
+
+<p>This should generate the microdata JSON:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">{ &quot;items&quot;: [
+  {
+    &quot;type&quot;: &quot;http://www.w3.org/2000/01/rdf-schema#Resource&quot; ,
+    &quot;id&quot;: &quot;http://www.blogger.com/profile/1109404&quot; ,
+    &quot;properties&quot;: {
+      &quot;http://xmlns.com/foaf/0.1/img&quot;: [{
+        &quot;type&quot;: &quot;http://www.w3.org/2000/01/rdf-schema#Resource&quot; ,
+        &quot;id&quot;: &quot;http://example.org/photo1.jpg&quot; ,
+        &quot;properties&quot;: {
+          &quot;http://www.w3.org/1999/xhtml/vocab#license&quot;: [ &quot;http://creativecommons.org/licenses/by/2.0/&quot; ] ,
+          &quot;http://purl.org/dc/terms/creator&quot;: [ &quot;Mark Birbeck&quot; ]
+        }
+      }]
+    }
+  }
+]}
+</code></pre></div>
+<p>The microdata to generate this is:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;div itemscope itemtype=&quot;http://www.w3.org/2000/01/rdf-schema#Resource&quot; 
+     itemid=&quot;http://www.blogger.com/profile/1109404&quot;&gt;
+  &lt;span itemprop=&quot;http://xmlns.com/foaf/0.1/img&quot; 
+        itemscope itemtype=&quot;http://www.w3.org/2000/01/rdf-schema#Resource&quot; 
+        itemid=&quot;photo1.jpg&quot;&gt;
+    &lt;img src=&quot;photo1.jpg&quot; /&gt;
+    &lt;link itemprop=&quot;http://www.w3.org/1999/xhtml/vocab#license&quot; href=&quot;http://creativecommons.org/licenses/by/2.0/&quot; /&gt;
+    &lt;meta itemprop=&quot;http://purl.org/dc/terms/creator&quot; content=&quot;Mark Birbeck&quot; /&gt;
+  &lt;/span&gt;
+&lt;/div&gt;
+</code></pre></div>
+<p>Notes:</p>
+
+<ul>
+<li>The big gotcha in this conversion is that in microdata, the <code>foaf:img</code> property has to be moved onto the item that is a value of that property; there&#39;s no equivalent to the &quot;hanging rel&quot; processing in RDFa. A disadvantage of this is that anyone copying-and-pasting the <code>&lt;span&gt;</code> element to embed the same information about the image within their own page will have the <code>itemprop</code> attribute carried along with the image, into a context where the <code>foaf:img</code> property might not be relevant.</li>
+</ul>
+
+<h2>Types with Blank Nodes</h2>
+
+<blockquote>
+<p>For example, an author may wish to create markup for a person using the FOAF vocabulary, but without having a clear identifier for the item:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;div typeof=&quot;foaf:Person&quot;&gt;
+  &lt;span property=&quot;foaf:name&quot;&gt;Albert Einstein&lt;/span&gt;
+  &lt;span property=&quot;foaf:givenName&quot;&gt;Albert&lt;/span&gt;
+&lt;/div&gt;
+</code></pre></div></blockquote>
+
+<p>Now we have an explicit type, we can create microdata JSON that uses short names:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">{ &quot;items&quot;: [
+  {
+    &quot;type&quot;: &quot;http://xmlns.com/foaf/0.1/Person&quot; ,
+    &quot;properties&quot;: {
+      &quot;name&quot;: [ &quot;Albert Einstein&quot; ] ,
+      &quot;givenName&quot;: [ &quot;Albert&quot; ] ,
+    }
+  }
+]}
+</code></pre></div>
+<p>This can be generated with the microdata:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;div itemscope itemtype=&quot;http://xmlns.com/foaf/0.1/Person&quot;&gt;
+  &lt;span itemprop=&quot;name&quot;&gt;Albert Einstein&lt;/span&gt;
+  &lt;span itemprop=&quot;givenName&quot;&gt;Albert&lt;/span&gt;
+&lt;/div&gt;
+</code></pre></div>
+<p>which is nice and simple.</p>
+
+<h2>Inherited Subject</h2>
+
+<blockquote>
+<p>The most usual way that an inherited subject might get set would be when the parent statement has an object that is a resource. Returning to the earlier example, in which the long name for the German_Empire was added, the following markup was used:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;div about=&quot;http://dbpedia.org/resource/Albert_Einstein&quot;&gt;
+  &lt;span property=&quot;foaf:name&quot;&gt;Albert Einstein&lt;/span&gt;
+  &lt;span property=&quot;dbp:dateOfBirth&quot; datatype=&quot;xsd:date&quot;&gt;1879-03-14&lt;/span&gt;
+  &lt;div rel=&quot;dbp:birthPlace&quot; resource=&quot;http://dbpedia.org/resource/German_Empire&quot; /&gt;
+  &lt;span about=&quot;http://dbpedia.org/resource/German_Empire&quot;
+    property=&quot;dbp:conventionalLongName&quot;&gt;the German Empire&lt;/span&gt;
+&lt;/div&gt;
+</code></pre></div></blockquote>
+
+<p>The equivalent microdata JSON for this would be:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">{ &quot;items&quot;: [
+  {
+    &quot;type&quot;: &quot;http://www.w3.org/2000/01/rdf-schema#Resource&quot; ,
+    &quot;id&quot;: &quot;http://dbpedia.org/resource/Albert_Einstein&quot; ,
+    &quot;properties&quot;: {
+      &quot;http://xmlns.com/foaf/0.1/name&quot;: [ &quot;Albert Einstein&quot; ] ,
+      &quot;http://dbpedia.org/property/dateOfBirth&quot;: [ &quot;1879-03-14&quot; ] ,
+      &quot;http://dbpedia.org/property/birthPlace&quot;: [ &quot;http://dbpedia.org/resource/German_Empire&quot; ]
+    }
+  } , {
+    &quot;type&quot;: &quot;http://www.w3.org/2000/01/rdf-schema#Resource&quot; ,
+    &quot;id&quot;: &quot;http://dbpedia.org/resource/German_Empire&quot; ,
+    &quot;properties&quot;: {
+      &quot;http://dbpedia.org/property/conventionalLongName&quot;: [ &quot;the German Empire&quot; ] ,
+    }
+  }
+]}
+</code></pre></div>
+<p>Note that this microdata JSON could only be generated syntactically from the RDFa, not via RDF, because going via RDF would make it impossible to know whether to give the <code>dbp:birthPlace</code> property a string (which is a URI) value or a nested item. We&#39;ll see the alternative version of the microdata RDF in the next example.</p>
+
+<p>To create this microdata JSON, we need:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;div itemscope itemtype=&quot;http://www.w3.org/2000/01/rdf-schema#Resource&quot; 
+     itemid=&quot;http://dbpedia.org/resource/Albert_Einstein&quot;&gt;
+  &lt;span itemprop=&quot;http://xmlns.com/foaf/0.1/name&quot;&gt;Albert Einstein&lt;/span&gt;
+  &lt;time itemprop=&quot;http://dbpedia.org/property/dateOfBirth&quot;&gt;1879-03-14&lt;/time&gt;
+  &lt;link itemprop=&quot;http://dbpedia.org/property/birthPlace&quot; href=&quot;http://dbpedia.org/resource/German_Empire&quot; /&gt;
+  &lt;span itemscope itemtype=&quot;http://www.w3.org/2000/01/rdf-schema#Resource&quot;  
+        itemid=&quot;http://dbpedia.org/resource/German_Empire&quot;&gt;
+    &lt;span itemprop=&quot;http://dbpedia.org/property/conventionalLongName&quot;&gt;the German Empire&lt;/span&gt;
+  &lt;/span&gt;
+&lt;/div&gt;
+</code></pre></div>
+<p>Notes:</p>
+
+<ul>
+<li>I&#39;ve had to change two elements here: the <code>&lt;span&gt;</code> for the date of birth has become a <code>&lt;time&gt;</code> element as the value of the property is a date, and the <code>&lt;div&gt;</code> for the birth place has become a <code>&lt;link&gt;</code> element because the value of that property is a URL.</li>
+<li>I&#39;ve also had to add a nested <code>&lt;span&gt;</code> element as it&#39;s not possible in microdata to have a single element describe both an item and a property for that item as it is in RDFa.</li>
+</ul>
+
+<blockquote>
+<p>In an earlier illustration the subject and object for the German Empire were connected by removing the @resource, relying on the @about to set the object:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;div about=&quot;http://dbpedia.org/resource/Albert_Einstein&quot;&gt;
+  &lt;span property=&quot;foaf:name&quot;&gt;Albert Einstein&lt;/span&gt;
+  &lt;span property=&quot;dbp:dateOfBirth&quot; datatype=&quot;xsd:date&quot;&gt;1879-03-14&lt;/span&gt;
+  &lt;div rel=&quot;dbp:birthPlace&quot;&gt;
+    &lt;span about=&quot;http://dbpedia.org/resource/German_Empire&quot;
+      property=&quot;dbp:conventionalLongName&quot;&gt;the German Empire&lt;/span&gt;
+  &lt;/div&gt;
+&lt;/div&gt;
+</code></pre></div></blockquote>
+
+<p>While this generates the same RDF as the previous example, the microdata JSON that it generates should probably be different: this time, the item for the German Empire is nested within the item for Albert Einstein:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">{ &quot;items&quot;: [
+  {
+    &quot;type&quot;: &quot;http://www.w3.org/2000/01/rdf-schema#Resource&quot; ,
+    &quot;id&quot;: &quot;http://dbpedia.org/resource/Albert_Einstein&quot; ,
+    &quot;properties&quot;: {
+      &quot;http://xmlns.com/foaf/0.1/name&quot;: [ &quot;Albert Einstein&quot; ] ,
+      &quot;http://dbpedia.org/property/dateOfBirth&quot;: [ &quot;1879-03-14&quot; ] ,
+      &quot;http://dbpedia.org/property/birthPlace&quot;: [{
+        &quot;type&quot;: &quot;http://www.w3.org/2000/01/rdf-schema#Resource&quot; ,
+        &quot;id&quot;: &quot;http://dbpedia.org/resource/German_Empire&quot; ,
+        &quot;properties&quot;: {
+          &quot;http://dbpedia.org/property/conventionalLongName&quot;: [ &quot;the German Empire&quot; ]
+        }
+      }
+    }
+  }
+]}
+</code></pre></div>
+<p>To create this, the microdata needs to look like:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;div itemscope itemtype=&quot;http://www.w3.org/2000/01/rdf-schema#Resource&quot; 
+     itemid=&quot;http://dbpedia.org/resource/Albert_Einstein&quot;&gt;
+  &lt;span itemprop=&quot;http://xmlns.com/foaf/0.1/name&quot;&gt;Albert Einstein&lt;/span&gt;
+  &lt;time itemprop=&quot;http://dbpedia.org/property/dateOfBirth&quot;&gt;1879-03-14&lt;/time&gt;
+  &lt;div itemprop=&quot;http://dbpedia.org/property/birthPlace&quot; 
+       itemscope itemtype=&quot;http://www.w3.org/2000/01/rdf-schema#Resource&quot;  
+       itemid=&quot;http://dbpedia.org/resource/German_Empire&quot;&gt;
+    &lt;span itemprop=&quot;http://dbpedia.org/property/conventionalLongName&quot;&gt;the German Empire&lt;/span&gt;
+  &lt;/div&gt;
+&lt;/div&gt;
+</code></pre></div>
+<p>Note that while this looks quite similar to the RDFa version, in fact the <code>itemid</code> attribute that holds the URI for the German Empire is on a different element from the <code>about</code> attribute in the RDFa.</p>
+
+<p>The third RDFa example around this same content is:</p>
+
+<blockquote>
+<p>but it is also possible for authors to achieve the same effect by removing the @about and leaving the @resource:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;div about=&quot;http://dbpedia.org/resource/Albert_Einstein&quot;&gt;
+  &lt;span property=&quot;foaf:name&quot;&gt;Albert Einstein&lt;/span&gt;
+  &lt;span property=&quot;dbp:dateOfBirth&quot; datatype=&quot;xsd:date&quot;&gt;1879-03-14&lt;/span&gt;
+  &lt;div rel=&quot;dbp:birthPlace&quot; resource=&quot;http://dbpedia.org/resource/German_Empire&quot;&gt;
+    &lt;span property=&quot;dbp:conventionalLongName&quot;&gt;the German Empire&lt;/span&gt;
+  &lt;/div&gt;
+&lt;/div&gt;
+</code></pre></div></blockquote>
+
+<p>This should lead to the same microdata JSON, so I won&#39;t bother repeating the microdata. What&#39;s interesting is that this pattern: the wrapper element containing the property (<code>rel</code>) and identifier for the item that is the value for that property (<code>resource</code>) is a lot closer to the microdata pattern of expressing nested items. The big distinction here is that while in microdata, the <code>itemtype</code> also resides on that element, if you tried adding a <code>typeof</code> attribute to the inner <code>&lt;div&gt;</code> in RDFa, you&#39;d end up with a new blank node.</p>
+
+<h2>Anonymous Nested Resources</h2>
+
+<blockquote>
+<p>However, an author could just as easily say that Spinoza influenced something by the name of Albert Einstein, that was born on March 14th, 1879:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;div about=&quot;http://dbpedia.org/resource/Baruch_Spinoza&quot; rel=&quot;dbp-owl:influenced&quot;&gt;
+  &lt;div&gt;
+    &lt;span property=&quot;foaf:name&quot;&gt;Albert Einstein&lt;/span&gt;
+    &lt;span property=&quot;dbp:dateOfBirth&quot; datatype=&quot;xsd:date&quot;&gt;1879-03-14&lt;/span&gt;
+  &lt;/div&gt;
+&lt;/div&gt;
+</code></pre></div></blockquote>
+
+<p>This should generate the microdata JSON:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">{ &quot;items&quot;: [
+  {
+    &quot;type&quot;: &quot;http://www.w3.org/2000/01/rdf-schema#Resource&quot; ,
+    &quot;id&quot;: &quot;http://dbpedia.org/resource/Baruch_Spinoza&quot; ,
+    &quot;properties&quot;: {
+      &quot;http://dbpedia.org/ontology/influenced&quot;: [{
+        &quot;properties&quot;: {
+          &quot;http://xmlns.com/foaf/0.1/name&quot;: [ &quot;Albert Einstein&quot; ] ,
+          &quot;http://dbpedia.org/property/dateOfBirth&quot;: [ &quot;1879-03-14&quot; ]
+        }
+      }]
+    }
+  }
+]}
+</code></pre></div>
+<p>which again means moving an attribute in microdata:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;div itemscope itemtype=&quot;http://www.w3.org/2000/01/rdf-schema#Resource&quot;
+     itemid=&quot;http://dbpedia.org/resource/Baruch_Spinoza&quot;&gt;
+  &lt;div itemprop=&quot;http://dbpedia.org/ontology/influenced&quot;
+       itemscope&gt;
+    &lt;span itemprop=&quot;http://xmlns.com/foaf/0.1/name&quot;&gt;Albert Einstein&lt;/span&gt;
+    &lt;time itemprop=&quot;http://dbpedia.org/property/dateOfBirth&quot;&gt;1879-03-14&lt;/time&gt;
+  &lt;/div&gt;
+&lt;/div&gt;
+</code></pre></div>
+<p>It is generally harder to move to microdata from RDFa when the RDFa has an element that both provides a subject and provides a property.</p>
+
+<p>The RDFa spec provides a couple of additional methods of marking up the same content to give exactly the same RDF (and microdata JSON):</p>
+
+<blockquote>
+<p>Note that the div is superfluous, and an RDFa Processor will create the intermediate object even if the element is removed:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;div about=&quot;http://dbpedia.org/resource/Baruch_Spinoza&quot; rel=&quot;dbp-owl:influenced&quot;&gt;
+  &lt;span property=&quot;foaf:name&quot;&gt;Albert Einstein&lt;/span&gt;
+  &lt;span property=&quot;dbp:dateOfBirth&quot; datatype=&quot;xsd:date&quot;&gt;1879-03-14&lt;/span&gt;
+&lt;/div&gt;
+</code></pre></div>
+<p>An alternative pattern is to keep the div and move the @rel onto it:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;div about=&quot;http://dbpedia.org/resource/Baruch_Spinoza&quot;&gt;
+  &lt;div rel=&quot;dbp-owl:influenced&quot;&gt;
+    &lt;span property=&quot;foaf:name&quot;&gt;Albert Einstein&lt;/span&gt;
+    &lt;span property=&quot;dbp:dateOfBirth&quot; datatype=&quot;xsd:date&quot;&gt;1879-03-14&lt;/span&gt;
+  &lt;/div&gt;
+&lt;/div&gt;
+</code></pre></div>
+<p>From the point of view of the markup, this latter layout is to be preferred, since it draws attention to the &#39;hanging rel&#39;. But from the point of view of an RDFa Processor, all of these permutations need to be supported.</p>
+</blockquote>
+
+<p>Interestingly, it&#39;s this latter permutation that is the one that&#39;s closest to the microdata method of expressing the data, though as we will see in the next section, the &quot;hanging rel&quot; is not exactly equivalent to the <code>itemprop</code> on the wrapper element.</p>
+
+<h2>Hanging Rels</h2>
+
+<blockquote>
+<p>Note that each occurrence of @about will complete any incomplete triples. For example, to mark up the fact that Albert Einstein had a residence both in the German Empire and Switzerland, an author need only specify one @rel value that is then used with multiple @about values:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;div about=&quot;http://dbpedia.org/resource/Albert_Einstein&quot; rel=&quot;dbp-owl:residence&quot;&gt;
+  &lt;span about=&quot;http://dbpedia.org/resource/German_Empire&quot; /&gt;
+  &lt;span about=&quot;http://dbpedia.org/resource/Switzerland&quot; /&gt;
+&lt;/div&gt;
+</code></pre></div></blockquote>
+
+<p>The data embedded here gives two values for the <code>dbp-owl:residence</code> property:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">{ &quot;items&quot;: [
+  {
+    &quot;type&quot;: &quot;http://www.w3.org/2000/01/rdf-schema#Resource&quot; ,
+    &quot;id&quot;: &quot;http://dbpedia.org/resource/Albert_Einstein&quot; ,
+    &quot;properties&quot;: {
+      &quot;http://dbpedia.org/ontology/residence&quot;: [
+        &quot;http://dbpedia.org/resource/German_Empire&quot; ,
+        &quot;http://dbpedia.org/resource/Switzerland&quot;
+      ]
+    }
+  }
+]}
+</code></pre></div>
+<p>In microdata, the <code>itemprop</code> attribute has to appear on both the nested elements to make it clear that they both provide values for that property:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;div itemscope itemtype=&quot;http://www.w3.org/2000/01/rdf-schema#Resource&quot; 
+     itemid=&quot;http://dbpedia.org/resource/Albert_Einstein&quot;&gt;
+ &lt;link itemprop=&quot;http://dbpedia.org/ontology/residence&quot; 
+       href=&quot;http://dbpedia.org/resource/German_Empire&quot; /&gt;
+ &lt;link itemprop=&quot;http://dbpedia.org/ontology/residence&quot;
+       href=&quot;http://dbpedia.org/resource/Switzerland&quot; /&gt;
+&lt;/div&gt;
+</code></pre></div>
+<p>The next example illustrates this with nested items rather than strings:</p>
+
+<blockquote>
+<p>To illustrate, to indicate that Spinoza influenced both Einstein and Schopenhauer, the following markup could be used:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;div about=&quot;http://dbpedia.org/resource/Baruch_Spinoza&quot;&gt;
+  &lt;div rel=&quot;dbp-owl:influenced&quot;&gt;
+    &lt;div typeof=&quot;foaf:Person&quot;&gt;
+      &lt;span property=&quot;foaf:name&quot;&gt;Albert Einstein&lt;/span&gt;
+      &lt;span property=&quot;dbp:dateOfBirth&quot; datatype=&quot;xsd:date&quot;&gt;1879-03-14&lt;/span&gt;
+    &lt;/div&gt;
+    &lt;div typeof=&quot;foaf:Person&quot;&gt;
+      &lt;span property=&quot;foaf:name&quot;&gt;Arthur Schopenhauer&lt;/span&gt;
+      &lt;span property=&quot;dbp:dateOfBirth&quot; datatype=&quot;xsd:date&quot;&gt;1788-02-22&lt;/span&gt;
+    &lt;/div&gt;          
+  &lt;/div&gt;
+&lt;/div&gt;
+</code></pre></div></blockquote>
+
+<p>This should generate:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">{ &quot;items&quot;: [
+  {
+    &quot;type&quot;: &quot;http://www.w3.org/2000/01/rdf-schema#Resource&quot; ,
+    &quot;id&quot;: &quot;http://dbpedia.org/resource/Baruch_Spinoza&quot; ,
+    &quot;properties&quot;: {
+      &quot;http://dbpedia.org/ontology/influenced&quot;: [{
+        &quot;type&quot;: &quot;http://xmlns.com/foaf/0.1/Person&quot; ,
+        &quot;properties&quot;: {
+          &quot;name&quot;: [ &quot;Albert Einstein&quot; ] ,
+          &quot;http://dbpedia.org/property/dateOfBirth&quot;: [ &quot;1879-03-14&quot; ]
+        }
+      }, {
+        &quot;type&quot;: &quot;http://xmlns.com/foaf/0.1/Person&quot; ,
+        &quot;properties&quot;: {
+          &quot;name&quot;: [ &quot;Arthur Schopenhauer&quot; ] ,
+          &quot;http://dbpedia.org/property/dateOfBirth&quot;: [ &quot;1788-02-22&quot; ]
+        }
+      }]
+    }
+  }
+]}
+</code></pre></div>
+<p>In this case, the <code>itemprop</code> that is equivalent to the RDFa <code>rel</code> has to move down onto the elements representing the items:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;div itemscope itemtype=&quot;http://www.w3.org/2000/01/rdf-schema#Resource&quot;
+     itemid=&quot;http://dbpedia.org/resource/Baruch_Spinoza&quot;&gt;
+  &lt;div&gt;
+    &lt;div itemprop=&quot;http://dbpedia.org/ontology/influenced&quot;
+         itemscope itemtype=&quot;http://xmlns.com/foaf/0.1/Person&quot;&gt;
+      &lt;span itemprop=&quot;name&quot;&gt;Albert Einstein&lt;/span&gt;
+      &lt;time itemprop=&quot;http://dbpedia.org/property/dateOfBirth&quot;&gt;1879-03-14&lt;/time&gt;
+    &lt;/div&gt;
+    &lt;div itemprop=&quot;http://dbpedia.org/ontology/influenced&quot;
+         itemscope itemtype=&quot;http://xmlns.com/foaf/0.1/Person&quot;&gt;
+      &lt;span itemprop=&quot;name&quot;&gt;Arthur Schopenhauer&lt;/span&gt;
+      &lt;time itemprop=&quot;http://dbpedia.org/property/dateOfBirth&quot;&gt;1788-02-22&lt;/time&gt;
+    &lt;/div&gt;
+  &lt;/div&gt;
+&lt;/div&gt;
+</code></pre></div>
+<p>The wrapper <code>&lt;div&gt;</code> around both items isn&#39;t necessary; I&#39;ve left it to stay as close to the markup of the original RDFa as possible.</p>
+
+<h2>Implicit Resources</h2>
+
+<blockquote>
+<p>Triples are also &#39;completed&#39; if any one of @property, @rel or @rev are present. However, unlike the situation when @about or @typeof are present, all predicates are attached to one bnode:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;div about=&quot;http://dbpedia.org/resource/Baruch_Spinoza&quot; rel=&quot;dbp-owl:influenced&quot;&gt;
+  &lt;span property=&quot;foaf:name&quot;&gt;Albert Einstein&lt;/span&gt;
+  &lt;span property=&quot;dbp:dateOfBirth&quot; datatype=&quot;xsd:date&quot;&gt;1879-03-14&lt;/span&gt;
+  &lt;div rel=&quot;dbp-owl:residence&quot;&gt;
+    &lt;span about=&quot;http://dbpedia.org/resource/German_Empire&quot; /&gt;
+    &lt;span about=&quot;http://dbpedia.org/resource/Switzerland&quot; /&gt;
+  &lt;/div&gt;
+&lt;/div&gt;
+</code></pre></div></blockquote>
+
+<p>To be equivalent to the RDF generated from this markup, the microdata JSON would be:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">{ &quot;items&quot;: [
+  {
+    &quot;type&quot;: &quot;http://www.w3.org/2000/01/rdf-schema#Resource&quot; ,
+    &quot;id&quot;: &quot;http://dbpedia.org/resource/Baruch_Spinoza&quot; ,
+    &quot;properties&quot;: {
+      &quot;http://dbpedia.org/ontology/influenced&quot;: [{
+        &quot;properties&quot;: {
+          &quot;http://xmlns.com/foaf/0.1/name&quot;: [ &quot;Albert Einstein&quot; ] ,
+          &quot;http://dbpedia.org/property/dateOfBirth&quot;: [ &quot;1879-03-14&quot; ]
+          &quot;http://dbpedia.org/ontology/residence&quot;: [
+            &quot;http://dbpedia.org/resource/German_Empire&quot; ,
+            &quot;http://dbpedia.org/resource/Switzerland&quot;
+          ]
+        }
+      }]
+    }
+  }
+]}
+</code></pre></div>
+<p>Microdata is a lot more explicit about when items get created, and consequently requires a bit more markup:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;div itemscope itemtype=&quot;http://www.w3.org/2000/01/rdf-schema#Resource&quot;
+     itemid=&quot;http://dbpedia.org/resource/Baruch_Spinoza&quot;&gt;
+  &lt;div itemprop=&quot;http://dbpedia.org/ontology/influenced&quot; itemscope&gt;
+    &lt;span itemprop=&quot;name&quot;&gt;Albert Einstein&lt;/span&gt;
+    &lt;time itemprop=&quot;http://dbpedia.org/property/dateOfBirth&quot;&gt;1879-03-14&lt;/time&gt;
+    &lt;div&gt;
+     &lt;link itemprop=&quot;http://dbpedia.org/ontology/residence&quot; 
+           href=&quot;http://dbpedia.org/resource/German_Empire&quot; /&gt;
+     &lt;link itemprop=&quot;http://dbpedia.org/ontology/residence&quot;
+           href=&quot;http://dbpedia.org/resource/Switzerland&quot; /&gt;
+    &lt;/div&gt;
+  &lt;/div&gt;
+&lt;/div&gt;
+</code></pre></div>
+<h2>Overriding Text Content</h2>
+
+<blockquote>
+<p>The value of @content is given precedence over any element content, so the following would give exactly the same triple as shown above:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;span about=&quot;http://internet-apps.blogspot.com/&quot;
+      property=&quot;dc:creator&quot; content=&quot;Mark Birbeck&quot;&gt;John Doe&lt;/span&gt;
+</code></pre></div></blockquote>
+
+<p>The equivalent microdata should generate the JSON:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">{ &quot;items&quot;: [
+  {
+    &quot;type&quot;: &quot;http://www.w3.org/2000/01/rdf-schema#Resource&quot; ,
+    &quot;id&quot;: &quot;http://internet-apps.blogspot.com/&quot; ,
+    &quot;properties&quot;: {
+      &quot;http://purl.org/dc/terms/creator&quot;: [ &quot;Mark Birbeck&quot; ]
+    }
+  }
+]}
+</code></pre></div>
+<p>Only the <code>&lt;time&gt;</code> element and links override the content of an element in microdata. So a mirror of this example needs a separate element:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">  &lt;span itemscope itemtype=&quot;http://www.w3.org/2000/01/rdf-schema#Resource&quot;
+        itemid=&quot;http://internet-apps.blogspot.com/&quot;&gt;
+    &lt;meta itemprop=&quot;http://purl.org/dc/terms/creator&quot; content=&quot;Mark Birbeck&quot; /&gt;
+    John Doe
+  &lt;/span&gt;
+</code></pre></div>
+<h2>Language Support</h2>
+
+<blockquote>
+<p>In RDFa the Host Language may provide a mechanism for setting the language tag. In XHTML+RDFa [XHTML-RDFA], for example, the XML language attribute @xml:lang or the attribute @lang is used to add this information, whether the plain literal is designated by @content, or by the inline text of the element:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;meta about=&quot;http://example.org/node&quot;
+  property=&quot;ex:property&quot; xml:lang=&quot;fr&quot; content=&quot;chat&quot; /&gt;
+</code></pre></div></blockquote>
+
+<p>Like the datatype of a value, the language of a value isn&#39;t captured by the microdata data model or the JSON representation of that data model. So the fact that &#39;chat&#39; is French is lost:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">{ &quot;items&quot;: [
+  {
+    &quot;type&quot;: &quot;http://www.w3.org/2000/01/rdf-schema#Resource&quot; ,
+    &quot;id&quot;: &quot;http://example.org/node&quot; ,
+    &quot;properties&quot;: {
+      &quot;http://example.org/property&quot;: [ &quot;chat&quot; ]
+    }
+  }
+]}
+</code></pre></div>
+<p>The equivalent microdata is thus:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;span itemscope itemtype=&quot;http://www.w3.org/2000/01/rdf-schema#Resource&quot;
+      itemid=&quot;http://example.org/node&quot;
+  &lt;meta itemprop=&quot;ex:property&quot; xml:lang=&quot;fr&quot; content=&quot;chat&quot; /&gt;
+&lt;/span&gt;
+</code></pre></div>
+<p>with the language only accessible if you are using the DOM to process the microdata.</p>
+
+<h2>Literals that Include Markup</h2>
+
+<blockquote>
+<p>RDFa therefore supports the use of normal markup to express XML literals, by using @datatype:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;h2 property=&quot;dc:title&quot; datatype=&quot;rdf:XMLLiteral&quot;&gt;
+  E = mc&lt;sup&gt;2&lt;/sup&gt;: The Most Urgent Problem of Our Time
+&lt;/h2&gt;
+</code></pre></div></blockquote>
+
+<p>The <code>datatype=&quot;rdf:XMLLiteral&quot;</code> acts like a flag to indicate that the serialised content of the element (<code>innerHTML</code>) needs to be used as the value of the property, rather than the <code>textContent</code>, which includes markup, can be expressed in microdata JSON as follows:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">{ &quot;http://purl.org/dc/terms/title&quot;: &quot;E = mc&lt;sup&gt;2&lt;/sup&gt;: The Most Urgent Problem of Our Time&quot; }
+</code></pre></div>
+<p>There&#39;s no way to generate this in microdata except by repeating the escaped version of the content in a <code>content</code> attribute:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;h2&gt;
+  E = mc&lt;sup&gt;2&lt;/sup&gt;: The Most Urgent Problem of Our Time
+  &lt;meta itemprop=&quot;http://purl.org/dc/terms/title&quot;
+    content=&quot;E = mc&amp;lt;sup&gt;2&amp;lt;/sup&gt;: The Most Urgent Problem of Our Time&quot; /&gt;
+&lt;/h2&gt;
+</code></pre></div>
+<p>This is hardly ideal. It&#39;s tedious enough with a short string like this one; for larger amounts of information such as long descriptions of an event, it would be very tedious.</p>
+
+<h2>The <code>resource</code> Attribute</h2>
+
+<blockquote>
+<p>RDFa provides the @resource attribute as a way to set the object of statements. This is particularly useful when referring to resources that are not themselves navigable links:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;html&gt;
+  &lt;head&gt;
+    &lt;title&gt;On Crime and Punishment&lt;/title&gt;
+    &lt;base href=&quot;http://www.example.com/candp.xhtml&quot; /&gt;
+  &lt;/head&gt;
+  &lt;body&gt;
+    &lt;blockquote about=&quot;#q1&quot; rel=&quot;dc:source&quot; resource=&quot;urn:ISBN:0140449132&quot; &gt;
+      &lt;p id=&quot;q1&quot;&gt;
+        Rodion Romanovitch! My dear friend! If you go on in this way
+        you will go mad, I am positive! Drink, pray, if only a few drops!
+      &lt;/p&gt;
+    &lt;/blockquote&gt;
+  &lt;/body&gt;
+&lt;/html&gt;
+</code></pre></div></blockquote>
+
+<p>This should produce:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">{ &quot;items&quot;: [
+  {
+    &quot;type&quot;: &quot;http://www.w3.org/2000/01/rdf-schema#Resource&quot; ,
+    &quot;id&quot;: &quot;http://www.example.com/candp.xhtml#q1&quot; ,
+    &quot;properties&quot;: {
+      &quot;http://purl.org/dc/terms/source&quot;: [ &quot;urn:ISBN:0140449132&quot; ]
+    }
+  }
+]}
+</code></pre></div>
+<p>which is expressed through:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;html&gt;
+  &lt;head&gt;
+    &lt;title&gt;On Crime and Punishment&lt;/title&gt;
+    &lt;base href=&quot;http://www.example.com/candp.xhtml&quot; /&gt;
+  &lt;/head&gt;
+  &lt;body&gt;
+    &lt;blockquote itemscope itemtype=&quot;http://www.w3.org/2000/01/rdf-schema#Resource&quot; itemid=&quot;#q1&quot;&gt;
+      &lt;link itemprop=&quot;http://purl.org/dc/terms/source&quot; href=&quot;urn:ISBN:0140449132&quot; /&gt;
+      &lt;p id=&quot;q1&quot;&gt;
+        Rodion Romanovitch! My dear friend! If you go on in this way
+        you will go mad, I am positive! Drink, pray, if only a few drops!
+      &lt;/p&gt;
+    &lt;/blockquote&gt;
+  &lt;/body&gt;
+&lt;/html&gt;
+</code></pre></div>
+<p>The property and value have to be moved onto a nested <code>&lt;link&gt;</code>, but this is a more extensible pattern than the RDFa method as it enables other properties to be expressed in the same way.</p>
+
+<h2>Multiple Types</h2>
+
+<p>This last example comes from the wild rather than being an example in the specification. At <a href="http://bitmunk.com/browse">http://bitmunk.com/browse</a> we find:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;span about=&quot;http://bitmunk.com/about#service&quot; 
+      typeof=&quot;vcard:VCard commerce:Business gr:BusinessEntity&quot; 
+      property=&quot;rdfs:label vcard:fn&quot;&gt;Bitmunk&lt;/span&gt; 
+</code></pre></div>
+<p>This shows the use of multiple types and of multiple properties with the same value, because the pages are attempting to use multiple vocabularies that cover the same domain (organisations) to different depths. In the equivalent microdata, we have to choose one of the types; I&#39;m going to assume that it should just use the first one from the <code>typeof</code> attribute:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">{ &quot;items&quot;: [
+  {
+    &quot;type&quot;: &quot;http://www.w3.org/2006/vcard/ns#VCard&quot; ,
+    &quot;id&quot;: &quot;http://bitmunk.com/about#service&quot; ,
+    &quot;properties&quot;: {
+      &quot;http://www.w3.org/1999/02/22-rdf-syntax-ns#type&quot;: [
+        &quot;http://purl.org/commerce#Business&quot; ,
+        &quot;http://purl.org/goodrelations/v1#BusinessEntity&quot;
+      ] ,
+      &quot;http://www.w3.org/2000/01/rdf-schema#label&quot;: [ &quot;Bitmunk&quot; ] ,
+      &quot;fn&quot;: [ &quot;Bitmunk&quot; ]
+    }
+  }
+]}
+</code></pre></div>
+<p>The microdata equivalent is:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;span itemscope itemid=&quot;http://bitmunk.com/about#service&quot; 
+      itemtype=&quot;http://www.w3.org/2006/vcard/ns#VCard&quot;&gt;
+  &lt;link itemprop=&quot;http://www.w3.org/1999/02/22-rdf-syntax-ns#type&quot;
+       href=&quot;http://purl.org/commerce#Business&quot; /&gt;
+  &lt;link itemprop=&quot;http://www.w3.org/1999/02/22-rdf-syntax-ns#type&quot;
+       href=&quot;http://purl.org/goodrelations/v1#BusinessEntity&quot; /&gt;
+  &lt;span itemprop=&quot;http://www.w3.org/2000/01/rdf-schema#label fn&quot;&gt;Bitmunk&lt;/span&gt;
+&lt;/span&gt;
+</code></pre></div>
+<p>Notes:</p>
+
+<ul>
+<li>Technically, the RDFa doesn&#39;t place any ordering on the three classes, but I&#39;m picking the first for the purpose of the microdata conversion. The other classes are harder to get at in the JSON: they have to be referenced via the <code>rdf:type</code> microdata property rather than the <code>type</code> JSON property. Consumers that are on the lookout for items of the type <code>gr:BusinessEntity</code> wouldn&#39;t spot these items.</li>
+</ul>

@@ -1,0 +1,30 @@
+<p>Excellent post on <a href="http://www.mulberrytech.com/xsl/xsl-list/" title="XSL-List information">XSL-List</a> by Abel Braaksma on <a href="http://www.biglist.com/lists/xsl-list/archives/200705/msg00022.html" title="Re: [xsl] How to split an RegEx into several lines for readability?">creating readable regex expressions</a> in XSLT 2.0. He suggests always defining regular expressions in the content of a <code>&lt;xsl:variable&gt;</code>,  using normal XML comments to annotate the different parts of the regex, and then using the <code>x</code> flag to ignore the extraneous whitespace that you&#39;ve introduced.</p>
+
+<!--break-->
+
+<p>Here&#39;s a full example. Say that you want to parse a UK date. You could do:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;xsl:variable name=&quot;UKdate&quot; as=&quot;xs:string&quot;&gt;
+  ([0-9]{,2})      &lt;!-- group 1 holds the day: one or two digits --&gt;
+  /                &lt;!-- separator --&gt;
+  ([0-9]{,2})      &lt;!-- group 2 holds the month: one or two digits --&gt;
+  /                &lt;!-- separator --&gt;
+  ([0-9]{2})       &lt;!-- group 3 holds the year: two digits --&gt;
+&lt;/xsl:variable&gt;
+</code></pre></div>
+<p>The variable is set to a string with lots of whitespace in it. The comments are, of course, ignored (when the XSLT stylesheet is initially compiled).</p>
+
+<p>Then when you want to use the regular expression, use the <code>x</code> flag. This ignores all whitespace in the regular expression. For example:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;xsl:if test=&quot;matches(@date, $UKdate, &#39;x&#39;)&quot;&gt;
+  &lt;xsl:analyze-string select=&quot;@date&quot; regex=&quot;{$UKdate}&quot; flags=&quot;x&quot;&gt;
+    ...
+  &lt;/xsl:analyze-string&gt;
+&lt;/xsl:if&gt;
+</code></pre></div>
+<p>(I know I don&#39;t need to do the <code>&lt;xsl:if&gt;</code>, I&#39;m just trying to show how you&#39;d use the regular expression in a function call as well.)</p>
+
+<p>Even if you don&#39;t want to document your regular expressions (David C.), it&#39;s a good idea to define them in variables. I&#39;ve been caught out a number of times accidentally doing something like:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;xsl:analyze-string select=&quot;$n&quot; regex=&quot;[0-9]{2}&quot;&gt;
+  ...
+&lt;/xsl:analyze-string&gt;
+</code></pre></div>
+<p>which of course matches any two digit number where the second digit is a <code>2</code>. (The problem&#39;s that the <code>regex</code> attribute value template, so the <code>{}</code>s are replaced by the result of evaluating their content, leaving the regular expression <code>[0-9]2</code>.) Using the content of an <code>&lt;xsl:variable&gt;</code> is a good idea as well, because it means you don&#39;t have to escape quotes and apostrophes: regex syntax is enough of a headache without worrying about extra levels of escaping.</p>

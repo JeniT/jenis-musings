@@ -1,0 +1,52 @@
+<p>On Thursday morning, I was down to chair the first session in the &quot;Core Technologies&quot; track. Two interesting papers: one on XForms and one on Google Base. Then I snuck on to the &quot;Applications&quot; track to hear about scientific Wikis and the trials of managing schema repositories.</p>
+
+<!--break-->
+
+<h2><a href="http://2007.xtech.org/public/schedule/detail/114" title="XForms, REST, XQuery... and skimming">XForms, REST, XQuery... and skimming</a></h2>
+
+<h3><a href="http://internet-apps.blogspot.com/" title="Mark Birbeck&#39;s Blog">Mark Birbeck</a></h3>
+
+<p>Mark Birbeck, one of the developers of <a href="http://www.formsplayer.com/" title="formsPlayer Website">formsPlayer</a> (and an invited expert on the XForms and XHTML WGs), discussed the rationale behind using <a href="http://www.w3.org/MarkUp/Forms/" title="XForms W3C Page">XForms</a>. The only thing that really stood out for me was the fact that he used an XML document to provide the <em>labels</em> for the form controls (in just the same way as you can use XML documents to provide the <em>data</em> in the form controls). That was quite neat, and made me think of the different requirements of data entry and data presentation: a topic that returned in <a href="http://2007.xtech.org/public/schedule/detail/155" title="XML-powered Exhibit: A Case Study of JSON &amp; XML Coexistence">Chimezie Ogbuji&#39;s talk</a> later that afternoon.</p>
+
+<p>Another theme here, for me, was the use of declarative programming: you write a form, which is just some XML and leave all the technical stuff about submitting a PUT HTTP request to the XForms player. Mark talked about using <a href="http://en.wikipedia.org/wiki/WebDAV" title="Wikipedia: WebDAV">WebDAV</a> and <a href="http://exist.sourceforge.net/" title="eXist">eXist</a> on the server to store the XML documents, and demonstrated using <a href="http://www.oxygenxml.com/" title="oXygen XML editor">&lt;oXygen/&gt;</a> to load and save documents. Hmm... I wonder if I should experiment with XForms and that Unicode database browser I was thinking about...</p>
+
+<h2><a href="http://2007.xtech.org/public/schedule/detail/104" title="Google Base, a mashups database for the REST of us">Google Base, a mashups database for the REST of us</a></h2>
+
+<h3>Jeffrey Scudder</h3>
+
+<p>A very popular, thought-provoking, and slightly disturbing, talk on <a href="http://base.google.com/" title="Google Base">Google Base</a>. So Google are asking us to upload data on <em>anything</em> (jobs, personals, cars, etc.) into their huge databases. And then they&#39;ll serve us back that information (and other people&#39;s information) in formats such as <a href="http://en.wikipedia.org/wiki/Atom_(standard)" title="Wikipedia: Atom">Atom</a>, <a href="http://en.wikipedia.org/wiki/RSS_(file_format)" title="Wikipedia: RSS">RSS</a> and <a href="http://www.json.org/" title="JSON">JSON</a>, as well as standard web pages.</p>
+
+<p>The thought-provoking bit, for me, was the fact that they don&#39;t have any particular schema for each of these kinds of items. Now, I come from a knowledge engineering background where we&#39;re very into ontologies and creating conceptual models and all that stuff. But Google don&#39;t bother: you create categories and structure your data the way you want to, and they&#39;ll serve it back in that way. But they look at <em>all</em> the data they have their hands on in order to decide how to display and serve information. So, for example, if I define cars with the property &#39;shade&#39; but a hundred other people define them with the property &#39;colour&#39; then on a feed that includes all our items, we&#39;ll see the &#39;colour&#39; property.</p>
+
+<p>This is a kind of bottom-up ontology design: the properties of an item are the properties that other people think are important about an item. One thing that surprised me was that it looks like it&#39;s not very intelligent yet: simple differences in case (like &#39;color&#39; vs. &#39;Color&#39;) don&#39;t seem to be detected, so I guess nothing else is. Time to dig out my old research on automated comparison of ontologies...</p>
+
+<p>The slightly disturbing part? Well, Google are trying to get us to upload our data to their servers. And they&#39;re not putting any limit on how much we upload. One member of the audience asked &quot;What&#39;s in it for you?&quot;; Jeffrey seemed to have a hard time understanding the question and said something like &quot;Better indexed information means we can give you better information&quot;, but that doesn&#39;t really answer the question. Presumably it&#39;s all about being able to advertise to us better: the more data we upload, the more They know about us, the better targeted Their adverts can be.</p>
+
+<p>What I found strange was the idea of <em>uploading</em> data to a <em>central</em> <em>server</em>. Surely the whole point of the web is that I put my data on my machine. I don&#39;t have a problem putting the data together in a nice Atom feed so that Google can index it easily and pointing them at it, but I want to own it, y&#39;know?</p>
+
+<p>By the way, one thing that was apparent to me during this talk was how important it is that web pages look good with large font sizes, not just for people with poor eyesight, but also for when you&#39;re <em>demoing</em> your cool web applications! The Google Base drop-down menus were impossible to see with increased font size because their height is fixed in pixels.</p>
+
+<h2><a href="http://2007.xtech.org/public/schedule/detail/134" title="An Augmented Wiki for Interactive Scientific Visualization and Evolutionary Collaboration">An Augmented Wiki for Interactive Scientific Visualization and Evolutionary Collaboration</a></h2>
+
+<h3><a href="http://csis.pace.edu/%7Emarchese" title="Frank Marchese&#39;s Website">Frank Marchese</a></h3>
+
+<p>On to the less well-attended &quot;Applications&quot; track. This talk was about supporting scientists (specifically biochemists) in providing side-by-side visualisation (of complex molecules) and textual analysis. Frank talked about a Wiki in which <a href="http://jmol.sourceforge.net/" title="Jmol molecule viewer">Jmol</a> Java applets for visualising molecules are arranged side-by-side with standard journal articles. The articles themselves have links in them that animate the Jmol visualisation: highlighting particular groups of atoms, moving it to show a particular view, and so on.</p>
+
+<p>It was kind of neat, as pretty pictures of molecules often are, but I didn&#39;t think the Wikiness of the whole enterprise was really explored: I got the impression that the textual articles were basically static: you could add comments, but not collaboratively create an article about the molecule. Also, the link between the text and the animation of the molecule was through Javascript, as far as I could tell: I&#39;d expect a declarative method of defining animations would make it a lot more accessible.</p>
+
+<h2><a href="http://2007.xtech.org/public/schedule/detail/176" title="Real-world metadata registries; sharing concepts, schemas and semantics">Real-world metadata registries; sharing concepts, schemas and semantics</a></h2>
+
+<h3><a href="http://www.ukoln.ac.uk/" title="UKOLN Website">Emma Tonkin</a></h3>
+
+<p>This talk took me back to the trials of creation of top-down conceptual models, focusing on the definition of metadata schemas. Unfortunately, there was a lot of philosophy and not many practical guidelines in the talk, and I didn&#39;t get a lot out of it. One thing that Emma touched on, though, was the way that the meaning of a term can change over time, through:</p>
+
+<ul>
+<li> extension or generalisation</li>
+<li> narrowing or specialisation</li>
+<li> amelioration (when a term gains approval)</li>
+<li> deterioration or perjoration (when a term gains disapproval)</li>
+</ul>
+
+<p>The latter two are particularly demonstrated by political correctness, whereby terms like &quot;Eskimo&quot; fall out of favour and &quot;Inuit&quot; becomes more acceptable (all highly culture-specific; see the <a href="http://en.wikipedia.org/wiki/Eskimo" title="Wikipedia: Eskimo">Wikipedia Eskimo page</a> for more discussion on what term to use).</p>
+
+<p>The advantage of a principled conceptual model is that the concept itself and the term(s) you use for that concept are loosely coupled, so if a given term falls out of favour or becomes inappropriate, you can always decouple it. On the other hand, bottom-up tagging tends (I think) to have a 1:1 relationship between term and concept, so if the use of terminology changes you might be left with inaccurate tagging of legacy data. Maybe.</p>

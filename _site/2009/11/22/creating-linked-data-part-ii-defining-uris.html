@@ -1,0 +1,133 @@
+<p>This is the second instalment in a series of posts about how to create linked data from existing data sets, using traffic count data as an example. In the last instalment, I talked about <a href="http://www.jenitennison.com/blog/node/135">analysing and modelling data</a>. This instalment discusses the creation of URIs for the various <em>things</em> that have been identified within the model.</p>
+
+<p>This part of the process is the same as what you&#39;d do if you were simply creating a RESTful API to a website. The principal is that everything has a URI, and if you resolve that URI you get information about the thing.</p>
+
+<!--break-->
+
+<p>For the data.gov.uk site, we now have some <a href="http://www.cabinetoffice.gov.uk/media/308995/public_sector_uri.pdf">guidelines about the design of URIs for the UK public sector</a>. Basically, URIs for <em>things</em> should look like:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">http://{sector}.data.gov.uk/id/{type of thing}/{thing identifier}
+</code></pre></div>
+<p>There&#39;ll be plenty of examples in what follows.</p>
+
+<h2>Areas</h2>
+
+<p>Some of the things that we&#39;ve identified as being part of the traffic count dataset already have centrally-defined identifiers. As part of other data.gov.uk work, we&#39;ve defined URIs for administrative areas like countries, regions, local authority districts and local authorities. The templates for these URIs are:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">http://statistics.data.gov.uk/id/country/{ONS code}
+http://statistics.data.gov.uk/id/government-office-region/{ONS code}
+http://statistics.data.gov.uk/id/local-authority-district/{ONS code}
+http://statistics.data.gov.uk/id/local-authority/{ONS code}
+</code></pre></div>
+<p>We can use these identifiers directly for the regions, districts and local authorities. But there&#39;s a problem with the country URI: we don&#39;t have the ONS code for the country, only the name of the country. Fortunately, we&#39;ve also defined URIs with this pattern:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">http://statistics.data.gov.uk/id/country?name={country name}
+http://statistics.data.gov.uk/id/government-office-region?name={region name}
+http://statistics.data.gov.uk/id/local-authority-district?name={district name}
+http://statistics.data.gov.uk/id/local-authority?name={authority name}
+</code></pre></div>
+<p>so in this situation we can use the name-based country URI and we&#39;ll get redirected to the canonical, code-based URI.</p>
+
+<p>Local authorities actually have two codes within the dataset that we have: the ONS code and a DfT code. I can well imagine that other datasets from the Department for Transport will only reference the DfT code, so it&#39;s a good idea to create URIs that are based on these codes; later on, we can state that the two identifiers actually mean exactly the same thing.</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">http://transport.data.gov.uk/id/local-authority-district/{DfT code}
+http://transport.data.gov.uk/id/local-authority/{DfT code}
+</code></pre></div>
+<p>So given the record:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&quot;England&quot;,&quot;North West&quot;,&quot;B&quot;,4315.00,&quot;00BZ&quot;,&quot;St.Helens Metropolitan Borough Council&quot;,
+4,&quot;U&quot;,,&quot;Unclassified Urban&quot;,,
+,352100,398200,
+7/6/2001 00:00:00,&quot;N&quot;,7,1,0,5,1,0,0,0,0,0,0,0,0,6
+</code></pre></div>
+<p>the URIs we&#39;ve defined so far are:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">http://statistics.data.gov.uk/id/country?name=England
+http://statistics.data.gov.uk/id/government-office-region/B
+http://statistics.data.gov.uk/id/local-authority-district/00BZ
+http://statistics.data.gov.uk/id/local-authority/00BZ
+http://transport.data.gov.uk/id/local-authority-district/4315
+http://transport.data.gov.uk/id/local-authority/4315
+</code></pre></div>
+<h2>Roads</h2>
+
+<p>Now we&#39;re onto things that aren&#39;t defined already. First is roads. If there&#39;s a road number, the obvious thing to use is that road number; something like:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">http://transport.data.gov.uk/id/road/{road number}
+</code></pre></div>
+<p>For example:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">http://transport.data.gov.uk/id/road/B3178
+</code></pre></div>
+<p>If there isn&#39;t a road number, we&#39;ll have to construct a URI. Since each count point is on one particular road, we can use the identifier of the count point to identify the road, so:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">http://transport.data.gov.uk/id/road/{class}-{count point number}
+</code></pre></div>
+<p>For example:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">http://transport.data.gov.uk/id/road/U-4
+</code></pre></div>
+<h2>Count Points</h2>
+
+<p>Count points can be identified through their number, so it makes sense to use that in the URI:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">http://transport.data.gov.uk/id/traffic-count-point/{count point number}
+</code></pre></div>
+<p>For example:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">http://transport.data.gov.uk/id/traffic-count-point/4
+</code></pre></div>
+<h2>Counts</h2>
+
+<p>The counts themselves don&#39;t have their own identifiers, but they can be identified through a combination of the count point that they&#39;re associated with, the direction of travel of the traffic that&#39;s being counted, and the date and time that the count is made. So we can create a URI that combines these things. To aid hackability, I&#39;m going to build on top of the traffic count point URI that we&#39;ve already defined:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">http://transport.data.gov.uk/id/traffic-count-point/{count point number}/direction/{direction}/hour/{time}
+</code></pre></div>
+<p>For example:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">http://transport.data.gov.uk/id/traffic-count-point/4/direction/N/hour/2001-06-07T07:00:00
+</code></pre></div>
+<h2>Observations</h2>
+
+<p>Again, observations build on top of the counts by adding a vehicle type to the mix, so we can construct URIs that reflect that:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">http://transport.data.gov.uk/id/traffic-count-point/{count point number}/direction/{direction}/hour/{time}/type/{vehicle type}
+</code></pre></div>
+<p>For example:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">http://transport.data.gov.uk/id/traffic-count-point/4/direction/N/hour/2001-06-07T07:00:00/type/motor-vehicle
+</code></pre></div>
+<h2>Road Categories</h2>
+
+<p>Road categories are a bit different from the kinds of things that we&#39;ve been talking about so far: they are concepts. For these URIs we use a slightly different pattern from the URIs above: <code>/def/</code> rather than <code>/id/</code>. For road categories we can use:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">http://transport.data.gov.uk/def/road-category/{category}
+</code></pre></div>
+<p>For example:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">http://transport.data.gov.uk/def/road-category/motorway
+</code></pre></div>
+<h2>Vehicle Types</h2>
+
+<p>Vehicle types are also concepts, so have similar URIs:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">http://transport.data.gov.uk/def/vehicle-category/{type}
+</code></pre></div>
+<p>For example:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">http://transport.data.gov.uk/def/vehicle-category/HGVa5
+</code></pre></div>
+<h2>Cardinal Directions</h2>
+
+<p>Cardinal directions are also concepts, but really they are global concepts, not specific to transport, or even to the UK. So it feels a bit strange to use URIs for them that imply that they somehow belong to data.gov.uk.</p>
+
+<p>Fortunately, for this kind of general concept we can use URIs defined by <a href="http://dbpedia.org">DBPedia</a>. DBPedia is a linked data view on Wikipedia, so it has URIs for everything that Wikipedia has a page about, making it an excellent general purpose resource. The relevant URIs for the cardinal directions are:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">http://dbpedia.org/resource/North
+http://dbpedia.org/resource/South
+http://dbpedia.org/resource/East
+http://dbpedia.org/resource/West
+</code></pre></div>
+<p>so that&#39;s what we&#39;ll use.</p>
+
+<h2>Dates, Times and Periods</h2>
+
+<p>For dates, times and periods, we can use the URIs provided by another general-purpose linked data resource: <a href="http://www.placetime.com/">placetime.com</a>. URIs for instants have the pattern:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">http://placetime.com/instant/gregorian/{dateTime}
+</code></pre></div>
+<p>while periods have the pattern:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">http://placetime.com/interval/gregorian/{dateTime}/{duration}
+</code></pre></div>
+<p>So the hour from 7-8am on 7th June 2001 would be:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">http://placetime.com/interval/gregorian/2001-06-07T07:00:00/PT1H
+</code></pre></div>
+<p>and the year 2001 would be:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">http://placetime.com/interval/gregorian/2001-01-01T00:00:00/P1Y
+</code></pre></div>
+<p>The thing is that the latter isn&#39;t particularly approachable. Calendar years are used all over the place, so it would be nice to have a set of URIs for them that we use consistently. Again, DBPedia provides URIs for every year, such as:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">http://dbpedia.org/resource/2001
+</code></pre></div>
+<p>so where we need to refer to a calendar year, it would be good to reuse that.</p>
+
+<hr>
+
+<p>And that completes the sets of URIs that we need for this data. Stay tuned.</p>

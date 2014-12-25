@@ -1,0 +1,50 @@
+<p>For the last several months, I&#39;ve been working on a project at <a href="http://www.tso.co.uk/">TSO</a> for publishing <a href="http://www.opsi.gov.uk/legislation">UK legislation</a> using a native XML database (eg <a href="http://www.exist-db.org/">eXist</a> or <a href="http://www.marklogic.com/">MarkLogic Server</a>) with some middleware (eg <a href="http://www.orbeon.com/">Orbeon</a> or <a href="http://cocoon.apache.org/">Cocoon</a>). It&#39;s a powerful and flexible approach that&#39;s built on declarative languages like XQuery, XSLT, and XML pipelines; you can see it in action with the <a href="http://sandbox.opsi.gov.uk/">Command and House Papers demo</a>.</p>
+
+<p>But the killer platform isn&#39;t quite here yet, partly because the specs aren&#39;t quite done. Both Orbeon and Cocoon use XML pipelines, but they use different languages to define them; <a href="http://www.w3.org/TR/xproc/">XProc</a> is just around the corner. XML databases are all over the place in their conformance to XQuery, its optional features and the not-quite-finalised specs for free-text searching and updating.</p>
+
+<p>People talk about how productive you can be using <a href="http://rubyonrails.org/">Ruby on Rails</a> or <a href="http://www.djangoproject.com/">Django</a>, and they work great for publishing data you can store in a relational database. What <em>we</em> need is a similarly easy-to-use platform for document-oriented, XML-based content. This is my wish-list.</p>
+
+<!--break-->
+
+<p>The killer platform would have a configuration mechanism for mapping HTTP requests that it receives onto XProc pipelines. The pipeline that would be used could be based on one or more of:</p>
+
+<ul>
+<li>the HTTP method</li>
+<li>the requested URI</li>
+<li>any HTTP header</li>
+</ul>
+
+<p>The pipelines would have a signature like:</p>
+
+<ul>
+<li>a primary &#39;source&#39; input that encodes the HTTP method, headers and body of the request; this would use the <code>&lt;c:request&gt;</code> element used within the <a href="http://www.w3.org/XML/XProc/docs/langspec.html#c.http-request"><code>p:http-request</code> XProc step</a></li>
+<li>a parameter input populated by parsing the URI against a simplified version of <a href="http://tools.ietf.org/html/draft-gregorio-uritemplate-03">URI templates</a></li>
+<li>a primary &#39;result&#39; output that is an XML version of the response body</li>
+<li>a &#39;response&#39; output that encodes the HTTP status code and headers of the response; this would use the <code>&lt;c:response&gt;</code> element used within the <code>p:http-request</code> XProc step</li>
+<li>a &#39;serialize&#39; output that holds a <code>&lt;c:parameters&gt;</code> element containing parameters for serializing the result body; possible serialisations would include serialising XSL-FO as PDF and SVG as JPEG, for example.</li>
+</ul>
+
+<p>The pipeline engine would of course include efficient implementations of all the required steps, most importantly XSLT 2.0.</p>
+
+<p>The platform would have an easy mechanism for invoking queries on its XML store through an implementation-defined step that was similar to the <a href="http://www.w3.org/XML/XProc/docs/langspec.html#c.xquery"><code>p:xquery</code> XProc step</a>. The step might have the signature:</p>
+
+<ul>
+<li>a primary &#39;query&#39; input for the query itself (like the &#39;query&#39; input for <code>p:xquery</code>)</li>
+<li>a parameter input for specifying the values of external variables within the query</li>
+<li>a &#39;database&#39; option for specifying the database to query</li>
+<li>a primary &#39;result&#39; output for the result of the query, this being a sequence of documents resulting from the query</li>
+</ul>
+
+<p>The XML store itself would support:</p>
+
+<ul>
+<li><a href="http://www.w3.org/TR/xquery/">XQuery 1.0</a>, with no extensions to the syntax except those permitted by that specification</li>
+<li><a href="http://www.w3.org/TR/xpath-full-text-10/">XQuery and XPath Full Text 1.0</a></li>
+<li><a href="http://www.w3.org/TR/xquery-update-10/">XQuery Update Facility 1.0</a></li>
+</ul>
+
+<p>It would also support setting up indexes on any expression for a particular kind of context node (usually an element); these would work like keys in XSLT, except that the XQuery engine would automatically detect when the index could be applied. For example, it would be possible to set up a key on a document for the expression <code>substring(//dc:identifier, 7, 2)</code> and if the query used exactly this expression, the index would be used.</p>
+
+<p>The platform would provide an extensible architecture such that it would be possible to set up replicated XML store(s) on separate servers from the main pipeline engine. It would cache the results of queries against the XML store. It would serve up static content such as images and scripts bypassing the pipeline. It would be configured using files, so that it was easy to transfer a configuration between development and production platforms and to version control configurations through normal means.</p>
+
+<p>Have you used (or developed!) anything that comes close? What&#39;s on your wish-list?</p>

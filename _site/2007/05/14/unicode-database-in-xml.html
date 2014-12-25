@@ -1,0 +1,20 @@
+<p>Whatever <a href="http://www.jenitennison.com/blog/node/12" title="Levenshtein distance on the diagonal">algorithm</a> you use to <a href="http://www.jenitennison.com/blog/node/11" title="Levenshtein distance in XSLT 2.0">calculate Levenshtein distance</a>, one of its great features is that you can tweak the cost of letter substitutions. For example, you can do a case-insensitive comparison of two strings, or perhaps more interestingly a semi-case-sensitive comparison of two strings, where the cost of replacing a character for its upper or lower case equivalent is less than the cost of replacing a character with an unrelated character, but more than zero. But that requires knowledge of whether and how two characters are related.</p>
+
+<p>Of course all that information is stored in the <a href="http://www.unicode.org/Public/UNIDATA/" title="Unicode Database directory">Unicode Database</a>, which are a bunch of text files in a structured format. I looked for an XML version but couldn&#39;t find one (well, Googling &quot;Unicode database XML&quot; isn&#39;t much help). So I downloaded <a href="http://www.unicode.org/Public/UNIDATA/UnicodeData.txt" title="Unicode Database">UnicodeData.txt</a> and <a href="http://www.unicode.org/Public/UNIDATA/NamesList.txt" title="Unicode Names List Database">NamesList.txt</a> and put together an <a href="http://www.jenitennison.com/blog/files/Unicode.xsl" title="Unicode database builder XSLT">XSLT 2.0 stylesheet</a> to create an <a href="http://www.jenitennison.com/blog/files/unicode.zip" title="Unicode XML">XML version of the Unicode database</a>.</p>
+
+<!--break-->
+
+<p>The XML contains practically everything that you can get from those two files, which means:</p>
+
+<ul>
+<li>block and subblock structures</li>
+<li>hexadecimal and decimal codepoints</li>
+<li>names, aliases and comments</li>
+<li>category and numeric information</li>
+<li>uppercase, lowercase and titlecase equivalents</li>
+<li>decomposition of various kinds</li>
+<li>related characters</li>
+<li>bidi information</li>
+</ul>
+
+<p>It might prove easier to search than grepping the text files, if you&#39;re used to using XPath. I might split it up and put together an AJAX browser, in my Copious Spare Time.</p>

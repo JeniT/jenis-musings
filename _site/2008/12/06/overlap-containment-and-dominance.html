@@ -1,0 +1,97 @@
+<p>I&#39;ve spent the last few days at a <a href="http://ilps.science.uva.nl/PoliticalMashup/2008/11/workshop-on-multi-dimensional-markup/" title="Workshop on multi dimensional markup">workshop on overlapping markup</a> in Amsterdam. It was organised by <a href="http://www.hf.uib.no/i/Filosofisk/claus/" title="Claus Huitfeldt">Claus Huitfeldt</a> and <a href="http://www.w3.org/People/cmsmcq/" title="Michael Sperberg-McQueen">Michael Sperberg-McQueen</a> under a GODDAG banner, but included representatives of other approaches, such as the <a href="http://www.xconcur.org/" title="XCONCUR">XCONCUR crowd</a> and the <a href="http://www.lmnl.org/wiki/" title="LMNL Wiki">LMNListas</a> <a href="http://www.piez.org/wendell/" title="Wendell Piez">Wendell</a> and myself.</p>
+
+<!--break-->
+
+<p>Overlap is arguably the main remaining problem area for markup technologists. Capturing and analysing the overlap between poetic and syntactic structures in poems and plays helps academics gain a deeper understanding of the ways poetic technique has changed over time. And the complexities of structures in documents such as the Bible simply cannot be represented without allowing overlap to happen.</p>
+
+<p>But academic study aside, overlap is a really important problem because whenever we collaborate on documents and whenever we change documents, we create overlapping structures. One of the major projects that I&#39;ve worked on at <a href="http://www.tso.co.uk/" title="The Stationery Office">TSO</a> deals with publishing <a href="http://www.opsi.gov.uk/legislation/revised" title="OPSI: Revised Legislation">consolidated legislation</a>, showing the places where &quot;current&quot; legislation was amended over time from its original, enacted state. The authors of legislation care little for document structures, and amendments often overlap document structures such as paragraphs and list items, and each other.</p>
+
+<h2>An Example</h2>
+
+<p>I used the following example during my talk on the <a href="http://www.lmnl.org/wiki/index.php/Creole" title="Creole Schema Language">Creole</a> schema language during the workshop. It uses <a href="http://decentius.aksis.uib.no/mlcd/2003/Papers/texmecs.html" title="TexMECS">TexMECS</a> notation, in which <code>&lt;name|</code> is a start tag, <code>|name&gt;</code> an end tag and the normal XML syntax is used for attributes:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;page n=&quot;199&quot;|
+...
+&lt;poem|
+  &lt;title|&lt;pl|Recueillement|pl&gt;|title&gt;
+  &lt;stanza|
+    &lt;s|&lt;sl|&lt;pl|Sois sage, ô ma douleur, et tiens-toi plus |pl&gt;
+                                        &lt;pl|tranquille.|pl&gt;|sl&gt;|s&gt;
+    &lt;s|&lt;sl|&lt;pl|Tu réclamais le Soir; il descend; le voici:|pl&gt;|sl&gt;
+    &lt;sl|&lt;pl|Une atmosphère obscure enveloppe la ville,|pl&gt;|sl&gt;
+    &lt;sl|&lt;pl|Aux uns portant la paix, aux autres le souci.|pl&gt;|sl&gt;|s&gt;
+  |stanza&gt;
+  &lt;stanza|
+    &lt;s|&lt;sl|&lt;pl|Pendant que des mortels la multitude vile,|pl&gt;|sl&gt;
+    &lt;sl|&lt;pl|Sous le fouet du Plaisir, ce bourreau sans merci,|pl&gt;|sl&gt;
+    &lt;sl|&lt;pl|Va cueillir des remords dans la fête servile,|pl&gt;|sl&gt;
+    &lt;sl|&lt;pl|Ma douleur, donne moi la main; viens par ici,|pl&gt;|sl&gt;
+  |stanza&gt;
+  &lt;stanza|
+    &lt;sl|&lt;pl|Loin d&#39;eux.|s&gt; &lt;s|Vois se pencher les défuntes |pl&gt;
+                                                &lt;pl|Années,|pl&gt;|sl&gt;
+    &lt;sl|&lt;pl|Sur les balcons du ciel, en robes surannées;|pl&gt;|sl&gt;
+    &lt;sl|&lt;pl|Surgir du fond des eaux le Regret souriant;|pl&gt;|sl&gt;
+  |stanza&gt;|page&gt;
+  &lt;page n=&quot;200&quot;|&lt;stanza|
+    &lt;sl|&lt;pl|Le Soleil moribund s&#39;endormir sous une arche,|pl&gt;|sl&gt;
+    &lt;sl|&lt;pl|Et, comme un long linceul traînant à l&#39;Orient,|pl&gt;|sl&gt;
+    &lt;sl|&lt;pl|Entends, ma chère, entends la douce Nuit qui |pl&gt;
+                                              &lt;pl|marche.|pl&gt;|sl&gt;|s&gt;
+  |stanza&gt;
+|poem&gt;
+...
+|page&gt;
+</code></pre></div>
+<p>The start and end tags mark <em>ranges</em> in the text. (In some discussions of overlap, the ranges are called &quot;elements&quot;, but I prefer to reserve that term for structures that are self-contained, such as those in XML, to avoid confusion.) In Creole&#39;s compact syntax, you could articulate the structure as follows:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text"># a book is a sequence of pages; it is also a sequence of poems
+start = element book { page+ ~ poem+ }
+
+# a page is a sequence of page lines
+page = range page { pl+ }
+
+# a poem starts with a title; the body of the poem can be characterised
+# as a sequence of stanzas, but also as a sequence of sentences
+poem = range poem { title, ( stanza+ ~ s+ ) }
+
+# a title is a self-contained structure that may contains several page lines
+title = element title { pl+ }
+
+# a stanza contains several stanza lines
+stanza = range stanza { sl+ }
+
+# a stanza line contains one or more page lines
+sl = range sl { pl+ }
+
+# a sentence contains some text
+s = range s { text }
+
+# a page line contains some text
+pl = range pl { text }
+</code></pre></div>
+<p>You could go further: sentences are made up of phrases, which are made up of words, which are made up of syllables, which are made up of letters. Stanzas within a sonnet such as this one can be clustered into an octet and a sestet and classified as quatrains and tercets based on the number of lines they contain. Stanza lines are also made up of syllables. And so on. Analysing the way in which the syntactic (sentence/phrase) structure overlaps with the prosodic (stanza/line) structure is one important way in which you can <a href="http://www.tau.ac.il/%7Etsurxx/Recueillement.html" title="Archetypal Pattern in Baudelaire&#39;s &#39;Recueillement&#39;">analyse a poem</a>.</p>
+
+<h2>Containment vs Dominance</h2>
+
+<p>When you&#39;re talking about overlapping structures, it&#39;s useful to make the distinction between structures that <em>contain</em> each other and structures that <em>dominate</em> each other. Containment is a happenstance relationship between ranges while dominance is one that has a meaningful semantic. A page may happen to <em>contain</em> a stanza, but a poem <em>domainates</em> the stanzas that it contains.</p>
+
+<p>In LMNL, we view a document as consisting of a <em>sequence of atoms</em>, usually characters, and ranges over those characters. But the model makes no assertions about dominance relationships between the ranges. This document model is easy to construct from a serialised document like the one above.</p>
+
+<p>Conversely, <a href="http://www.w3.org/People/cmsmcq/2000/poddp2000.html" title="GODDAG: A Data Structure for Overlapping Hierarchies">GODDAG document models</a> are directed acyclic graphs (DAGs): the nodes within those graphs have children and parents, with leaf nodes containing characters, and the parent-child relationship implies dominance. This is a useful model for processing, and particularly querying. Navigating a DAG is a lot like navigating a tree, just one that represents multiple hierarchies. But it isn&#39;t possible to construct a DAG from a serialised document like the one above without extra information about which containment relationships are actually dominance relationships, and which mere happenstance.</p>
+
+<p>So an important challenge is how to get from a flat, containment-only model to a DAG. There are four approaches that can be taken:</p>
+
+<ol>
+<li>For any document, for each pair of range names A and B, if every range named A contains a range named B, then assume that A dominates B; from that set of relationships, create a DAG.</li>
+<li>Introduce additional syntax into tags, such that dominance relationships between ranges can be expressed explicitly within the serialisation.</li>
+<li>Associate each document with a schema, and use the model expressed in the schema to identify dominance relationships; a Creole schema like the one above could be taking as asserting that poems dominate stanzas, for example, since stanzas are mentioned in the content model of the poem range.</li>
+<li>Defer the construction of a DAG to the point of processing; a document would then not be a DAG in and of itself, but only in relation to a particular process.</li>
+</ol>
+
+<p>I find the last of these the most satisfactory. 1 is too arbitrary. 2 requires too much syntax. 3 requires a single schema per document (which, from experience with XML, I think is a broken model). One could imagine being able to specify something like:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">book &gt; page &gt; pl &gt; #text
+book &gt; poem &gt; stanza &gt; sl &gt; #text
+book &gt; poem &gt; s &gt; #text
+</code></pre></div>
+<p>and this generating a DAG in which a <code>book</code> node had <code>page</code> and <code>poem</code> children, <code>page</code> nodes had <code>pl</code> children which had text children, <code>poem</code> nodes had <code>stanza</code> children and <code>s</code> children, and so on. With this structure, it would be easy enough to find stanzas with four lines (<code>/book/poem/stanza[count(sl) = 4]</code>) without having to worry about the possibilities of happenstance containment, such as some stanza lines being contained by sentences that are contained by stanzas.</p>
+
+<p>There&#39;s lots more to talk about here. In particular, things about the useful and appropriate ways of querying and transforming these structures, and how to best serialise them in XML. But I&#39;ll leave those thoughts for another post.</p>

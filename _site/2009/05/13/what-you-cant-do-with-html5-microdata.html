@@ -1,0 +1,91 @@
+<p><strong>Update:</strong> Fixed a couple of errors in the microdata code.</p>
+
+<p>The <a href="http://dev.w3.org/html5/spec/Overview.html#microdata" title="W3C: HTML5: Microdata">HTML5 microdata</a> proposal has hit the web, just days before Google announced its <a href="http://radar.oreilly.com/2009/05/google-announces-support-for-m.html" title="O&#39;Reilly: Google Announces Support for Microformats and RDFa">support for RDFa</a> (or at least <a href="http://iandavis.com/blog/2009/05/googles-rdfa-a-damp-squib" title="Ian Davis: Google&#39;s RDFa a Damp Squib">one vocabulary encoded using RDFa attributes</a>). These are, indeed, <a href="http://en.wikipedia.org/wiki/May_you_live_in_interesting_times" title="Wikipedia: May you live in interesting times">&quot;interesting times&quot;</a> for the semantic web.</p>
+
+<p>Now, if you&#39;re one of those weirdos who want to embed RDF triples within your web pages, what you&#39;re going to care about is whether you can use microdata to do it. Those of us who have been using RDFa in anger, rather than in toy examples, know that it can be hard to map a particular set of RDF statements onto HTML content. I thought I&#39;d take a look to see just what it would be like to create particular RDF with the HTML5 microdata proposal.</p>
+
+<!--break-->
+
+<h2>Basics</h2>
+
+<p>On the face of it, you can express any triple in microdata because a triple like this (Turtle):</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;http://www.example.com/subject&gt; &lt;http://www.example.com/property&gt; &lt;http://www.example.com/object&gt; .
+</code></pre></div>
+<p>can always, and anywhere, be expressed with (HTML5):</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;span item&gt;
+  &lt;link itemprop=&quot;about&quot; href=&quot;http://www.example.com/subject&quot;&gt;
+  &lt;link itemprop=&quot;http://www.example.com/property&quot; href=&quot;http://www.example.com/object&quot;&gt;
+&lt;/span&gt;
+</code></pre></div>
+<p>while a triple like:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;http://www.example.com/subject&gt; &lt;http://www.example.com/otherProperty&gt; &quot;value&quot; .
+</code></pre></div>
+<p>can be expressed with:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;span item&gt;
+  &lt;link itemprop=&quot;about&quot; href=&quot;http://www.example.com/subject&quot;&gt;
+  &lt;meta itemprop=&quot;http://www.example.com/otherProperty&quot; content=&quot;value&quot;&gt;
+&lt;/span&gt;
+</code></pre></div>
+<p>Of course having to use all those long, repetitive URIs is a bit of a pain and bloats out the markup, but we&#39;d never expect this to be hand-authored, right? Right? And what we really care about is that we can express the RDF.</p>
+
+<p>It&#39;s not just the URIs that are long-winded, by the way. RDFa manages to cram a lot into each element, whereas microdata usually requires separate elements. This is an example from the RDFa specification:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;img src=&quot;photo1.jpg&quot;
+  rel=&quot;license&quot; resource=&quot;http://creativecommons.org/licenses/by/2.0/&quot;
+  property=&quot;dc:creator&quot; content=&quot;Mark Birbeck&quot; /&gt;
+</code></pre></div>
+<p>which produces the triples:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;photo1.jpg&gt; xhv:license &lt;http://creativecommons.org/licenses/by/2.0/&gt; .
+&lt;photo1.jpg&gt; dc:creator &quot;Mark Birbeck&quot; .
+</code></pre></div>
+<p>In HTML5, I think this has to be done with:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;span item&gt;
+  &lt;img itemprop=&quot;about&quot; src=&quot;photo1.jpg&quot;&gt;
+  &lt;link itemprop=&quot;http://www.w3.org/1999/xhtml/vocab#license&quot; 
+        href=&quot;http://creativecommons.org/licenses/by/2.0/&quot;&gt;
+  &lt;meta itemprop=&quot;http://purl.org/dc/elements/1.1/creator&quot; 
+        content=&quot;Mark Birbeck&quot;&gt;
+&lt;/span&gt;
+</code></pre></div>
+<p>It&#39;s a bit more tedious, but also more obvious what&#39;s going on. Even after handling RDFa as much as I have, I still struggle to work out when, for example, an <code>href</code> attribute is providing the object for a statement, and when the subject. And if you look at the <a href="http://www.london-gazette.co.uk/" title="London Gazette">London Gazette</a> RDFa, you&#39;ll notice many occasions where empty <code>&lt;span&gt;</code> elements are used to provide the equivalent of the inline <code>&lt;link&gt;</code> and <code>&lt;meta&gt;</code> elements shown above. (In fact, as far as I recall earlier drafts of RDFa allowed <code>&lt;link&gt;</code> and <code>&lt;meta&gt;</code> elements to be used this too.)</p>
+
+<p>From what I can see, though, there are two things that the microdata proposal in its current form can&#39;t handle: datatyping and XML literals.</p>
+
+<h2>Datatypes</h2>
+
+<p>Datatypes are important in RDF. Values of properties are often not just strings, but dates, times, integers and so on. The microdata proposal mentions using the <code>&lt;time&gt;</code> element to create values, and has this example:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;div item&gt;
+ I was born on &lt;time itemprop=&quot;birthday&quot; datetime=&quot;2009-05-10&quot;&gt;May 10th 2009&lt;/time&gt;.
+&lt;/div&gt;
+</code></pre></div>
+<p>The triple that you&#39;d want to create from this is:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;&gt; &lt;http://www.w3.org/1999/xhtml/custom#birthday&gt; &quot;2009-05-10&quot;^^xsd:date .
+</code></pre></div>
+<p>which makes it plain that the value is a date. However, the definition of the mapping from microdata to RDF makes it clear that the triple that&#39;s created is:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;&gt; &lt;http://www.w3.org/1999/xhtml/custom#birthday&gt; &quot;2009-05-10&quot; .
+</code></pre></div>
+<p>In other words, the value is a plain literal, not a date.</p>
+
+<p>In RDFa, the <code>datatype</code> attribute is used to indicate the datatype of the value, so you can do:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;div xmlns:custom=&quot;http://www.w3.org/1999/xhtml/custom#&quot;&gt;
+  I was born on &lt;span property=&quot;custom:birthday&quot; content=&quot;2009-05-10&quot; datatype=&quot;xsd:date&quot;&gt;May 10th 2009&lt;/span&gt;
+&lt;/div&gt;
+</code></pre></div>
+<p>It would be easy enough to say that the value of a <code>&lt;time&gt;</code> element has the datatype <code>xsd:date</code>, <code>xsd:time</code> or <code>xsd:dateTime</code> dependent on the syntax of its <code>datetime</code> attribute, but there are other times that you want typed values. We&#39;ve used strings (as opposed to plain literals), integers and years. I wouldn&#39;t want to rule out the use of custom datatypes such as colours (and RDF permits these). The JSON mapping could, perhaps, use an appropriate object if there is one, and otherwise use just the string value without too much loss of power.</p>
+
+<h2>XML Literals</h2>
+
+<p>Arguably less important is the lack of support for XML literals, which are values that contain markup. The example in the RDFa spec is:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;h2 property=&quot;dc:title&quot;&gt;
+  E = mc&lt;sup&gt;2&lt;/sup&gt;: The Most Urgent Problem of Our Time
+&lt;/h2&gt;
+</code></pre></div>
+<p>which generates the triple (Turtle):</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;&gt; &lt;http://purl.org/dc/elements/1.1/title&gt; &quot;E = mc&lt;sup&gt;2&lt;/sup&gt;: The Most Urgent Problem of Our Time&quot;^^rdf:XMLLiteral . 
+</code></pre></div>
+<p>RDFa allows you to force a value as an XML literal or a plain literal using the <code>datatype</code> attribute. Otherwise, if the element has any element children then it&#39;s assumed to be an XML literal, and if not, a plain literal. I think the microdata proposal could adopt the same course of action. The JSON mapping could, perhaps, result in a value which is an array or some other container for a sequence of text and element nodes.</p>
+
+<h2>Final Thoughts</h2>
+
+<p>To my mind, the HTML5 microdata proposal is unacceptable in its current form because, unlike RDFa, it can&#39;t be used to represent all the statements that you might want to represent. If those issues were fixed, there would be pros and cons between it and RDFa. Microdata is more long-winded, but more explicit. RDFa is more arcane but doesn&#39;t swamp the content of the page to quite the same extent.</p>
+
+<p>Like a lot of people, I would have far rather seen a proposal which didn&#39;t reinvent the wheel, but how does the old saying go: &quot;The great thing about standards is that there are so many to choose from.&quot; If the microdata proposal stays the course, I only hope that we&#39;ll see consumers supporting both it and RDFa so that producers can choose which to use rather than being forced to embed both within their pages.</p>

@@ -1,0 +1,37 @@
+<p>This week, the Cabinet Office <a href="http://blogs.cabinetoffice.gov.uk/digitalengagement/">went live</a> with a preview version of <a href="http://data.hmg.gov.uk">hmg.gov.uk/data</a>, available only to those who subscribe to the <a href="http://groups.google.com/group/uk-government-data-developers">UK Government Data Developers Google Group</a>. <a href="http://harrymetcalfe.com/">Harry Metcalfe</a> has written a <a href="http://thedextrousweb.com/2009/10/the-wraps-come-off-data-gov-uk/">great review</a>, or of course you can check it out yourselves.</p>
+
+<p>Already, though, there are discussions starting on the mailing list about <a href="http://groups.google.com/group/uk-government-data-developers/browse_thread/thread/73f1f4e8a8c2d6bb">how the data is being made available</a>, and I&#39;m worried that these might distract us from getting things done.</p>
+
+<!--break-->
+
+<p>There are a range of ways in which data can be made available on the web:</p>
+
+<ul>
+<li>embedded in PDFs and Word documents (ie proprietary formats that make it nearly impossible to get hold of the data itself)</li>
+<li>through a Web Services / RPC style interface whereby a custom API is available for each data set</li>
+<li>as downloadable (possibly compressed) files in a machine-readable format such as CSV or XML</li>
+<li>through a RESTful API whereby there is a URI for each resource and GETting that URI provides information about the resource, and there are also URIs for lists of resources</li>
+<li>through a search interface, such as a SQL or SPARQL interface onto a database or triplestore, which may enable aggregations over multiple resources</li>
+</ul>
+
+<p>All of us Open Data advocates agree that we need to encourage government away from the first two methods of making data &quot;available&quot; and towards the last three. But there&#39;s a vast array of opinion within the developer community about which of the latter three are most useful, and precisely which technologies to use in each of those categories.</p>
+
+<p>What&#39;s the real answer? &quot;All of them!&quot;</p>
+
+<p>We need the raw data because it enables us to double-check all the other interfaces which are provided to it. We need RESTful APIs. We need them to serve RDF and XML and JSON and CSV and all the other formats that people ask for. We need the data to be made available in SQL databases and NoSQL databases and triplestores; we need access to SQL queries and SPARQL queries and map/reduce processing. All of that, all of them, and more.</p>
+
+<p>This is not a <a href="http://en.wikipedia.org/wiki/Zero-sum">zero-sum game</a>. Just because someone makes <a href="http://www.edubase.gov.uk/">edubase</a> available on the <a href="http://www.talis.com/platform">Talis platform</a> through a SPARQL interface does not prevent someone else making it available on <a href="http://aws.amazon.com/s3/">Amazon S3</a>. The more methods of access there are, the more widely available and therefore useful the data is. The more things we try, the more lessons we learn, the better we get.</p>
+
+<p>One thing is certain, though: the government cannot do all of this itself. They simply don&#39;t have the resources or expertise. If we think something&#39;s important, we can help by doing it. And we can help them, and each other, by sharing both the results of our work (so that others can build on it) and how we got them (so that others can follow the same patterns for other datasets). That, as far as I&#39;m concerned, is what hmg.gov.uk/data is for.</p>
+
+<p>Whatever our technology preferences, we can help each other by sharing our results whenever we:</p>
+
+<ul>
+<li>clean up the data that the government have supplied</li>
+<li>analyse the data (which is often in de-normalised formats)</li>
+<li>find areas of commonality between different data sets</li>
+<li>transform the data into other formats</li>
+<li>build other types of APIs on top of the ones others have constructed</li>
+</ul>
+
+<p>The hmg.gov.uk/data has a certain bias towards Linked Data, it&#39;s true, and this should come as no surprise <a href="http://blogs.cabinetoffice.gov.uk/digitalengagement/post/2009/06/09/Data-So-what-happens-now.aspx">given its advisors</a>. But whichever side of that particular argument we&#39;re on, we&#39;re shooting ourselves in the feet if we assert that this is an exclusive choice.</p>

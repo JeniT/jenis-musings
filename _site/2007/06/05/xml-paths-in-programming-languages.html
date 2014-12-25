@@ -1,0 +1,58 @@
+<p>I&#39;ve finally finished my &quot;Progress in Processing&quot; talk for this year&#39;s <a href="http://www.xmlsummerschool.com/" title="XML Summer School in Oxford">XML Summer School</a>. It&#39;s been really interesting looking at the different APIs developed for different programming languages in the last few years, all <em>so</em> much easier to use than the <a href="http://www.w3.org/DOM/">DOM</a>. One of the themes is the use of path-based syntax to query XML.</p>
+
+<!--break-->
+
+<p>Even with the simpler XML APIs, accessing nodes in an XML tree can be pretty laborious. For example, get all the <code>&lt;room&gt;</code> elements in the first <code>&lt;floor&gt;</code> element of a house with (this is <a href="http://www.xlinq.net/" title="XLinq website">XLinq</a>):</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">doc.Element(&quot;house&quot;).Element(&quot;floor&quot;).Elements(&quot;room&quot;)
+</code></pre></div>
+<p>Of course <a href="http://www.w3.org/1999/xpath" title="W3C: XPath specification">XPath</a> does this pretty well:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">/house/floor[1]/room
+</code></pre></div>
+<p>and many of the APIs that I looked at provided XPath access. For example (this is Ruby&#39;s <a href="http://www.ruby-doc.org/stdlib/libdoc/rexml/rdoc/" title="REXML&#39;s Ruby Documentation">REXML</a>):</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">doc.elements[&quot;/house/floor[1]/room&quot;]
+</code></pre></div>
+<p>But using XPath is tricky for a couple of reasons:</p>
+
+<ul>
+<li><p>A cognitive leap is required to switch from the usual object/method dot-notation syntax that you use in the surrounding language to the specialised XPath notation. In particular, it&#39;s difficult mixing the one-based indexing in XPath with the zero-based indexing that&#39;s used in most programming languages.</p></li>
+<li><p>XPaths have to be passed as strings; there&#39;s a temptation to construct the strings automatically, which leads to all sorts of headaches (such as remembering to put quotes around the strings that you concatenate into the XPath when you really want them to be interpreted as strings rather than element names). [A clean way of approaching this would be to use variables in the XPath and pass in a set of variable bindings when you use the XPath, but I don&#39;t know any API that actually does this.]</p></li>
+</ul>
+
+<p>Because of these issues, there&#39;s been some effort to use the native dot-notation syntax to query XML within general-purpose programming languages. I knew about <a href="http://java.sun.com/developer/technicalArticles/WebServices/jaxb/" title="Java API for XML Binding">JAXB</a> before I started looking, but didn&#39;t know before about <a href="http://uche.ogbuji.net/" title="Uche Ogbuji&#39;s Home Page">Uche Ogbuji</a>&#39;s <a href="http://uche.ogbuji.net/tech/4suite/amara/" title="Amara: Python XML Toolkit">Amara</a> or the details of the VB.NET interface. Whereas with JAXB you have to compile a schema (an XML Schema schema, what&#39;s more) into Java classes, with Amara and VB.NET there&#39;s the kind of dynamic binding you get with XPath. In Amara, for example, you can do:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">doc.house.floor.room
+</code></pre></div>
+<p>while in VB.NET you can use (I think):</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">doc.&lt;house&gt;.&lt;floor&gt;.First().&lt;room&gt;
+</code></pre></div>
+<p>(Don&#39;t ask me how to get the rooms on the <em>second</em> floor in VB.NET; that, I couldn&#39;t figure out. In Amara, it&#39;s <code>doc.house.floor[1].room</code>.)</p>
+
+<p>Path-based syntax in general-purpose programming languages is really neat: it exposes XML documents as if they were objects, which makes them &quot;closer&quot; to you as a programmer. They work particularly well for data-oriented XML in which elements contain either elements or text and not both.</p>
+
+<p>There are two main areas where the path-based languages differ.</p>
+
+<p>First, what they do with paths with intermediate steps that select more than one element. For example, in XPath, <code>/house/floor/room</code> gets you all the rooms in all the floors of the house, as does <code>doc.&lt;house&gt;.&lt;floor&gt;.&lt;room&gt; in VB.NET: both provide an implicit iteration over the selected elements in the intermediate steps. In Amara,</code>doc.house.floor.room<code>gets you all the rooms in the *first* floor of the house, so you have to explicitly iterate over the</code><floor>` elements if you want to collect all the rooms in the house.</p>
+
+<p>Second, how they handle namespaces. In XPath, you have to provide a set of namespace bindings whenever you evaluate an XPath expression, and the prefixes you use on element names are resolved against those namespace bindings. In XPath 1.0, element names with no prefix only match elements in no namespace; in XPath 2.0, you can also provide a default namespace that&#39;s used for names with no prefix.</p>
+
+<p>That works well when XPath is embedded in some XML (such as in XSLT, XForms, XProc and so on), because the namespace bindings from the XML environment can provide the namespace bindings for the XPath expression. But that can&#39;t generally happen when XPaths are used in a programming language.</p>
+
+<p>All the APIs that use XPaths allow you to specify the namespace bindings explicitly, but some, such as REXML, do an automatic namespace binding based on the namespace bindings from the source document. So if I have:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;xs:schema xmlns:xs=&quot;http://www.w3.org/2001/XMLSchema&quot;&gt;
+  ...
+&lt;/xs:schema&gt;
+</code></pre></div>
+<p>in the document I&#39;m querying then I can use the <code>xs</code> prefix to mean the XML Schema namespace in the path that I use to query the document, such as <code>/xs:schema/xs:element/@name</code> to get the names of the global element declarations.</p>
+
+<p>This makes paths nice and simple... right until you have to use them process a document that uses different namespace bindings. For example, it&#39;s not uncommon to find XML Schema documents that use the prefix <code>xsd</code> instead of <code>xs</code>, or even the default namespace; for those documents, the automatic binding won&#39;t work and the path <code>/xs:schema/xs:element/@name</code> will give you an error. [REXML also provides <code>XPath.match()</code> and <code>XPath.each()</code>, to which you can provide an explicit set of namespace bindings; you&#39;ll use these if you care about keeping the indirection between prefixes and namespaces.]</p>
+
+<p>In Amara (when using Pythonic paths), you can just forget about namespaces: the elements and attributes are selected purely based on their local name. The only time you&#39;ll run into problems is if you actually have, in the same context, two elements from different namespaces with the same local name, which is an event that&#39;s rarer than people using different prefixes for a given namespace. In the XML Schema example, you can use <code>doc.schema.element.name</code> (yes, attributes are picked up with the same syntax as elements), and will only have a problem if there&#39;s an <code>&lt;element&gt;</code> element in some other namespace. [Amara also provides XPath-based querying, and you can supply explicit namespace bindings for that.]</p>
+
+<p>In VB.NET, the <code>Imports</code> directive is used to provide global namespace bindings, so it gets the benefits that you would have from using XPath in an XML context. What&#39;s more, you can use a default namespace binding so that you don&#39;t have to use prefixes in your paths. So you can do:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">Imports &lt;xmlns:xs=&quot;http://www.w3.org/2001/XMLSchema&quot;&gt;
+</code></pre></div>
+<p>and then <code>doc.&lt;xs:schema&gt;.&lt;xs:element&gt;.@name</code> and it will work as planned, no matter what prefixes were actually used in the schema document. Or you can do:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">Imports &lt;xmlns=&quot;http://www.w3.org/2001/XMLSchema&quot;&gt;
+</code></pre></div>
+<p>and <code>doc.&lt;schema&gt;.&lt;element&gt;.@name</code>. Overall, I think it&#39;s pretty impressive that VB.NET is going to have support for querying XML documents built in at such a low level.</p>
+
+<p>Using default namespaces in paths is a tricky issue, though. I&#39;ll have to dedicate a different post to that; this one&#39;s quite long enough already.</p>

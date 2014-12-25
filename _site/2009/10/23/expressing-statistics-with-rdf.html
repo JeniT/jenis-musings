@@ -1,0 +1,132 @@
+<p><em><strong>Update:</strong> If you&#39;re interested in expressing statistics in RDF, I&#39;d encourage you to join the <a href="http://groups.google.com/group/publishing-statistical-data">publishing statistical data</a> group and take a look at the documentation for &#39;SDMX-RDF&#39; described there.</em></p>
+
+<p>One of the things that we&#39;ve been discussing over on the <a href="http://groups.google.com/group/uk-government-data-developers">UK Government Data Developers mailing list</a> is how best to represent the vast quantities of statistical data that the government produces, in RDF. This is what we&#39;ve come up with.</p>
+
+<!--break-->
+
+<ol>
+<li><p>We&#39;ll use <a href="http://sw.joanneum.at/scovo/schema.html">SCOVO</a> as our main vocabulary.</p></li>
+<li><p>Dimensions (the things a statistic are about) should be instances of specialised classes such as &#39;Hospital&#39; or &#39;School&#39;; these will often be <a href="http://www.w3.org/TR/skos-primer/">SKOS</a> concepts. We will try to reuse these as much as possible across datasets (see below).</p></li>
+<li><p>We will create subproperties of <code>scv:dimension</code> that have appropriate names and different subclasses of <code>scv:Dimension</code>s as ranges. We will try to reuse these as much as possible across datasets (see below).</p></li>
+<li><p>The <code>scv:Item</code>s we use (representing individual statistics) should not be blank nodes (because giving them URIs allows us to attach other information to them); they will each have a <code>scv:dataset</code> property that points to the <code>scv:Dataset</code> they belong to (which will probably also be a <code>void:Dataset</code>).</p></li>
+<li><p>Every <code>scv:Item</code> will also be the object of at least one triple that involves one of its dimensions; this will usually be the real-world thing that the statistic is associated with (eg the school or hospital).</p></li>
+<li><p>Most statistics are provided for a particular time period; for these, we will define relationships from <a href="http://www.w3.org/TR/owl-time/">OWL-Time</a> to <a href="http://www.placetime.com/">placetime.com</a> resources, but will also use appropriately datatyped literals where possible to make querying easier.</p></li>
+</ol>
+
+<p>Here&#39;s an example of what this looks like:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">@prefix rdf: &lt;http://www.w3.org/1999/02/22-rdf-syntax-ns#&gt; .
+@prefix rdfs: &lt;http://www.w3.org/2000/01/rdf-schema#&gt; .
+@prefix xsd: &lt;http://www.w3.org/2001/XMLSchema#&gt; .
+@prefix scv: &lt;http://purl.org/NET/scovo#&gt; .
+@prefix skos: &lt;http://www.w3.org/2004/02/skos/core#&gt; .
+@prefix dct: &lt;http://purl.org/dc/terms/&gt; .
+@prefix void: &lt;http://rdfs.org/ns/void#&gt; .
+@prefix time: &lt;http://www.w3.org/2006/time#&gt; .
+@prefix sdmx: &lt;http://proxy.data.gov.uk/sdmx.org/def/sdmx/&gt; .
+@prefix pop: &lt;http://statistics.data.gov.uk/def/population/&gt; .
+@prefix year: &lt;http://statistics.data.gov.uk/def/census-year/&gt; .
+
+# The statistics themselves
+
+&lt;http://statistics.data.gov.uk/id/local-authority-district/00HE&gt;
+  rdfs:label &quot;Cornwall&quot; ;
+  pop:totalPopulation &lt;http://statistics.data.gov.uk/id/local-authority-district/00HE/population/total/year/2001&gt; ;
+  pop:ruralPopulation &lt;http://statistics.data.gov.uk/id/local-authority-district/00HE/population/rural/year/2001&gt; ;
+  ... .
+
+&lt;http://statistics.data.gov.uk/id/local-authority-district/00HE/population/total/year/2001&gt;
+  a scv:Item ;
+  rdf:value &quot;499399&quot;^^xsd:integer ;
+  scv:dataset &lt;http://statistics.data.gov.uk/doc/local-authority-district/*/population&gt; ;
+  sdmx:refArea &lt;http://statistics.data.gov.uk/id/local-authority-district/00HE&gt; ;
+  pop:populationType pop:total ;
+  sdmx:timePeriod &lt;http://statistics.data.gov.uk/def/census-year/2001&gt; .
+
+&lt;http://statistics.data.gov.uk/id/local-authority-district/00HE/population/rural/year/2001&gt;
+  a scv:Item ;
+  rdf:value &quot;127904&quot;^^xsd:integer ;
+  scv:dataset &lt;http://statistics.data.gov.uk/doc/local-authority-district/*/population&gt; ;
+  sdmx:refArea &lt;http://statistics.data.gov.uk/id/local-authority-district/00HE&gt; ;
+  pop:populationType pop:rural ;
+  sdmx:timePeriod &lt;http://statistics.data.gov.uk/def/census-year/2001&gt; .
+
+...
+
+# Datasets
+
+&lt;http://statistics.data.gov.uk/doc/local-authority-district/*/population/*/year/2001&gt;
+  a scv:Dataset ;
+  a void:Dataset ;
+  dct:title &quot;Populations of Local Authority Districts&quot; ;
+  ... .
+
+# Common definitions for the dataset
+
+pop:totalPopulation a rdf:Property ;
+  rdfs:label &quot;total population&quot; ;
+  rdfs:range scv:Item .
+pop:ruralPopulation a rdf:Property ;
+  rdfs:label &quot;rural population&quot; ;
+  rdfs:range scv:Item .
+...
+
+pop:populationType rdfs:subPropertyOf scv:dimension ;
+  rdfs:label &quot;population type&quot; ;
+  rdfs:domain scv:Item ;
+  rdfs:range pop:Population .
+
+pop:Population a rdfs:Class ;
+  rdfs:subClassOf skos:Concept ;
+  rdfs:subClassOf scv:Dimension ;
+  rdfs:label &quot;population type&quot; .
+
+pop:populationScheme a skos:ConceptScheme ;
+  skos:prefLabel &quot;Population Types&quot; ;
+  pop:hasTopConcept pop:total .
+
+pop:total a pop:Population ;
+  skos:prefLabel &quot;total population&quot; ;
+  skos:topConceptOf pop:populationScheme ;
+  skos:narrower pop:rural ;
+  ... .
+
+pop:rural a pop:Population ;
+  skos:prefLabel &quot;rural population&quot; ;
+  skos:inScheme pop:populationScheme ;
+  skos:broader pop:total ;
+  ... .
+
+year:Year a rdfs:Class ;
+  rdfs:subClassOf time:Interval ;
+  rdfs:subClassOf scv:Dimension .
+
+&lt;http://statistics.data.gov.uk/def/census-year/2001&gt;
+  rdfs:label &quot;mid-2001&quot; ;
+  time:intervalDuring &lt;http://www.placetime.com/interval/gregorian/2001-01-01T00:00:00Z/P1Y&gt; .
+
+&lt;http://www.placetime.com/interval/gregorian/2001-01-01T00:00:00Z/P1Y&gt;
+  rdfs:label &quot;2001&quot; ;
+  rdf:value &quot;2001&quot;^^xsd:gYear .
+</code></pre></div>
+<p>One source of sub-properties of <code>scv:dimension</code> (and subtypes of <code>scv:Dimension</code>) is <a href="http://sdmx.org/">SDMX</a> (Statistical Data and Metadata eXchange). This provides standard ways of indicating things like the area and time that a statistic applies to. I&#39;ve made an <a href="/blog/files/sdmx.ttl">initial mapping into some RDFS properties</a> and <a href="/blog/files/codelists.ttl">SKOS schemes</a> as an indication of the kind of thing that would work here, but expect it to change.</p>
+
+<p>We&#39;re currently working on providing identifiers for the areas that statistics are likely to be about (such as local authority districts, MSOAs or wards). They are of the form:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">http://statistics.data.gov.uk/id/{area-type}/{ONS-area-code}
+</code></pre></div>
+<p>and they tie into the <a href="http://data.ordnancesurvey.co.uk/">newly released OS data</a>. I hope we&#39;ll have them available as Linked Data soon.</p>
+
+<p>One issue that hasn&#39;t been resolved is how to handle the huge amount of repetition that is inherent in this method of representing statistical data. For example, in the data above, all the <code>scv:DataItem</code>s in the <code>scv:Dataset</code> <code>http://statistics.data.gov.uk/doc/local-authority-district/*/population/*/year/2001</code> are from 2001. Rather than indicating the year of each individual <code>scv:DataItem</code>, it would be nice if we could have a property on the dataset that indicated that <em>all</em> the items in that dataset had the same value for a particular dimension. If this were called <code>scv:itemDimension</code>, for example, then we could do:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;http://statistics.data.gov.uk/doc/local-authority-district/*/population/*/year/2001&gt;
+  a scv:Dataset ;
+  a void:Dataset ;
+  dct:title &quot;Populations of Local Authority Districts&quot; ;
+  sdmx:itemTimePeriod &lt;http://statistics.data.gov.uk/def/census-year/2001&gt; ;
+  ... .
+
+sdmx:itemTimePeriod rdfs:subPropertyOf scv:itemDimension ;
+  rdfs:label &quot;time period of items in the dataset&quot; ;
+  rdfs:domain scv:Dataset .
+</code></pre></div>
+<p>and the individual <code>scv:Item</code>s would not have to have any <code>sdmx:timePeriod</code> properties explicitly. Perhaps this is something that the people beind SCOVO might consider, or we might create the property ourselves.</p>
+
+<p>As far as I know, this pattern for representing statistics has yet to be used &quot;in anger&quot;, but I hope that we&#39;ll have some illustrations soon which will help us assess whether it&#39;s viable. Any comments and suggestions would, of course, be very welcome!</p>

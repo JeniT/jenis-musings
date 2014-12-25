@@ -1,0 +1,291 @@
+<p>There&#39;s been quite a bit of discussion recently about the use of <a href="http://code.google.com/web/ajaxcrawling/docs/getting-started.html">hash-bang URIs</a> following their <a href="http://blogs.wsj.com/digits/2011/02/07/gawker-outage-causing-twitter-stir/">adoption by Gawker, and the ensuing downtime of that site</a>.</p>
+
+<p>Gawker have redesigned their sites, including <a href="http://lifehacker.com/">lifehacker</a> and various others, such that all URIs look like <code>http://{domain}#!{path-to-content}</code> -- the <code>#!</code> is the hash-bang. The home page on the domain serves up a static HTML page that pulls in Javascript that interprets the <code>path-to-content</code> and requests that content through AJAX, which it then slots into the page. The sites all suffered an outage when, for whatever reason, the Javascript couldn&#39;t load: without working Javascript you couldn&#39;t actually view any of the content on the site.</p>
+
+<p>This provoked a massive cry of #FAIL (or perhaps that should be #!FAIL) and a lot of puns along the lines of making a hash of a website and it going bang. For analysis and opinions on both sides, see:</p>
+
+<ul>
+<li><a href="http://isolani.co.uk/blog/javascript/BreakingTheWebWithHashBangs">Breaking the Web with hash-bangs by Mike Davies</a></li>
+<li><a href="http://www.tbray.org/ongoing/When/201x/2011/02/09/Hash-Blecch">Broken Links by Tim Bray</a></li>
+<li><a href="http://blog.benward.me/post/3231388630">Hash, Bang, Wallop by Ben Ward</a></li>
+<li><a href="http://blog.tomgibara.com/post/3214368343/hash-bang-boom">Hash-bang boom by Tom Gibara</a></li>
+<li><a href="http://www.adequatelygood.com/2011/2/Thoughts-on-the-Hashbang">Thoughts on the Hashbang by Ben Cherry</a></li>
+<li><a href="http://lists.w3.org/Archives/Public/www-tag/2011Feb/0095.html">Nathan&#39;s comments on www-tag</a></li>
+</ul>
+
+<p>While all this has been going on, the <a href="http://www.w3.org/2001/tag/">TAG at the W3C</a> have been drafting a document on <a href="http://www.w3.org/2001/tag/2011/02/HashInURI-20110228.html">Repurposing the Hash Sign for the New Web</a> (originally named <a href="http://www.w3.org/TR/2009/WD-hash-in-uri-20090415/">Usage Patterns For Client-Side URI parameters</a> in April 2009) which takes a rather wider view than just the hash-bang issue, and on which they are seeking comments.</p>
+
+<p>All matters of design involve weighing different choices against some criteria that you decide on implicitly or explicitly: there is no single right way of doing things on the web. Here, I explore the choices that are available to web developers around hash URIs and discuss how to mitigate the negative aspects of adopting the hash-bang pattern.</p>
+
+<!--break-->
+
+<h2>Background</h2>
+
+<p>The semantics of hash URIs have changed over time. Look back at <a href="http://tools.ietf.org/html/rfc1738">RFC 1738: Uniform Resource Locators (URL)</a> from December 1994 and fragments are hardly mentioned; when they are, they are termed &quot;fragment/anchor identifiers&quot;, reflecting their original use which was to jump to an anchor within an HTML page (indicated by an <code>&lt;a&gt;</code> element with a <code>name</code> attribute; those were the days).</p>
+
+<p>Skip to <a href="http://tools.ietf.org/html/rfc2396">RFC 2396: Uniform Resource Identifiers (URI): Generic Syntax</a> from August 1998 and <a href="http://tools.ietf.org/html/rfc2396#section-4.1">fragment identifiers</a> have their own section, where it says:</p>
+
+<blockquote>
+<p>When a URI reference is used to perform a retrieval action on the identified resource, the optional fragment identifier, separated from the URI by a crosshatch (&quot;#&quot;) character, consists of additional reference information to be interpreted by the user agent after the retrieval action has been successfully completed.  As such, it is not part of a URI, but is often used in conjunction with a URI.</p>
+</blockquote>
+
+<p>At this point, the fragment identifier:</p>
+
+<ul>
+<li>is not part of the URI</li>
+<li>should be interpreted in different ways based on the mime type of the representation you get when you retrieve the URI</li>
+<li>is only meaningful when the URI is actually retrieved and you know the mime type of the representation</li>
+</ul>
+
+<p>Forward to <a href="http://tools.ietf.org/html/rfc3986">RFC 3986: Uniform Resource Identifier (URI): Generic Syntax</a> from January 2005 and fragment identifiers are defined as part of the URI itself:</p>
+
+<blockquote>
+<p>The fragment identifier component of a URI allows indirect identification of a secondary resource by reference to a primary resource and additional identifying information. The identified secondary resource may be some portion or subset of the primary resource, some view on representations of the primary resource, or some other resource defined or described by those representations.</p>
+</blockquote>
+
+<p>This breaks away from the tight coupling between a fragment identifier and a representation retrieved from the web and purposefully allows the use of hash URIs to define abstract or real-world things, addressing <a href="http://www.w3.org/2001/tag/issues.html#abstractComponentRefs-37">TAG Issue 37: Definition of abstract components with namespace names and frag ids</a> and supporting the use of <a href="http://www.w3.org/TR/cooluris/#hashuri">hash URIs in the semantic web</a>.</p>
+
+<p>Around the same time, we have the growth of AJAX, where a <a href="http://itsnat.sourceforge.net/php/spim/spi_manifesto_en.php">single page interface</a> is used to access a wide set of content which is dynamically retrieved using Javascript. The AJAX experience could be frustrating for end users, because the back button no longer worked (to let them go back to previous states of their interface) and they couldn&#39;t bookmark or share state. And so applications started to <a href="http://www.contentwithstyle.co.uk/content/fixing-the-back-button-and-enabling-bookmarking-for-ajax-apps">use hash URIs to track AJAX state</a> (that article is from June 2005, if you&#39;re following the timeline).</p>
+
+<p>And so we get to hash-bangs. These were <a href="http://googlewebmastercentral.blogspot.com/2009/10/proposal-for-making-ajax-crawlable.html">proposed by Google</a> in October 2009 as a mechanism to distinguish between cases where hash URIs are being used as anchor identifiers, to describe views, or to identify real-world things, and those cases where they are being used to capture important AJAX state. What Google proposed is for <strong>pages where the content of the page is determined by a fragment identifier and some Javascript</strong> to <em>also</em> be accessible by combining the base URI with a query parameter (<code>_escaped_fragment_={fragment}</code>). To distinguish this use of hash URIs from the more mundane kinds, Google proposed starting the fragment identifier <code>#!</code> (hash-bang). Hash-bang URIs are therefore associated with the practice of <a href="http://en.wikipedia.org/wiki/Transclusion">transcluding</a> content into a wrapper page.</p>
+
+<p>To summarise, hash URIs are now being used in three distinct ways:</p>
+
+<ol>
+<li>to identify parts of a retrieved document</li>
+<li>to identify an abstract or real-world thing (that the document says something about)</li>
+<li>to capture the state of client-side web applications</li>
+</ol>
+
+<p>Hash-bang URIs are a particular form of the third of these. By using them, the website indicates that the page uses client-side transclusion to give the true content of the page. If it follows Google&#39;s proposal, the website also commits to making that content available through an equivalent base URI with a <code>_escaped_fragment_</code> parameter.</p>
+
+<h2>Hash-bang URIs in practice</h2>
+
+<p>Let&#39;s have a look at how hash-bang URIs are used in a couple of sites.</p>
+
+<h3>Lifehacker</h3>
+
+<p>First, we&#39;ll look at lifehacker, which is one of Gawker&#39;s sites whose switch to hash-bangs triggered the recent spate of comments. What happens if I link to the article <a href="http://lifehacker.com/#!5770791/top-10-tips-and-tricks-for-making-your-work-life-better"><code>http://lifehacker.com/#!5770791/top-10-tips-and-tricks-for-making-your-work-life-better</code></a>?</p>
+
+<p>The exact response to this request seems to depend on some cookies (it didn&#39;t work the first time I accessed it in Firefox, having pasted the link from another browser). If it works as expected, in a browser that supports Javascript, the browser gets the page at the base URI <a href="http://lifehacker.com/"><code>http://lifehacker.com/</code></a>, which includes (amongst a <em>lot</em> of other things) a script that <code>POST</code>s to <a href="http://lifehacker.com/index.php?_actn_=ajax_post"><code>http://lifehacker.com/index.php?_actn_=ajax_post</code></a> a request with the data:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">op=ajax_post
+refId=5770791
+formToken=d26bd943151005152e6e0991764e6c09
+</code></pre></div>
+<p>The response to this <code>POST</code> is a 53kB JSON document that contains a bit of metadata about the post and then its escaped HTML content. This gets inserted into the page by the script, to display the post. As this isn&#39;t a <code>GET</code>table resource, I&#39;ve <a href="/blog/files/lifehacker.json">attached this file</a> to this post so you can see what it looks like.</p>
+
+<p>(Honestly, I could hardly bring myself to describe this: a <code>POST</code> to get some data? a <code>.php</code> URL? query parameter set to <code>ajax_post</code>? massive amounts of escaped HTML in a JSON response? Geesh. Anyway, focus... hash-bang URIs...)</p>
+
+<p>A browser that doesn&#39;t support Javascript simply gets the base URI and is none the wiser about the actual content that was linked to.</p>
+
+<p>What about the <code>_escaped_fragment_</code> equivalent URI, <a href="http://lifehacker.com/?_escaped_fragment_=5770791/top-10-tips-and-tricks-for-making-your-work-life-better"><code>http://lifehacker.com/?_escaped_fragment_=5770791/top-10-tips-and-tricks-for-making-your-work-life-better</code></a>? If you request this, you get back an <code>200 OK</code> response which is an HTML page with the content embedded in it. It looks just the same as the original page with the embedded content.</p>
+
+<p>What if you make up some rubbish URI, which in normal circumstances you would expect to give a <code>404 Not Found</code> response? Naturally, a request to the base URI of <code>http://lifehacker.com/</code> is always going to give a <code>200 OK</code> response, although if you try <a href="http://lifehacker.com/#!1234/made-up-page"><code>http://lifehacker.com/#!1234/made-up-page</code></a> you get page furniture with no content in the page. A request to <a href="http://lifehacker.com/?_escaped_fragment_=1234/made-up-page"><code>http://lifehacker.com/?_escaped_fragment_=1234/made-up-page</code></a> results in a <code>301 Moved Peramently</code> to the hash-bang URI <a href="http://lifehacker.com/#!1234"><code>http://lifehacker.com/#!1234</code></a> rather than the <code>404 Not Found</code> that we&#39;d want.</p>
+
+<h3>Twitter</h3>
+
+<p>Now let&#39;s look at Twitter. What happens if I link to the tweet <a href="http://twitter.com/#!/JeniT/status/35634274132561921"><code>http://twitter.com/#!/JeniT/status/35634274132561921</code></a>? Although it&#39;s not indicated in the <code>Vary</code> header, Twitter determines what to do about any requests to this hashless URI based on whether I&#39;m logged in or not (based on a cookie).</p>
+
+<p>If I am logged on, I get the new home page. This home page <code>GET</code>s (through various iframes and Javascript obfuscation) several small JSON files through Twitter&#39;s API: </p>
+
+<ul>
+<li><a href="http://api.twitter.com/1/statuses/show.json?include_entities=true&amp;contributor_details=true&amp;id=35634274132561921"><code>http://api.twitter.com/1/statuses/show.json?include_entities=true&amp;contributor_details=true&amp;id=35634274132561921</code></a>: the details of the tweet</li>
+<li><a href="http://api.twitter.com/1/statuses/35634274132561921/retweeted_by.json?count=15"><code>http://api.twitter.com/1/statuses/35634274132561921/retweeted_by.json?count=15</code></a>: details about retweets</li>
+<li> <a href="http://api.twitter.com/1/users/lookup.json?user_id=&amp;screen_name=unhosted"><code>http://api.twitter.com/1/users/lookup.json?user_id=&amp;screen_name=unhosted</code></a>: details about the twitter user <a href="http://twitter.com/unhosted">@unhosted</a>, who was mentioned in the tweet</li>
+</ul>
+
+<p>This JSON gets converted into HTML and embedded within the page using Javascript. All the links within the page are to hash-bang URIs and there is no way of identifying the hashless URI (unless you know the very simple pattern that you can simply remove it to get a static page).</p>
+
+<p>If I&#39;m not logged on but am using a browser that understands Javascript, the browser GETs <code>http://twitter.com/</code>; the script in the returned page picks out the fragment identifier and redirects (using Javascript) to <a href="http://twitter.com/JeniT/status/35634274132561921"><code>http://twitter.com/JeniT/status/35634274132561921</code></a>.</p>
+
+<p>If, on the other hand, I&#39;m using curl or a browser without Javascript activated, I just get the home page and have no idea that the original hash-bang URI was supposed to give me anything different.</p>
+
+<p>The response to the hashless URI <a href="http://twitter.com/JeniT/status/35634274132561921"><code>http://twitter.com/JeniT/status/35634274132561921</code></a> also varies based on whether I&#39;m logged in or not. If I am, the response is a <code>302 Found</code> to the hash-bang URI <a href="http://twitter.com/#!/JeniT/status/35634274132561921"><code>http://twitter.com/#!/JeniT/status/35634274132561921</code></a>. If I&#39;m not, for example using curl, Twitter just returns a normal HTML page that contains information about the tweet that I&#39;ve just requested.</p>
+
+<p>Finally, if I request the <code>_escaped_fragment_</code> version of the hash-bang URI <a href="http://twitter.com/?_escaped_fragment_=/JeniT/status/35634274132561921"><code>http://twitter.com/?_escaped_fragment_=/JeniT/status/35634274132561921</code></a> the result is a <code>301 Moved Permanently</code> redirection to the hashless URI <a href="http://twitter.com/JeniT/status/35634274132561921"><code>http://twitter.com/JeniT/status/35634274132561921</code></a> which can be retrieved as above.</p>
+
+<p>Requesting a status that doesn&#39;t exist such as <a href="http://twitter.com/#!/JeniT/status/1"><code>http://twitter.com/#!/JeniT/status/1</code></a> in the browser results in a page that at least tells you the content doesn&#39;t exist. Requesting the equivalent <code>_escaped_fragment_</code> URI redirects to the hashless URI <a href="http://twitter.com/JeniT/status/1"><code>http://twitter.com/JeniT/status/1</code></a>. Requesting this results in a <code>404 Not Found</code> result as you would expect.</p>
+
+<h2>Advantages of Hash URIs</h2>
+
+<p>Why are these sites using hash-bang URIs? Well, hash URIs in general have four features which make them useful to client-side applications: they provide addresses for application states; they give caching (and therefore performance) boosts; they enable web applications to draw data from separate servers; and they may have SEO benefits.</p>
+
+<h3>Addressing</h3>
+
+<p>Interacting with the web is all about moving from one state to another, through clicking on links, submitting forms, and otherwise taking action on a page.</p>
+
+<p>Backend databases on web servers, cookies, and other forms of <a href="http://www.w3.org/TR/webstorage/">local storage</a> provide methods of capturing application state, but on the web we&#39;ve found that having <strong>addresses</strong> for states is essential for a whole bunch of things that we find useful:</p>
+
+<ul>
+<li>being able to use the <strong>back button</strong> to return to previous states</li>
+<li>being able to <strong>bookmark</strong> states that we want to return to in the future</li>
+<li>being able to <strong>share</strong> states with other people by linking to them</li>
+</ul>
+
+<p>On the web, the only addressing method that meets these goals is the URI. Addresses that involve more than a URI, such as &quot;search <code>http://example.com/</code> with the keyword X and click on the third link&quot; or &quot;access <code>http://example.org/</code> with cookie X set to Y&quot; or &quot;access <code>http://example.net</code> with the HTTP header X set to Y&quot; simply don&#39;t work. You can&#39;t bookmark them or link to them or put them on the side of a bus.</p>
+
+<p>Application state is complex and multi-faceted. As a web developer, you have to work out which parts of the application state need to be addressable through URIs, which can be stored on the client and which on a server. They can be classified into four rough categories; states that are associated with:</p>
+
+<ol>
+<li>having particular <strong>content</strong> in the page, such as having a particular thread open in a webmail application</li>
+<li>viewing a particular <strong>part</strong> of the content, such as a particular message within a thread that is being shown in the page</li>
+<li>having a particular <strong>view</strong> of the content, such as which folders in a navigational folder list are collapsed or expanded</li>
+<li>a <strong>user-interface feature</strong>, such as whether a drop-down menu is open or closed</li>
+</ol>
+
+<p>States that have different content almost certainly need to have different URIs so that it&#39;s possible to link to that content (the web being nothing without links). At the other extreme, it&#39;s very unlikely that the state of a drop-down menu would need to be captured at all. In between is a large grey area, where a web developer might decide not to capture state at all, to capture it in the client, in the server, or to make it addressable by giving it a URI.</p>
+
+<p>If a web developer chooses to make a state addressable through a URI, they again have choices to make about which part of the URI to use: should different states have different domains? different paths? different query parameters? different fragment identifiers? Hash URIs make states addressable that developers might otherwise leave unaddressable.</p>
+
+<p>To give some examples, on <a href="http://www.legislation.gov.uk/">legislation.gov.uk</a> we have decided to:</p>
+
+<ul>
+<li>use the path to indicate a particular piece of content (eg which section of an item of legislation you want to look at), for example <a href="http://www.legislation.gov.uk/ukpga/1985/67/section/6"><code>/ukpga/1985/67/section/6</code></a></li>
+<li>use query parameters for particular views on that content (eg whether you want to see the timeline associated with the section or not), for example <a href="http://www.legislation.gov.uk/ukpga/1985/67/section/6?view=timeline&amp;timeline=true"><code>/ukpga/1985/67/section/6?view=timeline&amp;timeline=true</code></a></li>
+<li>use fragment identifiers to jump to subsections, for example <a href="http://www.legislation.gov.uk/ukpga/1985/67/section/6#section-6-2"><code>/ukpga/1985/67/section/6#section-6-2</code></a></li>
+<li>also use fragment identifiers for enhanced views (eg when viewing a section after a text search) <a href="http://www.legislation.gov.uk/ukpga/1985/67/section/6#text%3Dschool%20bus"><code>/ukpga/1985/67/section/6#text%3Dschool%20bus</code></a></li>
+</ul>
+
+<p>The last of these states would probably have gone un-addressed if we couldn&#39;t use a hash URI for it. The only changes that it makes to the normal page are currently to the links to other legislation content, so that you can go (back) to a highlighted table of contents (though we hope to expand it to provide in-section highlighting). Given that we rely heavily on caching to provide the performance that we want and that there&#39;s an infinite variety of free-text search terms, it&#39;s simply not worth the performance cost of having a separate base URI for those views.</p>
+
+<h3>Caching and Parallelisation</h3>
+
+<p>Fragment identifiers are currently the only part of a URI that can be changed without causing a browser to refresh the page (though see the note below). Moving to a different base URI -- changing its domain, path or query -- means making a new request on the server. Having a new request for a small change in state makes for greater load on the server and a worse user experience due both to the latency inherent in making new requests and the large amount of repeated material that has to be sent across the wire.</p>
+
+<blockquote>
+<p><em>Note: HTML5 introduces <a href="http://www.w3.org/TR/html5/history.html#the-history-interface"><code>pushState()</code> and <code>changeState()</code> methods</a> in its history API that enable a script to add new URIs to the browser&#39;s history without the browser actually navigating to that page. This is new functionality, at time of writing only supported in Chrome, Safari and Firefox (and not completely in any of them) and unlikely to be included in IE9. When this functionality is more widely adopted, it will be possible to change state to a new base URI without causing a page load.</em></p>
+</blockquote>
+
+<p>When a change of state involves simply viewing a different part of existing content, or viewing it in a different way, a hash URI is often a reasonable solution. It supports addressability without requiring an extra request.</p>
+
+<p>Things become fuzzier when the same base URI is used to support different content, where transclusion is used. In these cases, the page that you get when you request the base URI itself gets content from the server as one or more separate AJAX requests based on the fragment identifier. Whether this ends up giving better performance depends on a variety of factors, such as:</p>
+
+<ul>
+<li><strong>How large are the static portions of the page (served directly) compared to the dynamic parts (served using AJAX)?</strong> If the majority of the content is static as a user moves through the site, you&#39;re going to benefit from only loading the dynamic parts as state changes.</li>
+<li><strong>Can different portions of the page be requested in parallel?</strong> These days, <a href="http://calendar.perfplanet.com/2010/thoughts-on-performance/">making many small requests may lead to better performance than one large one</a>.</li>
+<li><strong>Can the different portions of the page be cached locally or in a <acronym title="content-delivery network">CDN</acronym>?</strong> You can make best use of caches if the rapidly changing parts of a page are requested separately from the slowly changing parts.</li>
+</ul>
+
+<h3>Distributed Applications</h3>
+
+<p>Hash URIs can also be very useful in distributed web applications, where the code that is used to provide an interface pulls in data from a separate, unconnected source. Simple examples are mashups that use data provided by different sources, requested using AJAX, and combine that data to create a new visualisation.</p>
+
+<p>But more advanced applications are beginning to emerge, particularly as a reaction to silo sites such as Google and Facebook, which lock us in to their applications by controlling our data. From the <a href="http://www.unhosted.org/manifesto.html">unhosted manifesto</a>:</p>
+
+<blockquote>
+<p>To be unhosted, a website&#39;s code will need to be very ajaxy first, so that all the servers do is store and serve json data. No server-side processing. This is because we need to switch from transport-layer encryption to client-side payload encryption (we no longer necessarily trust the server we&#39;re talking to). From within the app&#39;s source code, that should run entirely in JavaScript and HTML5, json-objects can be stored, retrieved, sent, and received. The user will have the same experience (we even managed to avoid needing a plugin), but the website is unhosted in the sense that the servers you talk to only see encrypted data and don&#39;t even know which application you are running.</p>
+</blockquote>
+
+<p>The aim of unhosted is to separate application code from user data. This divides servers (at least functionally) into those that store and make available user data, and those that host applications and any supporting code, images and so on. The important feature of these sites is that user data never passes through the web application&#39;s server. This frees users to move to different applications without losing their data.</p>
+
+<p>This doesn&#39;t necessarily stop the application server from doing <em>any</em> processing, including URI-based processing; it is only that the processing cannot be based on user data -- the content of the site. Since this content is going to be accessed through AJAX anyway, there&#39;s little motivation for unhosted applications to use anything other than local storage and hash URIs to encode state.</p>
+
+<h3>SEO</h3>
+
+<p>A final reason for using hash URIs that I&#39;ve seen cited is that it increases the page rank for the base URI, because as far as a search engine is concerned, more links will point to the same base URI (even if in fact they are pointing to a different hash URI). Of course this doesn&#39;t apply to hash-bang URIs, since the point of them is precisely to enable search engines to distinguish between (and access content from) URIs whose base URI is the same.</p>
+
+<h2>Disadvantages of Hash URIs</h2>
+
+<p>So hash-bangs can give a performance improvement (and hence a usability improvement), and enable us to build new kinds of web applications. So what are the arguments against using them?</p>
+
+<h3>Restricted Access</h3>
+
+<p>The main disadvantages of using hash URIs generally to support AJAX state arise due to them having to be interpreted by Javascript. This immediately causes problems for:</p>
+
+<ul>
+<li>users who have chosen to turn off Javascript because:
+
+<ul>
+<li>they have bandwidth limitations</li>
+<li>they have security concerns</li>
+<li>they want a calmer browser experience</li>
+</ul></li>
+<li>clients that don&#39;t support Javascript at all such as:
+
+<ul>
+<li>search engines</li>
+<li>screen scrapers</li>
+</ul></li>
+<li>clients that have buggy Javascript implementations that you might not have accounted for such as:
+
+<ul>
+<li>older browsers</li>
+<li>some mobile clients</li>
+</ul></li>
+</ul>
+
+<p>The most recent statistic I could find, about access to the <a href="http://developer.yahoo.com/blogs/ydn/posts/2010/10/how-many-users-have-javascript-disabled/">Yahoo home page</a> indicates that up to 2% of access is from users without Javascript (they excluded search engines). According to a <a href="http://webaim.org/projects/screenreadersurvey3/#javascript">recent survey</a>, about the same percentage of screen reader users have Javascript turned off.</p>
+
+<p>This is a low percentage, but if you have large numbers of visitors it adds up. The site that I care most about, <a href="http://legislation.gov.uk">legislation.gov.uk</a>, has over 60,000 human visitors a day, which means that about 1,200 of them will be visiting without Javascript. If our content were completely inaccessible to them we&#39;d be inconveniencing a large number of users.</p>
+
+<h3>Brittleness</h3>
+
+<p>Depending on hash-bang URIs to serve content is also brittle, as Gawker found. If the Javascript that interprets the fragment identifier is temporarily inaccessible or unable to run in a particular browser, any portions of a page that rely on Javascript also become inaccessible.</p>
+
+<h3>Replacing HTTP</h3>
+
+<p>There are other, less obvious, impacts which occur when you use a hash-bang URI.</p>
+
+<p>The URI held in the <a href="http://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html#sec14.36">HTTP Referer header</a> &quot;MUST NOT include a fragment&quot;. As <a href="http://isolani.co.uk/blog/javascript/BreakingTheWebWithHashBangs">Mike Davies noted</a>, this prevents such URIs from showing up in server logs, and stops people from working out which of your pages are linking to theirs. (Of course, this might be a good thing in some circumstances; there might be aspects of the state of a page that you&#39;d rather a referenced server not know about.)</p>
+
+<p>You should also consider the impact on the future proofing of your site. When a server knows the entirety of a URI, it can use HTTP mechanisms to indicate when pages have moved, gone, or never existed. With hash URIs, if you change the URIs you use on your site, the Javascript that interprets the fragment identifier needs to be able to recognise and support any redirections, missing, or never existing pages. The HTTP status code for the wrapper page will always be <code>200 OK</code>, but be meaningless.</p>
+
+<p>Even if your site structure doesn&#39;t change, if you use hash-bang URIs as your primary set of URIs, you&#39;re likely to find it harder to make a change back to using hashless URIs in the future. Again, you will be reliant in perpetuity on Javascript routing to decipher the hash-bang URI and redirect it to a hashless URI.</p>
+
+<h3>Lack of Differentiation</h3>
+
+<p>A final factor is that fragment identifiers can become overcrowded with state information. In a purely hash-URI-based site, what if you wanted to jump to a particular place within particular content, shown with a particular view? The hash URI has to encode all three of these pieces of information. Once you start using hash-bang URIs, there is no way to indicate within the URI (for search engines, for example) that a particular piece of the URI can be ignored when checking for equivalence. With normal hash URIs, there is an assumption that the fragment identifier can basically be ignored; with hash-bang URIs that is no longer true.</p>
+
+<h2>Good Practice</h2>
+
+<p>Having looked at the advantages and disadvantages, I would echo what seems to be the general sentiment around traditional server-based websites that use hash-bang URIs: <strong>pages that give different content should have different base URIs, not just different fragment identifiers</strong>. In particular, if you&#39;re serving large amounts of document-oriented content through hash-bang URIs, consider swapping things around and having hashless URIs for the content that then transclude in the large headers, footers and side bars that form the static part of your site.</p>
+
+<p>However, if you are running a server-based, data-driven web application and your primary goal is a smooth user experience, it&#39;s understandable why you might want to offer hash URIs for your pages to the 98% of people who can benefit from it, even for transcluded content. In these cases I&#39;d argue that you should practice progressive enhancement:</p>
+
+<ol>
+<li>support hashless URIs which <em>do not</em> simply redirect to a hash URI, and design your site around those</li>
+<li>use hash-bang URIs as suggested by Google rather than simple hash URIs</li>
+<li>provide an easy way to get the sharable, hashless URI for a particular page when it is accessed with a hash-bang URI</li>
+<li>use hashless URIs within links; these can be overridden with onclick listeners for those people with Javascript; using the hashless URI ensures that &#39;Copy Link Location&#39; will give a sharable URI</li>
+<li>use the HTML5 history API where you can to add or replace the relevant hashless URI in the browser history as state changes</li>
+<li>ensure that only those visitors that both have Javascript enabled and do not have support for HTML5&#39;s history API have access to the hash-bang URIs by using Javascript to, for example:
+
+<ul>
+<li>redirect to a hash-bang URI</li>
+<li>rewrite URIs within pages to hash-bang URIs</li>
+<li>attach onclick URIs to links</li>
+</ul></li>
+<li>support the <code>_escaped_fragment_</code> query parameter, the result of which should be a redirection to the appropriate hashless URI</li>
+</ol>
+
+<p>This is roughly what Twitter has done, except that it doesn&#39;t make it easy to get the hashless URI from a page or from links within the page. Of course the mapping in Twitter&#39;s case is the straight-forward removal of the <code>#!</code> from the URI, but as a human it&#39;s frustrating to have to do this by hand.</p>
+
+<p>The above measures ensure that your site will remain as accessible as possible to all users and provides a clear migration path as the HTML5 history API gains acceptance. The slight disadvantage is that encouraging people to use hashless URIs for links means that you you can no longer depend quite so much on caching as the first page that people access in a session might be any page (whereas with a pure hash-bang scheme everyone goes to the same initial page).</p>
+
+<p>Distributed, client-based websites can take the same measures -- the application&#39;s server can send back the same HTML page regardless of the URI used to access it; Javascript can pull information from a URI&#39;s path as easily as it can from a fragment identifier. The biggest difficulty is supporting the static page through the <code>_escaped_fragment_</code> convention without passing user data through the application server. I suspect we might find a third class of service arise: trusted third-party proxies using headless browsers to construct static versions of pages without storing either data or application logic. Time will tell.</p>
+
+<h2>The Deeper Questions</h2>
+
+<p>There are some deeper issues here regarding web architecture. In the traditional web, there is a one-to-one correspondence between the representation of a resource that you get in response to a request from a server, and the content that you see on the page (or a search engine retrieves). With a traditional hash URI for a fragment, the HTTP headers you retrieve for the page are applicable to the hash URI as well. In a web application that uses transclusion, this is not the case.</p>
+
+<blockquote>
+<p><em>Note: It&#39;s also impossible to get metadata about hash URIs used for real-world or abstract things using HTTP; in these cases, the metadata about the thing can only be retrieved through interpreting the data within the page (eg an RDF document). Whereas with the <code>303 See Other</code> pattern for publishing linked data, it&#39;s possible to use a <code>404 Not Found</code> response to indicate a thing that does not exist, there is no equivalent with hash URIs. Perhaps this is what lies at the root of my feeling of unease about them.</em></p>
+</blockquote>
+
+<p>With hash-bang URIs, there are in fact three (or more) URIs in play: the hash-bang URI (which identifies a wrapper page with particular content transcluded within it), a base URI (which identifies the wrapper HTML page) and one or more content URIs (against which AJAX requests are made to retrieve the relevant content). Requests to the base URI and the content URIs provide us with HTTP status codes and headers that describe those particular representations. The only way of discovering similar metadata about the hash-bang URI itself is through the <code>_escaped_fragment_</code> query parameter convention which maps the hash-bang URI into a hashless URI that can be requested.</p>
+
+<p>Does this matter? Do hash-bang URIs &quot;break the web&quot;? Well, to me, &quot;breaking the web&quot; is about breaking the implicit socio-technical contract that we enter into when we publish websites. At the social level, sites break the web when they <a href="http://blog.tommorris.org/post/3512773108/channel-4-showing-the-fruits-of-content-lifecycle">withdraw support for URIs that are widely referenced elsewhere</a>, hide content behind register- or pay-walls, or discriminate against those who suffer from disabilities or low bandwidth. At the technical level, it&#39;s when sites lie in HTTP. It&#39;s when they serve up pages with the title &quot;Not Found&quot; with the HTTP status code <code>200 OK</code>. It&#39;s when they serve non-well-formed HTML as <code>application/xhtml+xml</code>.</p>
+
+<p>These things matter because we base our own behaviour on the contract being kept. If we cannot trust major websites to continue to support the URIs that they have coined, how can we link to them? If we cannot trust websites to provide accurate metadata about the content that they serve, how can we write applications that cache or display or otherwise use that information? On their own, pages that use Javascript-based transclusion break both the social side (in that they limit access to those with Javascript) and the technical side (in that they cannot properly use HTTP) of the contract.</p>
+
+<p>But contracts do get rewritten over time. The web is constantly evolving and we have to revise the contract as new behaviours and new technologies gain adoption. The <code>_escaped_fragment_</code> convention gives a life line: a method of programmatically discovering how to access the version of a page without Javascript, and to discover metadata about it through HTTP. It is not a pretty pattern (I would much prefer that the server returned a header containing a <a href="http://tools.ietf.org/html/draft-gregorio-uritemplate-04">URI template</a> that described how to create the hashless equivalent of a hash-bang URI, and to have some rules about the parsing of a hash-bang fragment identifier so that it could include other fragments identifiers) but it has the benefit of adoption.</p>
+
+<p>In short, hash-bang URIs are an important pattern that will be around for several years because they offer many benefits compared to their alternatives, and because HTML5&#39;s history API is still a little way off general support. Rather than banging the drum against hash-bang URIs, we need to try to make them work as well as they can by:</p>
+
+<ul>
+<li>berating sites that use plain hash URIs for transcluded content</li>
+<li>encouraging sites that use hash-bang URIs to follow some good practices such as those I outlined above</li>
+<li>encouraging applications, such as browsers and search engines, to automatically map hash-bang URIs into the <code>_escaped_fragment_</code> pattern when they do not have Javascript available</li>
+</ul>
+
+<p>We also need to keep a close eye on emerging patterns in distributed web applications to ensure that these efforts are supported in the standards on which the web is built.</p>

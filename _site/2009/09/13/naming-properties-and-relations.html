@@ -1,0 +1,90 @@
+<p>This post is about how to name properties and relations in RDF schemas. Or rather, about how different ontology developers use different conventions and how this can sometimes be confusing.</p>
+
+<p>Part of the work that I&#39;ve been doing over the last few months at <a href="http://www.tso.co.uk/">TSO</a> has been for <a href="http://www.opsi.gov.uk/">OPSI</a>, who want to provide information about UK legislation for reuse through an API as well as eventually through a new end-user service. The <a href="http://www.legislation.gov.uk/">Single Legislation Service API</a> is now available, in beta, if you want to take a look.</p>
+
+<p>One way in which we&#39;re providing information about legislation is using RDF/XML. An example is the Criminal Justice Act 1993 Section 67, for which RDF is available at <a href="http://legislation.data.gov.uk/ukpga/1993/36/section/67/data.rdf">http://legislation.data.gov.uk/ukpga/1993/36/section/67/data.rdf</a>. For now, we&#39;ve made the decision to not attempt to create any of our own ontologies for the RDF, but to reuse ones that are already out there.</p>
+
+<!--break-->
+
+<p>We&#39;re making an explicit distinction within the service between the idea of an item or section of legislation (such as the Criminal Justice Act 1993 Section 67), versions of that legislation (such as the Criminal Justice Act 1993 Section 67 as it was in force on 1st December 2001) and that version formatted in XML, HTML or some other format (such as the XML version of the Criminal Justice Act 1993 Section 67 as it was in force on 1st December 2001).</p>
+
+<p>These three ways of thinking about legislation correspond to the <a href="http://en.wikipedia.org/wiki/Functional_Requirements_for_Bibliographic_Records">FRBR</a> Work, Expression and Manifestation. So to talk about them in RDF, we use the <a href="http://vocab.org/frbr/">FRBR vocabulary</a> created by Ian Davis and Richard Newman, in which these classes are called <code>frbr:Work</code>, <code>frbr:Expression</code> and <code>frbr:Manifestation</code>.</p>
+
+<p>One of the other ontologies that we&#39;re using is the <a href="http://www.metalex.eu/">Metalex</a> ontology which is specifically designed for legislation. It also builds on FRBR, and calls the relevant classes <code>metalex:BibliographicWork</code>, <code>metalex:BibliographicExpression</code> and <code>metalex:BibliographicManifestation</code>.</p>
+
+<p>So we have two vocabularies that represent the same concepts with equivalent classes, and obviously they have equivalent properties linking them. And this is what I find interesting. In the FRBR vocabulary, the relationships are:</p>
+
+<ul>
+<li><code>frbr:Work -- frbr:realization --&gt; frbr:Expression</code></li>
+<li><code>frbr:Expression -- frbr:realizationOf --&gt; frbr:Work</code></li>
+<li><code>frbr:Expression -- frbr:embodiment --&gt; frbr:Manifestation</code></li>
+<li><code>frbr:Manifestation -- frbr:embodimentOf --&gt; frbr:Expression</code></li>
+</ul>
+
+<p>The FRBR vocabulary uses nouns to name the relations. It&#39;s the same pattern that&#39;s often used to name properties (ie predicates that take literals as values):</p>
+
+<ul>
+<li><code>foaf:name</code></li>
+<li><code>dc:title</code></li>
+<li><code>rdfs:label</code></li>
+</ul>
+
+<p>Using nouns leads you to read statements in the pattern &quot;<em>subject</em>&#39;s <em>predicate</em> is <em>object</em>&quot;:</p>
+
+<ul>
+<li>Jeni&#39;s <em>name</em> is &quot;Jeni&quot;</li>
+<li>the legislation&#39;s <em>title</em> is &quot;Criminal Justice Act 1993&quot;</li>
+<li>England&#39;s <em>label</em> is &quot;England&quot;</li>
+<li>the legislation&#39;s <em>realization</em> is the version from 1st December 2001</li>
+<li>this document&#39;s <em>embodiment</em> is that XML file</li>
+</ul>
+
+<p>The trouble is that this pattern really doesn&#39;t work for the inverse relationships: <code>frbr:realizationOf</code> and <code>frbr:embodimentOf</code>:</p>
+
+<ul>
+<li>the version from 1st December 2001&#39;s <em>realization of</em> is the legislation</li>
+<li>that XML file&#39;s <em>embodiment of</em> is this document</li>
+</ul>
+
+<p>They really want to support a sentence structure like &quot;<em>subject</em> is a <em>predicate</em> <em>object</em>&quot;:</p>
+
+<ul>
+<li>the version from 1st December 2001 is a <em>realization of</em> the legislation</li>
+<li>that XML file is a <em>embodiment of</em> this document</li>
+</ul>
+
+<p>But if you then map that back to the original relation, you run into trouble, because there&#39;s a temptation to add a preposition into the sentence to make it make sense, and inserting that preposition inverts the meaning of the statement:</p>
+
+<ul>
+<li>the legislation is a <em>realization</em> [of] the version from 1st December 2001</li>
+<li>this document is a <em>embodiment</em> [of] that XML file</li>
+</ul>
+
+<p>You don&#39;t run into this problem when you use nouns to name <em>properties</em> because there&#39;s never an inverse relationship from a literal to a resource that you need to name. You also won&#39;t run into it for relations that have easily named inverses, such as parent/child or owner/possession although there is a similar confusion with the use of comparatives for relation names, as in SKOS, where the relation <code>skos:broader</code> could mean:</p>
+
+<ul>
+<li>X is <em>broader</em> than Y; or</li>
+<li>X&#39;s <em>broader</em> term is Y</li>
+</ul>
+
+<p>In the Metalex ontology, on the other hand, the relationships are:</p>
+
+<ul>
+<li><code>metalex:BibliographicWork -- metalex:realizedBy --&gt; metalex:BibliographicExpression</code></li>
+<li><code>metalex:BibliographicExpression -- metalex:realizes --&gt; metalex:BibliographicWork</code></li>
+<li><code>metalex:BibliographicExpression -- metalex:embodiedBy --&gt; metalex:BibliographicManifestation</code></li>
+<li><code>metalex:BibliographicManifestation -- metalex:embodies --&gt; metalex:BibliographicExpression</code></li>
+</ul>
+
+<p>Here, the relationships are verbs, leading you to read sentences in the form &quot;<em>subject</em> [is] <em>predicate</em> <em>object</em>&quot;:</p>
+
+<ul>
+<li>the legislation is <em>realized by</em> the version from 1st December 2001</li>
+<li>the version from 1st December 2001 <em>realizes</em> the legislation</li>
+<li>this document is <em>embodied by</em> that XML file</li>
+<li>that XML file <em>embodies</em> this document</li>
+</ul>
+
+<p>The only weirdness here is having to add &quot;is&quot; before some predicates but not others.</p>
+
+<p>The tradition in AI is to use verbs everywhere. Instead of <code>foaf:name</code> or <code>dc:title</code>, you would have <code>foaf:hasName</code> and <code>dc:hasTitle</code>. Doing this for properties with literal values seems unnecessarily verbose, but for relations I think it&#39;s a good rule of thumb in order to disambiguate the direction of the relation.</p>

@@ -1,0 +1,192 @@
+<p><a href="http://www.louisecrow.com/blog/" title="Louise Crow&#39;s blog">A Ruby on Rails specialist friend</a> and I are building a Web 2.0 application. I would say it&#39;s &quot;social networking for the dead&quot; except that I doubt that description would be attractive to most people (my ex-Goth <a href="http://en.wikipedia.org/wiki/Domestic_partnership" title="Wikipedia: domestic partner/common law husband/father of my children etc. etc.">defacto</a> being a rare exception), and it can be for the living too. It&#39;s a bit like <a href="http://www.ancestry.com/" title="ancestry.com">all</a> <a href="http://www.familypursuit.com/" title="familypursuit.com">those</a> <a href="http://www.geni.com/" title="geni.com">genalogy</a> websites, except that our focus is on people&#39;s social relationships as well as their familial ones.</p>
+
+<p>(I should say that this is all very casual. We&#39;re both fitting it in around our other responsibilities, and are mainly interested in working together, learning new things, and trying out all the best practices that everyone keeps talking about. So don&#39;t think I&#39;m becoming a dotcom entrepreneur or anything. Its got a very Web 2.0 name, and I&#39;m only not telling you in case you start hitting our servers. We&#39;re nowhere near ready for visitors.) </p>
+
+<!--break-->
+
+<p>We&#39;re using the <a href="http://www.ngsgenealogy.org/ngsgentech/projects/Gdm/Gdm.cfm" title="GENTECH genealogical data model">Gentech data model</a> as the basis for the application (though I expect that we&#39;ll tweak it a bit). You don&#39;t really need to know anything about it to follow what I&#39;m talking about here. The Gentech data model is very much a relational model. They might call it a logical model, but for anyone who <em>isn&#39;t</em> a database head, it&#39;s a physical model. That&#39;s fine; we&#39;re storing our data in a database, so a relational model for that is great.</p>
+
+<p>In the Rails world, the model that Rails is object-oriented rather than relational. So there&#39;s a certain amount of mapping from the relational world into the OO world, in particular eliding the tables that are created simply for normalisation purposes. Making that mapping is one thing that Rails is very good at, of course.</p>
+
+<p>Then we&#39;re into the worlds that I&#39;m particularly interested in. One of our goals is to use <a href="http://en.wikipedia.org/wiki/Atom_(standard)" title="Wikipedia: Atom">Atom</a> as an API, on the basis that it&#39;s a fairly generic way of packaging things (entries) and lists-of-things (feeds) with a bunch of metadata. Plus, the <a href="http://www.ietf.org/internet-drafts/draft-ietf-atompub-protocol-17.txt" title="Atom Publishing Protocol">Atom Publication Protocol</a> shows you how to do RESTful applications right.</p>
+
+<p>The trouble, <a href="http://code.google.com/apis/gdata/overview.html" title="Google Data (GData) API">as others</a> <a href="http://www.25hoursaday.com/weblog/2007/06/09/WhyGDataAPPFailsAsAGeneralPurposeEditingProtocolForTheWeb.aspx" title="Dare Obasanjo: Why GData/APP Fails as a General Purpose Editing Protocol for the Web">have found</a> is that Atom is designed for a flattish structure, in which you have things, and a list of things. Like blog posts and feeds of posts, or pictures and feeds of pictures. But the model that we&#39;re starting from is relational, or object-oriented, or anyway it&#39;s a <strong>graph</strong>. And that makes things more complicated.</p>
+
+<p>The first steps are pretty obvious. Objects are equivalent to entries, and lists of objects equivalent to feeds. So every object has its own URL, and every significant feed has its own URL too. There&#39;s the obvious <code>http://www.example.com/people/DarwinC01</code> for a person, and <code>http://www.example.com/people/</code> for a feed of people, but also <code>http://www.example.com/people/DarwinC01/events/</code> for events that are related to a particular person. An entry&#39;s content is an XML document that describes the equivalent object. It has attributes and children to represent the properties from the OO model (columns in the database tables).</p>
+
+<p>Atom defines a bunch of metadata that you can associate with the content in an entry. These are:</p>
+
+<ul>
+<li>id</li>
+<li>title</li>
+<li>summary (optional, as long as there&#39;s textual or XML content)</li>
+<li>updated</li>
+<li>published (optional)</li>
+<li>category (multiple, optional)</li>
+<li>source (optional)</li>
+<li>author (multiple, optional as long as there&#39;s a source that specifies one or the entry&#39;s in a feed that specifies one)</li>
+<li>contributor (multiple, optional)</li>
+<li>link (multiple, optional as long as there&#39;s some content)</li>
+<li>rights (optional, defaults to the feed&#39;s rights)</li>
+<li>extension elements (optional)</li>
+</ul>
+
+<p>The metadata properties need to be used to indicate who created/updated the object and when. This gets confusing because some of the information in our system is likely to be <em>about</em> content that has authors and publishing dates and so on: the Gentech data model is strong on documenting the sources of information about people you&#39;re reasearching. Even when documenting the source of some information, the Atom metadata should still be metadata about that object in our data model.</p>
+
+<p>The set of Atom metadata does indicate a place where we&#39;re going to want to tweak the Gentech data model though: every object should have metadata associated with it, at the very least an updated date, to populate the Atom metadata fields. Also, we need to identify the property of each object that is used in the <code>&lt;atom:title&gt;</code>, though the title can be something generic if there isn&#39;t an obvious one.</p>
+
+<p>Now the question that&#39;s vexing me: how should we represent relationships to other objects/entries? Let&#39;s take the example of documenting <a href="http://www.aboutdarwin.com/voyage/voyage01.html" title="About Darwin: HMS Beagle Voyage">Charles Darwin&#39;s voyage on HMS Beagle</a>. It goes something like this:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;atom:entry&gt;
+  ...
+  &lt;atom:content type=&quot;application/xml&quot;&gt;
+    &lt;passenger&gt;
+      &lt;source href=&quot;http://www.aboutdarwin.com/voyage/voyage01.html&quot; /&gt;
+      ...
+    &lt;/passenger&gt;
+  &lt;/atom:content&gt;
+&lt;/atom:entry&gt;
+</code></pre></div>
+<p>The <code>&lt;evr:passenger&gt;</code> element needs to reference a person and a voyage (event), to say that Darwin was a passenger on the voyage.</p>
+
+<p>Here are the options, I think:</p>
+
+<ol>
+<li><p>Use <code>&lt;atom:link&gt;</code> within the <code>&lt;atom:entry&gt;</code>, with a URL in <code>rel</code> that indicates the kind of relationship  </p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;atom:entry xml:base=&quot;http://www.example.com&quot;&gt;
+  ...
+  &lt;atom:link rel=&quot;/link-relationships/assertion-persona&quot;
+             href=&quot;/persona/DarwinC01&quot; /&gt;
+  &lt;atom:link rel=&quot;/link-relationships/assertion-event&quot;
+             href=&quot;/events/BeagleVoyage&quot; /&gt;
+  &lt;atom:content type=&quot;application/xml&quot;&gt;
+    &lt;passenger&gt;
+      &lt;source href=&quot;http://www.aboutdarwin.com/voyage/voyage01.html&quot; /&gt;
+    &lt;/passenger&gt;
+  &lt;/atom:content&gt;
+&lt;/atom:entry&gt;
+</code></pre></div></li>
+<li><p>Use extension elements within the <code>&lt;atom:entry&gt;</code></p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;atom:entry xml:base=&quot;http://www.example.com&quot;&gt;
+  ...
+  &lt;persona href=&quot;/persona/DarwinC01&quot; /&gt;
+  &lt;event href=&quot;/events/BeagleVoyage&quot; /&gt;
+  &lt;atom:content type=&quot;application/xml&quot;&gt;
+    &lt;passenger&gt;
+      &lt;source href=&quot;http://www.aboutdarwin.com/voyage/voyage01.html&quot; /&gt;
+    &lt;/passenger&gt;
+  &lt;/atom:content&gt;
+&lt;/atom:entry&gt;
+</code></pre></div></li>
+<li><p>Use child elements in the object&#39;s XML, referencing the URLs of the related objects</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;atom:entry xml:base=&quot;http://www.example.com&quot;&gt;
+  ...
+  &lt;atom:content type=&quot;application/xml&quot;&gt;
+    &lt;passenger&gt;
+      &lt;source href=&quot;http://www.aboutdarwin.com/voyage/voyage01.html&quot; /&gt;
+      &lt;persona href=&quot;/persona/DarwinC01&quot; /&gt;
+      &lt;event href=&quot;/events/BeagleVoyage&quot; /&gt;
+    &lt;/passenger&gt;
+  &lt;/atom:content&gt;
+&lt;/atom:entry&gt;
+</code></pre></div></li>
+<li><p>Use child elements in the object&#39;s XML, embedding the related objects&#39; Atom entry or feed</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;atom:entry xml:base=&quot;http://www.example.com&quot;&gt;
+  ...
+  &lt;atom:content type=&quot;application/xml&quot;&gt;
+    &lt;passenger&gt;
+      &lt;source href=&quot;http://www.aboutdarwin.com/voyage/voyage01.html&quot; /&gt;
+      &lt;persona&gt;
+        &lt;atom:entry&gt;
+          ...
+          &lt;atom:title&gt;Charles Darwin&lt;/atom:title&gt;
+          &lt;atom:content&gt;
+            &lt;persona&gt;
+              &lt;name&gt;Charles Darwin&lt;/name&gt;
+              ...
+            &lt;/persona&gt;
+          &lt;/atom:content&gt;
+        &lt;/atom:entry&gt;
+      &lt;/persona&gt;
+      &lt;event&gt;
+        &lt;atom:entry&gt;
+          ...
+          &lt;atom:title&gt;Beagle Voyage&lt;/atom:title&gt;
+          &lt;atom:content&gt;
+            &lt;event&gt;
+              &lt;name&gt;Beagle Voyage&lt;/name&gt;
+              &lt;date-range&gt;
+                &lt;date&gt;1831-12-27&lt;/date&gt;
+                &lt;date&gt;1836-10-02&lt;/date&gt;
+              &lt;/date-range&gt;
+              ...
+            &lt;/event&gt;
+          &lt;/atom:content&gt;
+        &lt;/atom:entry&gt;
+      &lt;/event&gt;
+    &lt;/passenger&gt;
+  &lt;/atom:content&gt;
+&lt;/atom:entry&gt;
+</code></pre></div></li>
+<li><p>Use child elements in the object&#39;s XML, embedding the related objects&#39; XML content</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;atom:entry xml:base=&quot;http://www.example.com&quot;&gt;
+  ...
+  &lt;atom:content type=&quot;application/xml&quot;&gt;
+    &lt;passenger&gt;
+      &lt;source href=&quot;http://www.aboutdarwin.com/voyage/voyage01.html&quot; /&gt;
+      &lt;persona&gt;
+        &lt;name&gt;Charles Darwin&lt;/name&gt;
+        ...
+      &lt;/persona&gt;
+      &lt;event&gt;
+        &lt;name&gt;Beagle Voyage&lt;/name&gt;
+        &lt;date-range&gt;
+          &lt;date&gt;1831-12-27&lt;/date&gt;
+          &lt;date&gt;1836-10-02&lt;/date&gt;
+        &lt;/date-range&gt;
+        ...
+      &lt;/event&gt;
+    &lt;/passenger&gt;
+  &lt;/atom:content&gt;
+&lt;/atom:entry&gt;
+</code></pre></div></li>
+</ol>
+
+<p>I don&#39;t think that there&#39;s any point in using an extension element (#2), given that using <code>&lt;atom:link&gt;</code> (#1) situates the information in the same place in a more standard way.</p>
+
+<p>Embedding information (as in #4 and #5) is a good thing because it means fewer requests to the server in order to get some useful information. Providing access to Atom feeds (as in #1, #3 and #4) is a good thing because it means you can get metadata about who created the refenced objects, and additional information about them. So #4 is good, since it does both these things, but I don&#39;t like embedding Atom in the XML because it&#39;s a lot of extra weight in the XML (making it harder to read/process).</p>
+
+<p>In fact, #1, #3 and #5 aren&#39;t mutually exclusive. It&#39;s possible to add relevant <code>&lt;atom:link&gt;</code>s to the metadata, reference the URLs of the other objects <em>and</em> embed their content at the same time:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">    &lt;atom:entry xml:base=&quot;http://www.example.com&quot;&gt;
+      ...
+      &lt;atom:link rel=&quot;/link-relationships/assertion-persona&quot;
+                 href=&quot;/persona/DarwinC01&quot; /&gt;
+      &lt;atom:link rel=&quot;/link-relationships/assertion-event&quot;
+                 href=&quot;/events/BeagleVoyage&quot; /&gt;
+      &lt;atom:content type=&quot;application/xml&quot;&gt;
+        &lt;passenger&gt;
+          &lt;source href=&quot;http://www.aboutdarwin.com/voyage/voyage01.html&quot; /&gt;
+          &lt;persona src=&quot;/persona/DarwinC01&quot;&gt;
+            &lt;name&gt;Charles Darwin&lt;/name&gt;
+            ...
+          &lt;/persona&gt;
+          &lt;event src=&quot;/events/BeagleVoyage&quot;&gt;
+            &lt;name&gt;Beagle Voyage&lt;/name&gt;
+            &lt;date-range&gt;
+              &lt;date&gt;1831-12-27&lt;/date&gt;
+              &lt;date&gt;1836-10-02&lt;/date&gt;
+            &lt;/date-range&gt;
+            ...
+          &lt;/event&gt;
+        &lt;/passenger&gt;
+      &lt;/atom:content&gt;
+    &lt;/atom:entry&gt;
+</code></pre></div>
+<p>We embed the core information for easy access (#5), reference its original URI for more details (#3), and then we may as well add the <code>&lt;atom:link&gt;</code>s (#1) so that run-of-the-mill Atom readers who have no knowledge about our content can do something useful. We <em>don&#39;t</em> get the metadata embedded in the XML, but it&#39;s retrievable: a client could use the entry as a kind of &quot;low resolution&quot; information set, which they can add to by retrieving the &quot;high resolution&quot; Atom for the referenced objects, via their URLs, as necessary.</p>
+
+<p>The problem with using an embedding method rather than a referencing method is that the object model is a graph, not a hierarchy. So you can&#39;t <em>always</em> embed an object&#39;s XML: sometimes you have to only use a reference (#3 without #5) to avoid getting into an endless loop of repeated information. As a publisher, sometimes you might <em>want</em> to only use a reference, because the information is only tangential to the main subject of the original entry. I&#39;m imagining that we might serve several different Atom entries for the same object, with different amounts of detail. Maybe.</p>
+
+<p>As an author, creating this XML, you can&#39;t include a reference if you&#39;re constructing XML (either in code or by hand) for new objects because they won&#39;t have URLs yet. Therefore, for the purpose of <em>creating</em> objects as defined by the Atom Publishing Protocol, you&#39;ll use embedded XML (#5) with references to existing objects if necessary. The resource returned will include the references for all the created objects. When updating, you&#39;ll want to include as little as possible aside from the updated information, I imagine (small updates being less prone to clashes than large ones). </p>
+
+<p>By the way, I&#39;m using <code>src</code> attributes when the information is embedded and <code>href</code> attributes when the information is purely referenced (or almost purely referenced; the referencing elements might still have some content equivalent to the <code>&lt;atom:title&gt;</code> element, in the interests of presenting a clickable link).</p>
+
+<p>So that&#39;s the plan at the moment, but we&#39;re open to suggestions. Anybody?</p>

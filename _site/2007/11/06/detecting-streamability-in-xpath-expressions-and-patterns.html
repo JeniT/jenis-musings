@@ -1,0 +1,58 @@
+<p>The XSL Working Group <a href="http://lists.w3.org/Archives/Public/public-xml-processing-model-comments/2007Oct/0118.html" title="XSL WG Comments on XProc Last Call">gave some comments</a> recently on the <a href="http://www.w3.org/TR/2007/WD-xproc-20070920/" title="W3C: XProc Last Call Working Draft">Last Call Working Draft of XProc</a>. One of the comments was about a bunch of standard steps that we&#39;ve specified which do things you can do in XSLT, such as renaming certain nodes. These steps generally use XPath expressions or XSLT patterns to identify which nodes should be processed.</p>
+
+<p>What bothers the XSL WG is that these steps aren&#39;t guaranteed to be streamable. In a streamable process, an input document can be delivered to the processor as a stream of events (and an output similarly generated as a stream of events) rather than as an in-memory representation. Such processes will start producing results more quickly and require less memory than non-streamable ones. And, because they don&#39;t need as much memory, they are able to work on larger documents.</p>
+
+<p>If the processes we defined in XProc <em>were</em> streamable, there&#39;d have a clear advantage over their XSLT equivalents, and therefore a purpose. However, since they&#39;re <em>not</em> guaranteed streamable, it looks like we&#39;re simply creating yet another transformation language.</p>
+
+<!--break-->
+
+<p>My <a href="http://lists.w3.org/Archives/Public/public-xml-processing-model-comments/2007Oct/0123.html" title="Jeni&#39;s response to XSL WG comments on XProc&#39;s streamability">response</a> was basically that we left it down to implementers to detect when a particular expression/pattern was streamable because defining a streamable subset of XPath would (a) take too long, (b) require people to learn a particular XPath subset, raising the adoption barrier, (c) require implementers to implement their own XPath engines, raising the implementation barrier.</p>
+
+<p>But if you put those pragmatic reasons to one side, I think there are good abstract reasons not to specify a streamable XPath subset. First, there is no clear line that can be drawn between a streamable XPath and an unstreamable one, only a scale between &quot;buffering nothing&quot; and &quot;buffering everything&quot; (building an object model). Second, you can&#39;t judge the streamability of an XPath expression on its own: there are multiple other factors that effect how streamable a given XPath expression is for a particular processor.</p>
+
+<p>To illustrate, say that we&#39;re renaming all elements that we select, and let&#39;s start with an expression that&#39;s obviously streamable:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">//section
+</code></pre></div>
+<p>No problems here: as soon as we hit an start-tag (or end-tag) for a <code>&lt;section&gt;</code> element, we can change its name.</p>
+
+<p>Now add a predicate:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">//section[@type = &#39;summary&#39;]
+</code></pre></div>
+<p>This predicate tests the value of the <code>type</code> attribute on the <code>&lt;section&gt;</code> element. If we&#39;re using SAX or StAX events, then this is as straightforwardly streamable as the previous example, because attribute values are reported at the same time as start-tags. But that&#39;s purely down to the API: the underlying algorithm for streaming RELAX NG validation uses a different event model, for example, in which attributes are reported after the start tag begins (and before the start tag ends). So <strong>streamability depends on the event model</strong>.</p>
+
+<p>Now a different predicate:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">//section[title = &#39;Summary&#39;]
+</code></pre></div>
+<p>This predicate tests the value of the <code>&lt;title&gt;</code> child of the <code>&lt;section&gt;</code> element. In fact, it tests if the <code>&lt;section&gt;</code> element has <em>any</em> <code>&lt;title&gt;</code> child with the value <code>&#39;Summary&#39;</code>. Normally, an XPath processor won&#39;t be able to tell that a <code>&lt;section&gt;</code> <em>doesn&#39;t</em> satisfy the predicate until it gets to the end-tag of the element. So it will have to buffer the events from each <code>&lt;section&gt;</code> start tag until its end tag until it can work out whether to do the renaming or not.</p>
+
+<p>But say the <code>&lt;section&gt;</code> elements in this markup language can only contain a single <code>&lt;title&gt;</code>, and that&#39;s the first child of the <code>&lt;section&gt;</code>. For an XPath processor that&#39;s aware of the DTD or schema that the document adheres to, the situation is then very similar to the previous one, which tested the attribute. So <strong>streamability depends on how much the processor knows about the markup language</strong>.</p>
+
+<p>Changing the XPath to</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">//section[title[1] = &#39;Summary&#39;]
+</code></pre></div>
+<p>similarly limits how much the processor will have to buffer if the <code>&lt;title&gt;</code> always appears, and always appears first, even without the processor being told that rule through a schema. So <strong>streamability depends on the markup language itself</strong>.</p>
+
+<p>Anyway, I had a quick look at some academic work on streamability, such as <a href="http://www.cs.umd.edu/projects/xsq/" title="XSQ: A Streaming XPath Engine">XSQ</a>, <a href="http://www-cs-students.stanford.edu/%7Eamrutaj/work/papers/xpath.pdf" title="Project Report on Streaming XPath Engine">TurboXPath</a> or the recent paper <a href="http://doi.acm.org/10.1145/1247480.1247512" title="Efficient Algorithms for Evaluating XPath over Streams">&quot;Efficient Algorithms for Evaluating XPath over Streams&quot;</a>. These papers really surprised me. The things that prove difficult include backwards axes (which is surprising since information about the previous nodes should be easily available), the descendant axis, and the position function. On the other hand, predicates are absolutely fine (despite requiring a &quot;look ahead&quot;). [Weirdly enough, all the papers I looked at contained XPath errors; I guess when you&#39;re considering abstract algorithms you don&#39;t have to care about insignificant things like language syntax.]</p>
+
+<p>The <a href="http://doi.acm.org/10.1145/1247480.1247512" title="Efficient Algorithms for Evaluating XPath over Streams">paper</a> I mentioned above actually defines something called Univariate XPath which conforms to the syntax:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">Path      := Step | Path Step
+Step      := Axis NodeTest
+             | Axis NodeTest &#39;[&#39; Predicate &#39;]&#39;
+Axis      := &#39;/&#39; | &#39;//&#39;
+NodeTest  := Name | &#39;*&#39;
+Predicate := Path
+             | Path CompOp Path
+             | Predicate &#39;and&#39; Predicate
+             | Predicate &#39;or&#39; Predicate
+             | &#39;not&#39; Predicate                            [sic]
+CompOp    := &#39;=&#39; | &#39;!=&#39; | &#39;&gt;&#39; | &#39;&gt;=&#39; | &#39;&lt;&#39; | &#39;&lt;=&#39;
+</code></pre></div>
+<p>This might be a useful starting point, but it omits useful things like attributes and functions which (as far as I can tell) wouldn&#39;t effect the applicability of the algorithms. It&#39;s also worth noting that it will allow paths such as <code>/database[dummy]/record</code>, which would involve buffering every <code>&lt;record&gt;</code> until the end tag of the <code>&lt;database&gt;</code> document element was reached. This illustrates that just because an XPath is theoretically streamable (can be evaluated based on a stream of events) doesn&#39;t mean it can be evaluated efficiently.</p>
+
+<p>Some final thoughts:</p>
+
+<ul>
+<li>I wonder if there&#39;s scope for an XPath subset that can be mapped to RELAX NG syntax and therefore evaluated using Brozozowski derivatives</li>
+<li>what about an algorithm that evaluates XPaths using a pipeline process, whereby the stream of events is actually passed through several filters in order to provide the final evaluation</li>
+<li>I&#39;m sure there&#39;s preprocessing that could be done on some XPath expressions that would increase their streamability</li>
+</ul>

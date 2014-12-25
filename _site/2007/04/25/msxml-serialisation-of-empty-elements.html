@@ -1,0 +1,21 @@
+<p>The problem: You&#39;re using MSXML (and therefore XSLT 1.0). You&#39;re outputting XHTML (and therefore using the <code>xml</code> method). You want to output an empty <code>&lt;a&gt;</code> element for an anchor, but want to make sure that you get a start tag and and end tag (<code>&lt;a id=&quot;foo&quot;&gt;&lt;/a&gt;</code>) rather than an empty element tag (<code>&lt;a id=&quot;foo&quot;/&gt;</code>).</p>
+
+<p>Is the only solution disable-output-escaping? &lt;!--break--&gt; No! MSXML outputs start and end tags if you create an element using literal result elements, <code>&lt;xsl:copy&gt;</code> or <code>&lt;xsl:element&gt;</code> with any instruction that could potentially produce content. So whereas</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;a id=&quot;foo&quot;&gt;&lt;/a&gt;
+</code></pre></div>
+<p>produces</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;a id=&quot;foo&quot;/&gt;
+</code></pre></div>
+<p>putting something innocuous inside, such as</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;a id=&quot;foo&quot;&gt;&lt;xsl:value-of select=&quot;&#39;&#39;&quot; /&gt;&lt;/a&gt;
+</code></pre></div>
+<p>creates</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;a id=&quot;foo&quot;&gt;&lt;/a&gt;
+</code></pre></div>
+<h3>Disclaimers</h3>
+
+<ul>
+<li> Of course with another XSLT processor, or XSLT 2.0, you would use an xhtml output method to make sure that empty element syntax was only used for elements that are declared to be <code>EMPTY</code>, such as <code>&lt;br&gt;</code> and <code>&lt;img&gt;</code>.</li>
+<li> This trick might not work with other XSLT processors; certainly Saxon always outputs an empty element if the element is empty.</li>
+<li> And anyway, using empty <code>&lt;a&gt;</code> elements for anchors is <em>not</em> good quality XHTML.</li>
+</ul>

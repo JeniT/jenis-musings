@@ -1,0 +1,22 @@
+<p>I&#39;ve been thinking a bit recently about how to deal with certainty in our Genealogical Web 2.0 application. We&#39;ve come round to using an RDF model to represent what the Gentech data model calls &quot;assertions&quot;; assertions such as &quot;Charles Darwin was a passenger on the Beagle Voyage&quot; are represented as an RDF Statement in which (a resource representing) &quot;Charles Darwin&quot; is the subject, (a resource representing) &quot;Beagle Voyage&quot; is the object, and &quot;was a passenger on&quot; is the predicate/property.</p>
+
+<p>All the statements in the genealogical application should be based on some source of information, either an external piece of evidence (such as a marriage certificate) or by combining existing statements. Either way, there&#39;s certain metadata that we want to store about it, such as</p>
+
+<ul>
+<li>who created the statement</li>
+<li>when it was made</li>
+<li>the date(s) when the statement was true</li>
+<li>the certainty in the statement</li>
+</ul>
+
+<p>The certainty factor is interesting. For statements based directly on evidence, there are three factors that come into play:</p>
+
+<ul>
+<li>the reliability of the evidence itself; for example, a marriage certificate is more reliable than a diary entry for a wedding</li>
+<li>the certainty the user has in drawing their conclusion based on the evidence; for example,  you would be more certain in the statement that the groom named on a marriage certificate is a man than in the statement that the witness named on a marriage certificate is a friend of the groom</li>
+<li>the reliability of the user who has made the statement: an expert in family history is likely to draw more accurate conclusions than someone who has only just started</li>
+</ul>
+
+<p>So now the question is how to assess these factors. The usual Web 2.0 method is to use ratings. We could get users to rate each other to provide the third score. We could then get users to rate the reliability of particular pieces of evidence, modify that score based on the users&#39; reliability, and aggregate those scores.</p>
+
+<p>The final certainty of the statement would be a combination of this score for evidence reliability and ratings from multiple users, again weighted according to the users&#39; reliability.</p>

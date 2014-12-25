@@ -1,0 +1,121 @@
+<p>Earlier this week I presented at <a href="http://swig.networkedplanet.com/november2008.html" title="Semantic Web Interest Group Community Event">SWIG-UK</a> about <a href="http://code.google.com/p/rdfquery" title="rdfQuery: RDF plugins for jQuery">rdfQuery</a>. rdfQuery is a set of plugins that I&#39;ve developed for <a href="http://www.jquery.com" title="jQuery: The Write Less, Do More, Javascript Library">jQuery</a> in order to support RDFa parsing, querying and generation. There are a bunch of other Javascript libraries for RDFa around, such as Mark Birbeck&#39;s <a href="http://code.google.com/p/ubiquity-rdfa/" title="Ubiquity RDFa">Ubiquity RDFa</a> and Ben Adida&#39;s <a href="http://www.w3.org/2006/07/SWD/RDFa/impl/js/" title="RDFa Javascript Library">RDFa library</a>. What I&#39;ve really tried to do with rdfQuery is tie it in with the &quot;Write Less, Do More&quot; philosophy of jQuery and provide a neat, elegant API. At least that&#39;s the aim!</p>
+
+<!--break-->
+
+<p>So what does it do? Well, I&#39;ve just added the demo that I used on Tuesday into <a href="http://code.google.com/p/rdfquery/source/checkout" title="rdfQuery: SVN repository">the repository</a>, so if you grab hold of that you can take a look. Here&#39;s a screenshot of the demo.</p>
+
+<p><img src="/blog/files/markup-demo.jpg" alt="Screenshot of rdfQuery demo" width="100%" /></p>
+
+<p>The demo shows the overall concept of rdfQuery, namely that semantic markup can be useful not only to the crawlers that extract data from your pages to pump into massive triplestores, but also for you as a developer. In this case, which is a simple genealogy-type application, I want to have the people and places that are relevant to this particular extract highlighted within the text. I also want them listed on the left, with their details summarised.</p>
+
+<p>So the demo illustrates three things that rdfQuery does to help:</p>
+
+<ul>
+<li>gleaning triples from a section of the page (not just the whole page); in this case the triples are marked up with RDFa</li>
+<li>querying the data to construct objects that represent the results of those queries, then doing things with those results</li>
+<li>automatically adding RDFa to elements within the page, to update the data that it holds</li>
+</ul>
+
+<p>It also demonstrates rough versions of a couple of things that rdfQuery could and should do that I aim to work on soon:</p>
+
+<ul>
+<li>reasoning based on the data that&#39;s found in the page</li>
+<li>using ontologies to decide how to handle the data you find</li>
+</ul>
+
+<p>By the by, it shows a simple, natural-language interface for making statements based on some text, but don&#39;t let that distract you. It&#39;s just regular expression processing.</p>
+
+<p>There are four parts of this page. The main part contains some text about Charles Darwin. If you look at the source, you&#39;ll see that it&#39;s been marked up with some RDFa like this:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;span about=&quot;#CharlesRobertDarwin&quot; typeof=&quot;foaf:Person&quot; 
+      property=&quot;rdfs:label&quot; datatype=&quot;&quot;&gt;
+  &lt;span property=&quot;foaf:firstName&quot;&gt;Charles&lt;/span&gt; Robert 
+  &lt;span property=&quot;foaf:surname&quot;&gt;Darwin&lt;/span&gt;
+&lt;/span&gt; was &lt;span about=&quot;#CharlesRobertDarwin&quot; rel=&quot;biografr:hasBirthPlace&quot;&gt;born in 
+&lt;span about=&quot;#Shrewsbury&quot; typeof=&quot;vcard:Address&quot; 
+      property=&quot;rdfs:label&quot; datatype=&quot;&quot;&gt;
+  &lt;span property=&quot;vcard:locality&quot;&gt;Shrewsbury&lt;/span&gt;, 
+  &lt;span property=&quot;vcard:region&quot;&gt;Shropshire&lt;/span&gt;, 
+  &lt;span property=&quot;vcard:country&quot;&gt;England&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt; on &lt;span about=&quot;#CharlesRobertDarwin&quot; property=&quot;biografr:bornOn&quot; 
+  content=&quot;1809-02-12&quot; datatype=&quot;xsd:date&quot;&gt;12 February 1809&lt;/span&gt; at his 
+  family home, the Mount. ...
+</code></pre></div>
+<p>This source is also shown in the textarea at the bottom of the page. Obviously this wouldn&#39;t be visible in a real application, but it enables you to see what&#39;s going on in the demo. Changing it won&#39;t do anything; you can imagine that string being POSTed back to the server. I&#39;ve also added some CSS that gives a border to any elements with a <code>typeof</code> attribute. Elements that have a <code>property</code> change their colour when you mouse over them.</p>
+
+<p>So the page contains some RDFa. But what it doesn&#39;t contain (in the source) is any information in the menu on the left. This gets populated based on the RDFa. If you click on Charles Robert Darwin, you&#39;ll see the data that&#39;s been gleaned about him, including (at the bottom), the derived fact that Robert Darwin was Charles Darwin&#39;s father. Anything in black is information pulled from the RDFa; anything in orange is derived.</p>
+
+<p>Next, try typing &quot;Susannah Darwin was a person&quot; into the text input and hit return. You should get Susannah Darwin added to the list of people. More importantly, if you look at the new source of the page, you&#39;ll see that the phrase &quot;Susannah Darwin&quot; has been marked up with some RDFa to indicate that she was, indeed, a person and that &quot;Susannah Darwin&quot; can be used as a label for her.</p>
+
+<p>You can try typing a few more facts into the box if you like. I suggest:</p>
+
+<ol>
+<li>&quot;Charles Robert Darwin was also known as Darwin&quot;</li>
+<li>&quot;Susannah Darwin was Darwin&#39;s mother&quot;</li>
+<li>&quot;Susannah Darwin&#39;s surname was Darwin&quot;</li>
+<li>&quot;Josiah Wedgwood was a person&quot;</li>
+<li>&quot;Susannah Darwin&#39;s father was Josiah Wedgwood&quot;</li>
+</ol>
+
+<p>So this is all very cool and all, but the point was to show the code. So here we go.</p>
+
+<h2>Gleaning and Querying</h2>
+
+<p>Let&#39;s look at how the lists are populated:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">457: populateLists = function () {
+458:   var rdf = $(&#39;#content&#39;).rdf();
+459:   people.empty();
+460:   places.empty();
+461:   rdf
+462:     .prefix(&#39;rdfs&#39;, ns.rdfs)
+463:     .prefix(&#39;foaf&#39;, ns.foaf)
+464:     .where(&#39;?person a foaf:Person&#39;)
+465:     .where(&#39;?person rdfs:label ?label&#39;)
+466:     .each(function () {
+467:       addIndividual(people, this.person, this.label.value);
+468:     })
+469:     .reset()
+470:     .where(&#39;?place a vcard:Address&#39;)
+471:     .where(&#39;?place rdfs:label ?label&#39;)
+472:     .each(function () {
+473:       addIndividual(places, this.place, this.label.value);
+474:     });
+475: },
+</code></pre></div>
+<p>Line 458 parses the RDFa within the element with the id <code>content</code> (this is a <code>&lt;div&gt;</code> that wraps around the paragraphs about Charles Darwin). The <code>rdf</code> variable holds an rdfQuery object, which is very similar to a jQuery object except that it queries over RDF triples rather than DOM nodes. The rdfQuery object holds a pointer to a databank, which holds the triples that have been collected.</p>
+
+<p>Lines 459 and 460 empty out the existing lists of people and places if there are any. The <code>people</code> and <code>places</code> variables are set earlier in the script and are jQuery objects.</p>
+
+<p>Now the fun begins. I first set some prefixes on the rdfQuery object so that I can use those prefixes in <a href="http://www.w3.org/TR/curie/" title="CURIE Syntax 1.0">CURIEs</a> within the queries. In fact, these prefixes will have been set up by default anyway, because they&#39;re declared in the HTML page, but it doesn&#39;t hurt.</p>
+
+<p>Lines 464 and 465 locate triples in the databank based on simple <a href="http://www.w3.org/TR/rdf-sparql-query/" title="SPARQL Query Language for RDF">SPARQL</a>-based queries. The first <code>where()</code> call creates a new rdfQuery object that, like a jQuery object, looks a bit like an array. The array contains objects, one for each triple that matches the pattern <code>?person a foaf:Person</code>. Each of the objects has a <code>person</code> property containing the resource that represents the person. So the rdfQuery that results from this <code>where()</code> call looks like:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">{ length: 2,
+  0: { person: $.rdf.resource(&#39;&lt;#CharlesRobertDarwin&gt;&#39;) },
+  1: { person: $.rdf.resource(&#39;&lt;#RobertDarwin&gt;&#39;) },
+  ... bunch of other properties and methods that aren&#39;t important here ... }
+</code></pre></div>
+<p>The second <code>where()</code> call creates another new rdfQuery object based on combining the previous query results with the any triples that match the pattern <code>?person rdfs:label ?label</code>. This holds objects with <code>person</code> and <code>label</code> properties, one for each person and their label. So the result of this looks like:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">{ length: 2,
+  0: { person: $.rdf.resource(&#39;&lt;#CharlesRobertDarwin&gt;&#39;),
+       label:  $.rdf.literal(&#39;&quot;Charles Robert Darwin&quot;&#39;) },
+  1: { person: $.rdf.resource(&#39;&lt;#RobertDarwin&gt;&#39;),
+       label:  $.rdf.literal(&#39;&quot;Robert Darwin&quot;&#39;) },
+  ... bunch of other properties and methods that aren&#39;t important here ... }
+</code></pre></div>
+<p>The <code>each()</code> on lines 466-468 then iterates over the objects that it&#39;s constructed and calls the <code>addIndividuals()</code> function (which is particular for this demo), passing in the list in the HTML, the person resource and the value of the label literal.</p>
+
+<p>Line 469 uses the <code>reset()</code> method to go back to the original rdfQuery object. If I didn&#39;t do this, any further queries would simply add to the objects that I already have, or remove them if nothing matched.</p>
+
+<p>Lines 470-474 do the same thing for the places that are marked up within the text.</p>
+
+<p>There are various other places within <code>markup.js</code> that glean and query RDF. For example, the <code>addDescription()</code> function, which populates the list items on the left with data about particualr people and places. That function demonstrates the use of the <code>about()</code> method, which gives you all the triples about a particular subject, and shows how to use arguments with the <code>each()</code> method when you want to use the index of the query result or the triples that were used to create the query result.</p>
+
+<h2>Updating RDFa</h2>
+
+<p>So how easy is it to update the RDFa on the web page? Well, if you know what you want to add, then it&#39;s dead easy. Here&#39;s the code that does it on lines 452 and 532:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">span.rdfa(triple);
+</code></pre></div>
+<p>The variable <code>span</code> here is a jQuery object. The triple itself is a <code>$.rdf.triple</code>. I&#39;d tell you more about them but I think I&#39;ve gone on long enough.</p>
+
+<h2>Final Words</h2>
+
+<p><a href="http://code.google.com/p/rdfquery" title="rdfQuery: RDF plugins for jQuery">rdfQuery</a> is a Google Code project, released under an MIT license. If you&#39;re interested in contributing, send me an email and I&#39;ll add you as a member, or an owner if you&#39;re really keen. If you&#39;re interested, I&#39;ve set up a <a href="http://groups.google.com/group/rdfquery" title="rdfQuery Discussion Group">discussion group</a>. You can post any questions there, although of course if you find bugs, do <a href="http://code.google.com/p/rdfquery/issues/entry" title="rdfQuery: Add Issue">add an issue</a>.</p>

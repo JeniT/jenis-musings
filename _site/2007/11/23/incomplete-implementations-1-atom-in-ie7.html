@@ -1,0 +1,14 @@
+<p>IE7 gives you a really quite nice view of an Atom feed. Take a look at the <a href="http://www.jenitennison.com/blog/atom/feed" title="Jeni&#39;s Musings: Atom feed">one for this blog</a>, for example. You can filter by category, sort by date or title or author, and search for particular words or phrases. Pretty neat.</p>
+
+<p>But it&#39;s only a partial implementation. I&#39;ve been having to create some Atom feeds recently, and getting them to display nicely in IE7 has proven a bit tricky. I couldn&#39;t find any documentation about this with a quick google, so thought I&#39;d blog it for future reference.</p>
+
+<!--break-->
+
+<p>The main things are:</p>
+
+<ol>
+<li><p>Do not use a prefix for the Atom namespace. IE7&#39;s Atom support is not namespace aware. (I gather this is a problem in a lot of Atom readers. Sigh.)</p></li>
+<li><p>If you don&#39;t embed the content in the entry then it will display the summary; to get a clickable link to the content, you must provide a <code>&lt;link&gt;</code> element whose <code>href</code> attribute points to that content. The <code>&lt;link&gt;</code> element mustn&#39;t have any other attributes on it, so don&#39;t add <code>rel=&quot;alternate&quot;</code> or <code>type=&quot;application/xhtml+xml&quot;</code>. Having a <code>src</code> on <code>&lt;content&gt;</code> will not give you a link.</p></li>
+</ol>
+
+<p>If you want to support viewing the feed in IE6 as well, you need to provide a stylesheet to transform it into something nice. As long as the feed is served as XML, IE6 will interpret an <code>&lt;?xml-stylesheet?&gt;</code> PI correctly, and both IE7 and Firefox will ignore it (which is probably what you want, since both Firefox and IE7 have decent native rendering of Atom).</p>

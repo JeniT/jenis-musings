@@ -1,0 +1,22 @@
+<p>I&#39;ve <a href="http://www.jenitennison.com/blog/node/145">written previously</a> about how wonderful <a href="http://code.google.com/p/freebase-gridworks/">Freebase Gridworks</a> (<a href="http://groups.google.com/group/freebase-gridworks/browse_thread/thread/f58390cd729c35fe/636f8332b44fbb00#636f8332b44fbb00">shortly to be &quot;Google Refine&quot;</a>) is for cleaning and converting data. Within the UK public sector, there are two big barriers to its use, however:</p>
+
+<ol>
+<li>Public sector workers typically can&#39;t install software on their computers.</li>
+<li>They&#39;re also typically stuck with IE7 (or even, if they&#39;re really unlucky, IE6).</li>
+</ol>
+
+<p>We&#39;ve got around the first of these issues by installing Gridworks as a hosted (password-protected) instance on <code>http://source.data.gov.uk/gridworks</code>. Now, this isn&#39;t perfect of course: Gridworks wasn&#39;t designed to be used as a shared instance, so it doesn&#39;t have support for multiple users operating on the same project at the same time, let alone things like user accounts or access control. So we&#39;re operating on trust here -- hoping that people won&#39;t delete or edit each others&#39; projects -- but it&#39;s worth the risk.</p>
+
+<p>It&#39;s also not particularly pretty in that the links that Gridworks uses all assume that it&#39;s running at the root of a web server. Fortunately, source.data.gov.uk doesn&#39;t need to have a home page, so it&#39;s possible to have Gridworks available at the root (although in hope of something better in the future, I&#39;ve made the main point of entry <code>/gridworks</code>).</p>
+
+<p>I got this working by installing Gridworks normally on the server and using Apache as a proxy, with the following configuration:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text"># Gridworks support
+RewriteRule &quot;^/$&quot; &quot;/gridworks&quot; [R,L]
+RewriteRule &quot;^/gridworks(.*)$&quot; &quot;http://localhost:3333$1&quot; [P,L]
+RewriteRule &quot;^/(.*)$&quot; &quot;http://localhost:3333/$1&quot; [P,L]
+ProxyPass /gridworks/ http://localhost:3333/
+ProxyPassReverse /gridworks/ http://localhost:3333/
+</code></pre></div>
+<p>That&#39;s it.</p>
+
+<p>The IE7 problem will take a bit longer to solve, I imagine.</p>

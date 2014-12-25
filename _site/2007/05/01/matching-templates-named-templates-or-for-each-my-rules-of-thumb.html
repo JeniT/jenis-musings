@@ -1,0 +1,93 @@
+<p>More rules of thumb: these are about when to use matching templates, when to use named templates, and when to use for-each. These have as much bearing in XSLT 1.0 as they do in XSLT 2.0.</p>
+
+<!--break-->
+
+<p>My rules of thumb are:</p>
+
+<ul>
+<li> If the code depends on the context position (<code>position()</code>), put it in a <code>&lt;xsl:for-each&gt;</code>.</li>
+<li> If the code depends on the context node (<code>.</code> or any location path), put it in a matching template.</li>
+<li> Otherwise, use a named template.</li>
+</ul>
+
+<p>It&#39;s easiest to debug and maintain a block of code if those factors that have an effect on its functionality are in close proximity to that block of code. Context position is affected by exactly which nodes are selected, and whether they&#39;re sorted. For example, if you add commas between author names with</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;xsl:template match=&quot;author/name&quot;&gt;
+  &lt;xsl:apply-templates /&gt;
+  &lt;xsl:if test=&quot;position() != last()&quot;&gt;, &lt;/xsl:if&gt;
+&lt;/xsl:template&gt;
+</code></pre></div>
+<p>then you can&#39;t know (just by looking at the template) when the commas will actually be added, because it all depends on how the template is invoked. It will work fine when you do</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;xsl:apply-templates select=&quot;author/name&quot; /&gt;
+</code></pre></div>
+<p>(because the sequence of nodes being processed contains the <code>&lt;name&gt;</code> elements) but say that six months later, someone else decided to add a <code>&lt;span&gt;</code> around the author information, with the template</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;xsl:template match=&quot;author&quot;&gt;
+  &lt;span class=&quot;author&quot;&gt;
+    &lt;xsl:apply-templates select=&quot;name&quot; /&gt;
+  &lt;/span&gt;
+&lt;/xsl:template&gt;
+</code></pre></div>
+<p>and changed the original <code>&lt;xsl:apply-templates&gt;</code> to</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;xsl:apply-templates select=&quot;author&quot; /&gt;
+</code></pre></div>
+<p>Assuming each <code>&lt;author&gt;</code> has only one <code>&lt;name&gt;</code>, both context position and size in the original <code>author/name</code> template will always be <code>1</code>, and they will no longer get any commas.</p>
+
+<p>So, I think it&#39;s better to use <code>&lt;xsl:for-each&gt;</code> when you have tests on position, for example</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;xsl:for-each select=&quot;author/name&quot;&gt;
+  &lt;xsl:apply-templates select=&quot;.&quot; /&gt;
+  &lt;xsl:if test=&quot;position() != last()&quot;&gt;, &lt;/xsl:if&gt;
+&lt;/xsl:for-each&gt;
+</code></pre></div>
+<p>With this code, you can change the <code>select</code> on the <code>&lt;xsl:for-each&gt;</code> and the commas will still be added.</p>
+
+<p>Similarly, I hate having to debug named templates that use the context node. The only way of finding out what the context node is (and therefore whether the location paths in the template are correct) is to examine all the <code>&lt;xsl:call-template&gt;</code> instructions that call that template, which can be really tedious. At least with a matching template, you know the kinds of nodes that the template might be used on. For example, rather than</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;xsl:template name=&quot;CreateTOCentry&quot;&gt;
+  &lt;xsl:call-template name=&quot;CreateTOCnumber&quot; /&gt;
+  &lt;xsl:call-template name=&quot;CreateTOCtitle&quot; /&gt;
+&lt;/xsl:template&gt;
+</code></pre></div>
+<p>I prefer</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;xsl:template match=&quot;part | chapter | section&quot; mode=&quot;TOC&quot;&gt;
+  &lt;xsl:apply-templates select=&quot;number&quot; mode=&quot;TOC&quot; /&gt;
+  &lt;xsl:apply-templates select=&quot;title&quot; mode=&quot;TOC&quot; /&gt;
+&lt;/xsl:template&gt;
+</code></pre></div>
+<p>I can look up the definitions of <code>&lt;part&gt;</code>, <code>&lt;chapter&gt;</code> and <code>&lt;section&gt;</code> to make sure that they have <code>&lt;number&gt;</code> and <code>&lt;title&gt;</code> children.</p>
+
+<p>Another pattern I see is named templates that contain a big <code>&lt;xsl:choose&gt;</code> instruction that tests what the context node is; the code would be much better split into separate templates with different match patterns for the different kinds of nodes.</p>
+
+<p>Of course sometimes you need to use a named template because you need to recurse, but want to use information about the context node, either to provide a default value for a parameter or within the body of the template itself. A really stupid example is</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;xsl:template name=&quot;CopyNode&quot;&gt;
+  &lt;xsl:param name=&quot;n&quot; select=&quot;1&quot; /&gt;
+  &lt;xsl:if test=&quot;$n &gt; 0&quot;&gt;
+    &lt;xsl:copy-of select=&quot;.&quot; /&gt;
+    &lt;xsl:call-template name=&quot;CopyNode&quot;&gt;
+      &lt;xsl:with-param name=&quot;n&quot; select=&quot;$n - 1&quot; /&gt;
+    &lt;/xsl:call-template&gt;
+  &lt;/xsl:if&gt;
+&lt;/xsl:template&gt;
+</code></pre></div>
+<p>In these cases, I either pass the node in as an additional (required) parameter, as in</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;xsl:template name=&quot;CopyNode&quot;&gt;
+  &lt;xsl:param name=&quot;node&quot; /&gt;
+  &lt;xsl:param name=&quot;n&quot; select=&quot;1&quot; /&gt;
+  &lt;xsl:if test=&quot;$n &gt; 0&quot;&gt;
+    &lt;xsl:copy-of select=&quot;$node&quot; /&gt;
+    &lt;xsl:call-template name=&quot;CopyNode&quot;&gt;
+      &lt;xsl:with-param name=&quot;node&quot; select=&quot;$node&quot; /&gt;
+      &lt;xsl:with-param name=&quot;n&quot; select=&quot;$n - 1&quot; /&gt;
+    &lt;/xsl:call-template&gt;
+  &lt;/xsl:if&gt;
+&lt;/xsl:template&gt;
+</code></pre></div>
+<p>(there&#39;s no way of saying the <code>$node</code> parameter is required in XSLT 1.0, so defaulting it to an empty string is the best we can do) or make the template a matching template as well</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;xsl:template match=&quot;*&quot; mode=&quot;CopyNode&quot; name=&quot;CopyNode&quot;&gt;
+  &lt;xsl:param name=&quot;n&quot; select=&quot;1&quot; /&gt;
+  &lt;xsl:if test=&quot;$n &gt; 0&quot;&gt;
+    &lt;xsl:copy-of select=&quot;.&quot; /&gt;
+    &lt;xsl:call-template name=&quot;CopyNode&quot;&gt;
+      &lt;xsl:with-param name=&quot;n&quot; select=&quot;$n - 1&quot; /&gt;
+    &lt;/xsl:call-template&gt;
+  &lt;/xsl:if&gt;
+&lt;/xsl:template&gt;
+</code></pre></div>
+<p>and only invoke it with <code>&lt;xsl:apply-templates&gt;</code>. I don&#39;t really care that the match pattern doesn&#39;t tell me anything special about the node being copied: the fact that it&#39;s a general pattern tells me that it&#39;s a template that is designed to work with any element.</p>

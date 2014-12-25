@@ -1,0 +1,113 @@
+<p>A <a href="http://www.google.com/enterprise/gsa/" title="Google Search Appliance">Google Search Appliance</a> (GSA) is a box that you plug into your network which crawls and indexes your data, and serves up the results of searches. Search results come in an XML format, and there&#39;s a built in XSLT engine which means you can convert that XML into as many different views as you like. So you can have HTML-based search results, summaries, feeds, and so on.</p>
+
+<p>My task recently was to debug some XSLT that transformed the GSA XML into an Atom feed. Easy enough, right? The GSA <a href="http://code.google.com/apis/searchappliance/documentation/46/xml_reference.html#results_xml" title="Google Search Appliance Documentation: XML Results Reference">XML format</a> is pretty hideous -- most of the elements max out at three capital letters in length (whatever happened to human-readability) -- but logical enough, and the mapping is hardly complex.</p>
+
+<p>But all was not as it seemed. The GSA&#39;s XSLT implementation is... how can I put this politely?... &quot;non-standard&quot;. This post describes some of the problems and workarounds.</p>
+
+<!--break-->
+
+<p>To get the GSA to use your own XSLT, you have to go through its web interface. Basically there&#39;s a form with a text field in which you can type your XSLT. Or you can upload a file that you develop offline. Naturally you&#39;re going to do the latter because it means you can use your favourite editor with helpful things like syntax highlighting and validation-as-you-type, but of course that means switching between web browser windows and your IDE as you develop.</p>
+
+<p>So I upload the transformation, point the browser at a relevant search page, and... oh...</p>
+
+<p>When the GSA doesn&#39;t like the XSLT that you use, you get a really helpful error message. It says:</p>
+
+<blockquote>
+<p>Internal server error.</p>
+</blockquote>
+
+<p>So you know that there&#39;s been an error. With the server. Internally.</p>
+
+<p>Back to basics, I thought. Let&#39;s find out what processor the server&#39;s using. Then we can develop on that processor and be pretty sure the resulting XSLT will work. So I load up the default XSLT (which is used to create an HTML result) and add the line</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;xsl:value-of select=&quot;system-property(&#39;xsl:vendor&#39;)&quot; /&gt;
+</code></pre></div>
+<p>Save the XSLT, reload the page, and...</p>
+
+<blockquote>
+<p>Internal server error.</p>
+</blockquote>
+
+<p>Okaaay... so this is an XSLT processor that doesn&#39;t support the <code>xsl:vendor</code> system property. If it doesn&#39;t support that, I&#39;m going to have to tread carefully. So let&#39;s start with something really simple:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;xsl:stylesheet version=&quot;1.0&quot;
+   xmlns:xsl=&quot;http://www.w3.org/1999/XSL/Transform&quot;&gt;
+
+&lt;xsl:template match=&quot;/&quot;&gt;
+  &lt;xsl:copy-of select=&quot;.&quot; /&gt;
+&lt;/xsl:template&gt;
+&lt;/xsl:stylesheet&gt;
+</code></pre></div>
+<p>Save the XSLT, reload the page, and...</p>
+
+<blockquote>
+<p>Internal server error.</p>
+</blockquote>
+
+<p>On a whim, I tried</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;xsl:stylesheet xmlns:xsl=&quot;http://www.w3.org/1999/XSL/Transform&quot; 
+   version=&quot;1.0&quot;&gt;
+
+&lt;xsl:template match=&quot;/&quot;&gt;
+  &lt;xsl:copy-of select=&quot;.&quot; /&gt;
+&lt;/xsl:template&gt;
+&lt;/xsl:stylesheet&gt;
+</code></pre></div>
+<p>instead. Save the XSLT, reload the page, and... Success!</p>
+
+<p>Can you spot the difference? Yes, that&#39;s right: it&#39;s the order of the XSLT namespace declaration and the version attribute. Namespace declaration first, you&#39;re OK, version first, you&#39;re not.</p>
+
+<p>Okaaay... so this is an XSLT processor that doesn&#39;t support the XML Recommendation (which says that attribute order doesn&#39;t matter). But heck, why split hairs? At least it&#39;s working! Now to create some Atom instead:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;xsl:stylesheet xmlns:xsl=&quot;http://www.w3.org/1999/XSL/Transform&quot; 
+   version=&quot;1.0&quot;
+   xmlns=&quot;http://www.w3.org/2005/Atom&quot;&gt;
+
+&lt;xsl:template match=&quot;/&quot;&gt;
+  &lt;feed /&gt;
+&lt;/xsl:template&gt;
+&lt;/xsl:stylesheet&gt;
+</code></pre></div>
+<p>Save the XSLT, reload the page, and we&#39;re back to</p>
+
+<blockquote>
+<p>Internal server error</p>
+</blockquote>
+
+<p>At least there&#39;s some <a href="http://code.google.com/apis/searchappliance/documentation/46/xml_reference.html#results_xslt" title="Google Search Appliance Documentation: Custom HTML">documentation</a> about this one:</p>
+
+<blockquote>
+<p>XSL stylesheets that include other files may not be used with the Google search engine. An XSL stylesheet that contains the following tags generates an error result:</p>
+
+<ul>
+<li><code>&lt;xsl:import&gt;</code></li>
+<li><code>&lt;xsl:include&gt;</code></li>
+<li><code>xmlns:</code></li>
+<li><code>document()</code></li>
+</ul>
+</blockquote>
+
+<p>Read that again. Yes, the third bullet point. That&#39;s right, it&#39;s saying that an XSLT that contains a namespace declaration will generate an error result because it &quot;includes other files&quot;.</p>
+
+<p>But, but, but, namespace declarations in XSLT stylesheets (or elsewhere for that matter) do not indicate file inclusion. Namespace URIs are <em>identifiers</em>, not <em>locations</em>. They are strings. They are not resolved. You do not need to be connected to the &#39;net to use them.</p>
+
+<p>And how am I supposed to serve an Atom feed, since Atom documents use a namespace? Or XHTML for that matter? Fortunately, the GSA only goes so far in banning namespace declarations: you&#39;re OK as long as you don&#39;t put them on the <code>&lt;xsl:stylesheet&gt;</code> element. Moving it to the <code>&lt;feed&gt;</code> element as in</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;xsl:stylesheet xmlns:xsl=&quot;http://www.w3.org/1999/XSL/Transform&quot; 
+   version=&quot;1.0&quot;&gt;
+
+&lt;xsl:template match=&quot;/&quot;&gt;
+  &lt;feed xmlns=&quot;http://www.w3.org/2005/Atom&quot; /&gt;
+&lt;/xsl:template&gt;
+&lt;/xsl:stylesheet&gt;
+</code></pre></div>
+<p>and you&#39;re OK. Of course you have to repeat the namespace declaration in every template so you don&#39;t end up creating elements in no namespace. Tedious, oh so tedious, but workable.</p>
+
+<p>(I have a vague suspicion that the idea behind banning namespace declarations is something to do with certain XSLT processors using namespace URIs to pull in Java classes. But addressing that problem by banning namespace declarations entirely isn&#39;t just throwing the baby out with the bathwater, it&#39;s throwing the whole bathroom suite out of the window. And if you then allow namespace declarations further down the stylesheet, you haven&#39;t actually solved the problem.)</p>
+
+<p>Amazingly enough, given the inauspicious beginning, everything else I tried actually worked. I suspect that it&#39;s some standard XSLT processor underneath with a regex based filter that (among other things) limits what&#39;s allowed in the <code>&lt;xsl:stylesheet&gt;</code> start tag. They probably disallow <code>system-property(&#39;xsl:vendor&#39;)</code> for security -- knowledge is power, after all.</p>
+
+<p>Anyway, my suggestions to others who might want to create a customised XSLT processor:</p>
+
+<ol>
+<li>Use a custom URL resolver to restrict access to documents.</li>
+<li>Restrict external function calls using something like the <code>ALLOW_EXTERNAL_FUNCTIONS</code> property in JAXP</li>
+<li>Document the restrictions you&#39;re placing on the stylesheets.</li>
+<li>Produce meaningful error messages that explain the extra restrictions when they&#39;re broken.</li>
+</ol>

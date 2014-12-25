@@ -1,0 +1,13 @@
+<p>I think <a href="http://www.w3.org/TR/xhtml-rdfa-primer/" title="W3C: RDFa Primer">RDFa</a> has a lot of things going for it. I&#39;ve been a big Semantic Web sceptic for a long time, but getting semantic information embedded into web pages is cool, and RDFa is that much more rigorous than <a href="http://www.microformats.org/" title="Microformats website">microformats</a>. Sure, it&#39;s a bit more complicated too, but I&#39;m not afraid of namespaces!</p>
+
+<p>The problem is that I&#39;m supposed to be assessing the introduction of RDFa into a biggish, important, real-world website. It&#39;s a website where every change has to go through a Process. There are project managers, development managers, product managers. There are functional specifications, technical specifications, and rollout documents. There are unit tests, peer reviews and user acceptance tests. The database is huge; the HTML is pre-generated.</p>
+
+<!--break-->
+
+<p>In short, every change takes time and costs money. I&#39;m just not sure it&#39;s a good idea to introduce a technology that only exists in a Working Draft of a Primer <em>now</em>, when tracking that technology could be very costly.</p>
+
+<p>And if we used RDFa, we wouldn&#39;t be using XHTML 1.0 any more; we&#39;d be using XHTML 2.0. If we want to have valid pages, we&#39;d have to reference a non-existent DTD, or make our own. And tracking XHTML 2.0 is even more of a risk, it seems to me.</p>
+
+<p>So my current thinking is that in this case, RDFa just isn&#39;t practical. Better to use <a href="http://www.w3.org/TR/grddl/" title="W3C: Gleaning Resource Descriptions from Dialects of Languages">GRDDL</a> with something less revolutionary, like <a href="http://research.talis.com/2005/erdf/wiki/Main/RdfInHtml" title="Talis: Embedded RDF">eRDF</a> or microformats or plain-old custom class names.</p>
+
+<p>Anyone want to persuade me otherwise?</p>

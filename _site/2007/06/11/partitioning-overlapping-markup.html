@@ -1,0 +1,23 @@
+<p><a href="http://www.piez.org/" title="Wendell&#39;s Home Page">Wendell Piez</a> forwarded me an interesting poster by <a href="http://www.huygensinstituut.knaw.nl/index.php?option=com_content&amp;task=view&amp;id=120&amp;Itemid=57" title="Bert Van Elsacker">Bert Van Elsacker</a> on automatic fragmentation of overlapping structures. That&#39;s taking something like:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;bold&gt; this is bold &lt;italic&gt; and italic &lt;/bold&gt; text &lt;/italic&gt;
+</code></pre></div>
+<p>and turning it into something well-formed, like:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;bold&gt; this is bold &lt;italic&gt; and italic &lt;/italic&gt;&lt;/bold&gt;&lt;italic&gt; text &lt;/italic&gt;
+</code></pre></div>
+<p>When you do this, you have to decide which elements can be split and which can&#39;t, and their relative priorities. Wendell suggested that perhaps Creole might help to do this. I have been thinking about is using Creole to add annotations to markup (something like, you add attributes to the Creole patterns and they get copied on to the matched ranges, or are used to create new ranges), but I haven&#39;t done that yet, and actually I think you probably want a different kind of language to do it (<a href="http://blog.jclark.com/2007/04/do-we-need-new-kind-of-schema-language.html" title="James Clark: Do we need a new kind of schema language?">a new kind of schema language</a> like James Clark suggested), because the way in which you break up overlapping structures has a lot to do with how you&#39;re going to process them.</p>
+
+<!--break-->
+
+<p>I&#39;m reminded of the paper</p>
+
+<blockquote>
+<p>Sperberg-McQueen, C. M., David Dubin, Claus Huitfeldt and Allen Renear. “<a href="http://www.idealliance.org/papers/extreme/proceedings/html/2002/CMSMcQ01/EML2002CMSMcQ01.html">Drawing inferences on the basis of markup.</a>” In Proceedings of Extreme Markup Languages 2002. </p>
+</blockquote>
+
+<p>in which (based on my memory of the talk) they discuss how different elements allow you to make different assertions about the text they contain, and consequently can be split in different ways. For example, a <code>&lt;paragraph&gt;</code> element can&#39;t be split into two <code>&lt;paragraph&gt;</code> elements without changing the meaning of the document, whereas a <code>&lt;bold&gt;</code> element can be split into two <code>&lt;bold&gt;</code> elements with no problems because it&#39;s really indicating &quot;these characters are bold&quot; rather than &quot;this is a bold phrase&quot;.</p>
+
+<p>You can take a purist view (which would usually entail splitting hardly any elements, since most elements <em>do</em> mark up a range of text rather than the individual characters they contain), but I think the main reason you want to do this fragmentation is for presentation. And in that context, the notional semantics of the element don&#39;t really matter: what matters is how they&#39;re styled. For example, a <code>&lt;comment&gt;</code> element, marking up a range of text that has been commented on, might not be splittable at a theoretical level, but if you&#39;re going to render it simply by turning the background yellow, then in fact you <em>can</em> split it for that purpose.</p>
+
+<p>Since it&#39;s related to presentation, I wonder whether you could use a (simplified) CSS stylesheet to provide both the fragmentation and the style. Block-level elements (<code>display: block;</code>) couldn&#39;t be split whereas inline elements could. Elements that have the box model properties (margin, padding &amp; borders) can&#39;t be split, or, if they are, you need to mark the fragments as &quot;left&quot;, &quot;middle&quot; and &quot;right&quot;, and only apply the <em>left</em> margin/padding/border to the &quot;left&quot; fragment, and similarly with the right.</p>
+
+<p>It wouldn&#39;t be a general purpose transformation mechanism, but it would be darned useful!</p>

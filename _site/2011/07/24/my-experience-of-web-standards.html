@@ -1,0 +1,126 @@
+<p>One of the things that&#39;s been niggling at the back of my mind since the <a href="http://schema.org">schema.org</a> announcement is how small a role search engine results plays in the wider data sharing efforts that I&#39;m more familiar with in my work on <a href="http://www.legislation.gov.uk/">legislation.gov.uk</a>, and more generally how my day job experience differs from (what seem to be) more common experiences of development on the web. In this post, I&#39;m going to talk about that experience, and about the particular problems that I see with the coexistence of microdata and RDFa as a result.</p>
+
+<!--break-->
+
+<p>My day job (the one I actually get paid for) is web development. The site I spend most of my time and effort on is <a href="http://www.legislation.gov.uk/">legislation.gov.uk</a>. This deals with complex content (UK legislation) that has to be presented in multiple formats (users love PDFs of legislation). Our aim is to make the data as reusable as possible by third parties through good, RESTful, web architecture, and we want to use open standards and open source technologies as part of the <a href="http://www.cabinetoffice.gov.uk/resource-library/open-source-open-standards-and-re-use-government-action-plan">UK government&#39;s general strategy</a>.</p>
+
+<p>legislation.gov.uk is not a global website like Amazon or eBay, but it&#39;s not small either: it covers 60,000 changing items of legislation, providing point-in-time views for many of them, and with more added every day. It&#39;s one of the top ten most used UK Government websites, with 2 million visits (about 10-12 million page views) each month and typically about 120 requests/second during the active times of the day. Legislation might sound like a highly specialist interest, but if you <a href="http://twitter.com/search/legislation.gov.uk">search for legislation.gov.uk on Twitter</a> you&#39;ll see it being referenced over and over by people who want to share what the law says.</p>
+
+<p>I do not by any means claim that my experience is representative of the wider web. I know that there are large numbers of sites that deal only in data, not documents, and certainly not documents with the kind of rich semantic structure that legislation has. I offer the following discussion as a data point, partly because I can&#39;t quite believe that legislation.gov.uk is <em>completely</em> unique in its requirements and partly because obviously my perspective on a bunch of issues arises from this experience.</p>
+
+<h2>Technology Stacks</h2>
+
+<p>Legislation items are complex, semi-structured documents. Their natural fit is XML (well, that&#39;s not quite true -- their natural fit would be something that allowed overlapping markup -- but XML is the closest that we have). So we store it in XML in a native XML database and we use an XML toolset to query it (XQuery) and transform it (XSLT) into various formats including rendering it as PDF (through XSL-FO).</p>
+
+<p>Our next step for the development of the site involves looking at legislative effects. These form a graph: one item of legislation affects other items of legislation which may in turn affect other items and so on. There are all sorts of other links between items of legislation in terms of commencements, conferred powers and so on. Particularly because we already have well-thought-through URIs for legislation, the natural fit is to use RDF to represent this graph. We already offer a SPARQL endpoint for accessing some aspects of our data, but we expect to expand and develop this over the next few months and to use it as a layer under the website and exposed for reusers, in much the same way as we use the XML database.</p>
+
+<p>As a government site, we have fairly strict limits on what we can do within our web pages: we have to make sure that they&#39;re accessible by everyone who wants to view them. We aren&#39;t able to use technologies that are only available in the latest browsers, but that&#39;s OK because with the kind of content we deal with, we don&#39;t have to do anything fancy anyway. So we use pretty basic HTML and CSS and Javascript, because that&#39;s how you deliver content to end-users on the web (as well as exposing the underlying XML and RDF, to enable others to reuse the data).</p>
+
+<p>In other words, we use three web stacks for delivering legislation.gov.uk:</p>
+
+<ul>
+<li>the XML stack, which is great for single-source publishing of documents that have more semantic structures than those supported by HTML</li>
+<li>the RDF stack, which is well-suited for metadata about things that are identified by URIs</li>
+<li>the HTML stack, which is absolutely necessary for delivering human-accessible content on the web</li>
+</ul>
+
+<p>What bemuses me, because of this experience, is that sometimes it appears that the narrative around these technologies is framed in terms of an exclusive choice between them. For example, <a href="http://twitter.com/mattur/status/89331716430372864">@mattur asked</a>:</p>
+
+<p style="text-align:center;">
+  <a href="http://twitter.com/mattur/status/89331716430372864"><img src="/blog/files/mattur-tweet.jpg" alt="@gimsieke @JeniT how may TAG members believe RDF(a) and X(HT)ML are way forward? How many think they aren't?" /></a>
+</p>
+
+<p>It is as if, if you use XML you <em>cannot</em> appreciate the utility of error-handling in HTML; or if you use RDF you <em>cannot</em> understand the need to represent documents in XML; or if you want to utilise HTML fully, you <em>cannot</em> adopt RDF&#39;s view of data on the web. That&#39;s simply not my experience. They each have their role on the web; supporting the use of one does not necessitate rejecting the use of the others.</p>
+
+<p>It&#39;s interesting that some of the standards that are most reviled are those that arise at the intersections, where it appears that one technology is trying to encroach on the space of another:</p>
+
+<ul>
+<li>XHTML at the border of XML and HTML</li>
+<li>RDF/XML at the border of RDF and XML</li>
+<li>RDFa at the border of all three</li>
+</ul>
+
+<p>At the same time, within legislation.gov.uk, we publish XHTML (because it&#39;s the natural output from an XML toolchain) and create and process RDF/XML (because it gives us access to that data from within the XML toolchain). We use a small bit of RDFa in the XHTML to indicate the rights under which our information is avaialble, and don&#39;t yet, but are thinking about using RDFa to mark up non-document semantics within our XML (to enable the XML markup to focus on the document structures that it&#39;s good at). For all their imperfections, these intersection technologies are useful for managing cross-overs; the problems arise when they overstep their remit and people start to think that <em>all</em> HTML must be XHTML or <em>all</em> XML must be RDF/XML or <em>all</em> RDF must be RDFa.</p>
+
+<h2>Sharing Scenarios</h2>
+
+<p>The second thing that I wanted to explore is the experience from legislation.gov.uk of what it&#39;s like to be a publisher who actively wants to share their data. We need to operate simultaneously at three levels in our data sharing efforts.</p>
+
+<h3>Large-Scale Consumer-Driven Data Sharing</h3>
+
+<p>The first target for our data sharing efforts are the search engines. Obviously we&#39;re not selling anything, but we want people to be able to locate legislation easily when they want it, and we want people who have done the search to be able to see some information about the legislation so that they know that they&#39;ve located the right item.</p>
+
+<p>This is large-scale consumer (search engine) driven data sharing, typified by schema.org and Facebook&#39;s <a href="http://developers.facebook.com/docs/opengraph/">Open Graph Protocol</a> (OGP). There are a few very big data consumers (Google, Microsoft, Yahoo!, Facebook etc) who need to consume data from large numbers of data providers. These consumers obviously can&#39;t understand <em>everything</em>, so they determine and document what syntaxes and vocabularies they <em>do</em> understand and expect publishers to follow.</p>
+
+<p>The benefits that publishers get from a particular consumer determines which syntax/vocabulary they use; publishers who are particularly keen to show up prettily within search results will target schema.org whereas those who want to be sharable within Facebook will target OGP. Many publishers will want to target both. There is probably a driver towards eventual convergence:</p>
+
+<ul>
+<li>publishers might push back about inserting two lots of very similar data in their pages</li>
+<li>consumers might want to include data from publishers who haven&#39;t specifically targeted them</li>
+</ul>
+
+<p>although there&#39;s likely to be a period where they coexist, much as there was for VHS and Betamax (and <a href="http://en.wikipedia.org/wiki/Video_2000">V2000</a>, I know, dad) during the early days of video players.</p>
+
+<p>As <a href="http://www.jenitennison.com/blog/node/157">I discussed previously</a>, these large-scale consumers will be driven by the data that they find in the wild, in all its messy variety. They get relatively little benefit directly from using a generic <em>syntax</em>, as they are really interested in only a few, pretty generic, <em>vocabularies</em> for which they have hardwired processing. Indirectly, adopting a generic syntax has benefits in that publishers might find it easier to find tools that enable them to generate it, tutorials about how to use it, and feel that they aren&#39;t being quite as locked in to something proprietary. However, rejecting data that isn&#39;t marked up properly using that syntax has no benefit for consumers except in so far as it makes them feel that they are being good community members. </p>
+
+<p>This is the pattern we see with schema.org (which accepts microdata but, based on its documentation, won&#39;t reject data that isn&#39;t fully compliant with it) and with OGP (which accepts a subset of RDFa but doesn&#39;t reject data that hasn&#39;t got prefixes properly bound, for example).</p>
+
+<p>Another point to mention is that there is very little trust in this scenario. The communication between consumers and publishers is very limited, and the consumers will want to protect themselves against accidental or malicious errors that are evident in mismatches between explicit metadata and that which is parsed from the visible content of the page.</p>
+
+<p>The parallels to HTML and browser vendors are very strong in this type of data sharing.</p>
+
+<h3>Small-Scale Consumer-Driven Data Sharing</h3>
+
+<p>A second type of data sharing is again driven by consumers, but this time at a lot smaller and more specialised scale. For legislation.gov.uk, these are services such as <a href="http://www.glin.gov/">GLIN</a>, which is a global legislation registry. Other examples are the recent work that we&#39;ve done to publish <a href="http://data.gov.uk/organogram">UK Government organograms</a> or <a href="http://countculture.wordpress.com/">Chris Taggart</a>&#39;s <a href="http://openelectiondata.org/">Open Election Data</a> project. In these cases, there&#39;s a single, relatively small and specialised consumer and a small number of publishers which are closely coordinated together.</p>
+
+<p>As in the large-scale case, the consumer ultimately determines the syntax/vocabulary that it recognises, and communicates that to the publishers. However, small-scale consumers typically have close coordination with the publishers, which has a number of side-effects:</p>
+
+<ul>
+<li>consumers may be more able to both apply pressure to and help publishers to do well in their markup</li>
+<li>publishers have the opportunity to feed back directly to the consumer any suggestions that they have about changes to the syntax/vocabulary</li>
+<li>publishers are likely to gain an immediate and tangible benefit from their cooperation, such as visualisations of their data that they otherwise wouldn&#39;t have seen</li>
+</ul>
+
+<p>Another noteworthy point about small-scale consumers is that they&#39;re unlikely to have the engineering capability to create a custom parser for a particular syntax, but will instead want to use something off-the-shelf to extract data from pages and into their own backend systems. This, coupled with the closer coordination with publishers, means that they&#39;re much more likely to stick to a specification, assuming that the off-the-shelf tools do.</p>
+
+<h3>Publisher-Driven Data Sharing</h3>
+
+<p>The final type of data sharing is driven by publishers. At legislation.gov.uk, we&#39;re motivated to make our data available for reuse for transparency/accountability reasons (to help citizens understand the law), efficiency reasons (to help parliament and government departments to publish new legislation better) and economic reasons (to foster innovation in legal publishing). We don&#39;t have any individual consumers in mind when we publish our data, but have found that simply by publishing it well, we foster reuse.</p>
+
+<p>In this case, we as publishers are highly motivated to ensure that the data we publish is easily parsed with something off-the-shelf, since that lowers the barrier for potential consumers. Publishers like us are very likely to have unique, specialised, content and need to use a vocabulary that fits closely to our internal data structures as this lowers implementation cost. Consumers can also trust publishers like us: we simply have no motivation to lie in the data that we provide for reuse.</p>
+
+<h2>Mixed Markup</h2>
+
+<p>As I&#39;ve outlined above, publishers like legislation.gov.uk need to target several potential consumers at the same time:</p>
+
+<ul>
+<li>large-scale consumers such as search engines</li>
+<li>small-scale consumers that provide us with a useful service</li>
+<li>specialist consumers that are interested specifically in our data</li>
+</ul>
+
+<p>We cannot use a single vocabulary for all these different purposes. (Well, we could write our own vocabulary and describe mappings to other vocabularies using RDFS, but search engines wouldn&#39;t read it.)</p>
+
+<p>We must therefore use a mix of vocabularies:</p>
+
+<ul>
+<li>generic vocabularies about things that search engines care about</li>
+<li>specialised vocabularies for particular small consumers</li>
+<li>site-specific vocabularies for sharing our unique data</li>
+</ul>
+
+<p>It&#39;s repetitive, but it&#39;s manageable so long as we have a syntax that enables us to say that an item of legislation is a <code>http://scheme.org/CreativeWork</code> and a <code>http://purl.org/dc/dcmitype/Text</code> and a <code>http://www.legislation.gov.uk/def/legislation/Legislation</code> and allows us to give multiple properties the same value.</p>
+
+<p>The way things are going at the moment, we might well end up having to use multiple <em>syntaxes</em> on the same page, as some consumers understand microdata, others consume RDFa, and still others will parse microformats. This leads to more repetition: adding <code>itemprop</code> for microdata, <code>property</code> for RDFa and specialised <code>class</code> attributes for microformats. But worse (much worse), each of the syntaxes uses a different parsing model to create an entity-property-value structure, so not only do we have to learn substantially different markup patterns but our pages quickly become some kind of hideous polyglot mess trying to balance between them.</p>
+
+<h2>Looking Forward</h2>
+
+<p>As I said at the start, I&#39;m fairly sure that my experience at legislation.gov.uk isn&#39;t representative of the wider web, but I don&#39;t have a clear idea about just how unrepresentative it is, in terms of technology use or motivations around data sharing. When I read my twitter stream or blogs, there&#39;s a massive sampling bias, both in terms of who I follow and what I read, but also about who talks about what they&#39;re doing. (I&#39;m reminded of <a href="http://www.codinghorror.com/blog/">Jeff Atwood</a>&#39;s post on the <a href="http://www.codinghorror.com/blog/2007/11/the-two-types-of-programmers.html">Two Types of Programmers</a>: the vast majority of web developers don&#39;t make a noise about what they do.)</p>
+
+<p>Taking part in web standardisation today often feels like being part on an ongoing cold war between distinct camps rather than a community working towards common aims. The underlying question seems to be &quot;who&#39;s side are you on?&quot; Every decision and activity is cast as a victory or defeat. Time is wasted on attack and defence, or on raking over past slights and stupidities, rather than on progress. Valid criticism from outside a group cannot be listened to for fear of giving ground, cannot be made within a group where it seems like betrayal.</p>
+
+<p>It is the <a href="http://en.wikipedia.org/wiki/Realistic_conflict_theory#The_Robbers_Cave_Experiment">Robbers Cave Experiment</a> played out in web standards. As a psychologist, I find it fascinating. As a developer, and particularly one who doesn&#39;t self-identify with any single group, it is frustrating. As a TAG member, trying to work for the longer-term good of the web, it is worrying, because situations of intergroup conflict lead to <a href="http://en.wikipedia.org/wiki/Groupthink">groupthink</a> and non-optimal solutions.</p>
+
+<p>As I described above, a non-optimal outcome seems to be the most likely result of the particular microdata vs RDFa conflict for us at legislation.gov.uk. While I know we are not generally representative, I believe that it will be similarly bad for other developers: publishers, consumers and tool implementers.</p>
+
+<p>This is a problem for all who want to foster data sharing on the web using open standards; it is not one that any one group can fix on their own. It&#39;s my hope that a balanced task force of individuals with a variety of experience and backgrounds can provide a focus for us all to work together to solve it. If we can&#39;t, then we have let our prejudice and bias overcome our judgement.</p>

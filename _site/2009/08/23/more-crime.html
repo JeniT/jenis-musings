@@ -1,0 +1,72 @@
+<p>I wrote <a href="http://www.jenitennison.com/blog/node/123">previously</a> about a visualisation using <a href="http://www.homeoffice.gov.uk/about-us/publications/non-personal-data/">Home Office data</a> to navigate around categories of offences. The second interesting set of data from the Home Office that I found, tucked away in a small link on a page about <a href="http://www.crimereduction.homeoffice.gov.uk/toolkits/dr0202.htm">Crime Reduction Toolkits</a> was a <a href="http://www.homeoffice.gov.uk/rds/pdfs/100years.xls">spreadsheet of recorded crime statistics</a> between 1898 and the present day. Each column is a different category of offence (I won&#39;t say class because they don&#39;t map onto the Classes from the spreadsheet of notifiable offences).</p>
+
+<p>This time I wanted to try out the <a href="http://www.omnipotent.net/jquery.sparkline/">jQuery sparklines</a> plug-in to illustrate how crime notifications have changed over time. The resulting page is available at <a href="http://www.jenitennison.com/visualisation/crime.html">http://www.jenitennison.com/visualisation/crime.html</a>; here&#39;s a screenshot for Bigamy:</p>
+
+<p><img src="/blog/files/crime.jpg" alt="Summary statistics for rate of Bigamy within the UK" width="100%" /></p>
+
+<!--break-->
+
+<p>(I chose Bigamy because there are some interesting humps in the data, roughly aligned with the two World Wars, which demonstrate the value of looking at timelines.)</p>
+
+<p>I got this working by:</p>
+
+<ul>
+<li>cleaning up and processing the spreadsheet into RDF/XML</li>
+<li>putting the RDF/XML on my server in <a href="http://www.jenitennison.com/data/scheme/crime/">http://www.jenitennison.com/data/scheme/crime/</a>, with more or less the same <code>.htaccess</code> as I <a href="http://www.jenitennison.com/blog/node/123">used previously</a></li>
+<li>creating a web page that included jQuery sparklines and <a href="http://code.google.com/p/rdfquery">rdfQuery</a> as libraries and populates the page with details</li>
+</ul>
+
+<p>You can see the source code for <code>crime.html</code> if you just go and look at it, but the relevant piece for populating the sparkline is:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">$.get(selected, null, function (rdfXml) {
+  var values = {}, sparkline = [],
+    ...
+    counts = $.rdf()
+      .load(rdfXml)
+      .prefix(&#39;rdf&#39;, &#39;http://www.w3.org/1999/02/22-rdf-syntax-ns#&#39;)
+      .prefix(&#39;crime&#39;, &#39;http://www.jenitennison.com/data/ontology/crime#&#39;)
+      .where(&#39;&lt;&#39; + selected + &#39;&gt; crime:count ?count&#39;)
+      .where(&#39;?count crime:startYear ?year&#39;)
+      .where(&#39;?count rdf:value ?value&#39;)
+      .each(function () {
+        ...
+        values[this.year.value] = this.value.value;
+      });
+  ...
+  for (v in values) {
+    sparkline.push([v, values[v]]);
+  }
+  $(&#39;#sparkline&#39;)
+    .sparkline(sparkline, { 
+      chartRangeMin: 0,
+      lineColor: &#39;#999&#39;,
+      fillColor: &#39;#EEE&#39;,
+      spotColor: &#39;blue&#39;,
+      minSpotColor: &#39;green&#39;,
+      maxSpotColor: &#39;red&#39;
+    });
+}, &#39;xml&#39;);
+</code></pre></div>
+<p>(There is a reason for first creating an object representation of the values and then generating the array-of-arrays that the sparkline needs, but it&#39;s in the elided code so you&#39;ll have to look at the original source to see.)</p>
+
+<p>jQuery sparklines are ridiculously easy to create. I&#39;m looking forward to using more of the great variety of visualisations that they support.</p>
+
+<p>Now, the big problem with the data is that the ways in which crimes are classified and notified has changed over time. If you look at the <a href="http://www.homeoffice.gov.uk/rds/pdfs/100years.xls">original spreadsheet</a> you&#39;ll see a bunch of notes that describe three kinds of changes:</p>
+
+<ul>
+<li>Changes in the codes used for particular offences: for example Arson changed from classification 51 to 56 in 1934. I&#39;m not using the Home Office codes at the moment anyway, but this is going to be something to be wary of when I start doing so.</li>
+<li>Changes when a code is split into separate codes: for example &quot;Other wounding&quot; (8) split into &quot;Other wounding&quot; (8A), &quot;Possession of weapons&quot; (8B) and &quot;Harassment&quot; (8C) in 1998. In this case, offences stop being recorded under the original category and start being recorded under the new ones.</li>
+<li>Changes in whether a crime is notifiable: for example &quot;Cruelty to or neglect of children&quot; (11) became notifiable in 1998 (according to the notes; according to the data, at least some instances were notified up to 1952, but then there was a gap).</li>
+<li>Changes in how crimes are recorded: for example &quot;The introduction of the Sexual Offences Act 2003 in May 2004 resulted in substantial changes to the sexual offences.  This means that sexual offences data for 2004/05 are not comparable with those for previous years.&quot;</li>
+</ul>
+
+<p>There are undoubtedly other effects that aren&#39;t listed in the notes, either in the legislation that covers a particular crime, or other environmental factors such as being at war (as shown above).</p>
+
+<p>What I&#39;d really like to do is to indicate these events in the sparkline and in the data table. Unfortunately it involves the translation of the loose notes from the spreadsheet into handcrafted RDF/XML, which is a little tedious. It&#39;s also frustrating that there&#39;s no good means of identification for the categories of offences. I&#39;ve ended up arbitrarily naming them &#39;A&#39; to &#39;FZ&#39; which is somewhat unsatisfactory.</p>
+
+<p>It&#39;s worth noting that although I have a closed data set I&#39;m explicitly using the Linked Data paradigm to go from a list of categories of crimes to retrieving information about a particular category (because the identifier for a category is a URI). If I weren&#39;t using RDF, and wanted to split up the data in the way that I have for manageability, I&#39;d have to document that particular properties contain pointers to information held at other locations. (Kris Zyp has attempted to <a href="http://www.json-schema.org/draft-hyperschema-02.txt">formalise this in a kind of schema for JSON</a>, but I have no idea how much support for this there is.)</p>
+
+<p>I&#39;ve also used <a href="http://www.w3.org/TR/skos-primer/">SKOS</a> to describe the categories, which is nice because all I have to tell you is that <code>http://www.jenitennison.com/data/scheme/crime/</code> is a SKOS Concept Scheme and if you know SKOS you&#39;ll know how to locate the top concepts in that scheme, nice human readable labels for them, and so on.</p>
+
+<p>But if you want to reuse the counts of offences you will still have to actually look at the data to find the name of the property that I&#39;ve used to go from a category to a count, and for the years and values themselves. These semantics are local to this particular application and the only way you can know them is by being told, just as it would be if I were using JSON.</p>
+
+<p>So using RDF has bought us some things -- a level of understanding about reaching data and a common vocabulary for organising concept schemes -- but certainly not everything. It should be no surprise to anyone that it is not a magic bullet.</p>

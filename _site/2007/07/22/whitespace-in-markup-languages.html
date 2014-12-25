@@ -1,0 +1,170 @@
+<p>I <a href="http://www.jenitennison.com/blog/node/41" title="Things that make me scream: xml:space=preserve in WordML">wrote previously</a> about the, to my mind, wrong-headed use of <code>xml:space</code> in WordML (and <a href="http://en.wikipedia.org/wiki/Office_Open_XML" title="Office Open XML">OOXML</a>), and promised something a bit more positive about how whitespace <em>should</em> be handled in markup languages. So here it is.</p>
+
+<p>A bit of a disclaimer up front: my attitude on this topic is highly skewed by the fact I use XSLT all the time, and it has particular ways of dealing with whitespace. I happen to think that the way XSLT deals with whitespace is pretty solid, but that might just be because it&#39;s what I&#39;m used to.</p>
+
+<p>The aim of this post is to answer the following question &quot;when designing a markup language, what should I say about whitespace processing?&quot;</p>
+
+<!--break-->
+
+<p>Markup languages are data formats, not applications. Different applications may add or remove whitespace from documents in a given markup language. For example:</p>
+
+<ul>
+<li>automatic indentation algorithms may change whitespace to make the document easier to read</li>
+<li>programs querying documents may normalise whitespace when doing (text-based) searches or comparisons</li>
+<li>renderers may ignore, collapse, change and add whitespace when rendering the document; for example browsers generally collapse whitespace and wrap the text when they display XML with a default (CSS) stylesheet</li>
+</ul>
+
+<p>As a markup language designer, you need to describe how whitespace should be handled in your markup language. You need to answer the questions of people generating documents in your markup language:</p>
+
+<ul>
+<li>can/should/must I add whitespace here?</li>
+<li>if I add whitespace here, will it make a difference to my target application?</li>
+</ul>
+
+<p>and the questions of the people processing the documents:</p>
+
+<ul>
+<li>can/should/must I ignore this whitespace?</li>
+<li>does this whitespace change the meaning of this value?</li>
+</ul>
+
+<h2>Whitespace in Element-Only Content</h2>
+
+<p>Whitespace in element-only content can be ignored without changing the meaning of an XML document. &quot;Element-only content&quot; means that the element can only ever contain elements. That&#39;s something like</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">element name { element given { text },
+               element family { text } }
+</code></pre></div>
+<p>in compact RELAX NG. It does <em>not</em> mean element instances that happen to contain only elements and whitespace. If you declare <code>&lt;name&gt;</code> as:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">element name { text &amp;
+               element given { text } &amp;
+               element family { text } }
+</code></pre></div>
+<p>then the whitespace in</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;name&gt;&lt;given&gt;Jeni&lt;/given&gt; &lt;family&gt;Tennison&lt;/family&gt;&lt;/name&gt;
+</code></pre></div>
+<p>does <em>not</em> count as whitespace in element-only content. Parsers that come from the Microsoft stable have an annoying tendancy to think you can just get rid of this whitespace, which is why you should only ever use them with <code>preserveWhiteSpace</code> set. (This has the unfortunate side-effect of keeping <em>all</em> your whitespace, but it&#39;s better to have whitespace that you don&#39;t need than to not have whitespace you do need.)</p>
+
+<p>The XML spec requires parsers to pass all characters on to the application, although validating parsers can indicate if a character is a whitespace character that appears in element-only content according to the DTD associated with the document. The <strong>element content whitespace</strong> <a href="http://www.w3.org/TR/xml-infoset" title="W3C: XML Infoset (Second Edition)">infoset</a> property of these characters has the value true.</p>
+
+<p>In practice, since MSXML doesn&#39;t do it right, since you can&#39;t rely on DTDs being accessible, and since applications don&#39;t tend to strip element content whitespace automatically anyway, people processing documents generally have to ignore this whitespace manually. In XSLT, for example, you should use <code>&lt;xsl:strip-space&gt;</code> to get rid of whitespace from the elements you list. This reduces the size of the tree you&#39;re dealing with and prevents you from counting whitespace-only text nodes or outputting them and thus getting screwy indentation in the output.</p>
+
+<p>As a markup language designer, it doesn&#39;t hurt to clarify matters by making a global statement like &quot;whitespace that appears in element-only content can be ignored by processing applications&quot; and then listing which elements this applies to. But mostly people will assume this to be the case anyway.</p>
+
+<h2>Whitespace in Data Content</h2>
+
+<p>Next up is whitespace that appears in elements or attributes that contain data. Whitespace rules here usually come into play when testing values. For example, you&#39;ll usually want <code>date = &#39;2007-07-12&#39;</code> to be true for both</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;date&gt;
+  2007-07-12
+&lt;/date&gt;
+</code></pre></div>
+<p>and</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;date&gt;2007-07-12&lt;/date&gt;
+</code></pre></div>
+<p>There are three standard kinds of whitespace normalisation. These are defined most formally in <a href="http://www.w3.org/TR/xmlschema-1/#d0e1654" title="W3C: XML Schema Part 1: White Space Normalisation During Validation">XML Schema</a>, but actually arise from the whitespace normalisation done to attribute values in basic XML:</p>
+
+<ul>
+<li><strong>preserve</strong>: all whitespace is preserved</li>
+<li><strong>replace</strong>: every whitespace character is replaced with a space character</li>
+<li><strong>collapse</strong>: all runs of whitespace are replaced by a single space; leading and trailing whitespace is stripped</li>
+</ul>
+
+<p>Attribute values are always either replaced (the default if there&#39;s no DTD) or collapsed (if they are typed as something other than CDATA in a DTD) during the parsing of the document. Like other text, element values are never touched during normal parsing.</p>
+
+<p>The types that you use in a DTD or schema should indicate to people writing or processing documents in your markup language which kind of whitespace processing is going to be done. Here&#39;s how it goes for the XML Schema datatypes:</p>
+
+<ul>
+<li>if you define the type as <code>xs:string</code>, it means the whitespace should be preserved (although this won&#39;t happen for attribute values, since their whitespace gets replaced automatically)</li>
+<li>if you define the type as <code>xs:normalizedString</code>, it means the whitespace should be replaced</li>
+<li>otherwise, (including <code>xs:token</code>) it means the whitespace should be collapsed</li>
+</ul>
+
+<p>It&#39;s worth thinking carefully about which of <code>xs:string</code>, <code>xs:normalizedString</code> or <code>xs:token</code> should be used when defining enumerations. If you base an enumeration on <code>xs:string</code> as in</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;xs:simpleType name=&quot;windowType&quot;&gt;
+  &lt;xs:restriction base=&quot;xs:string&quot;&gt;
+    &lt;xs:enumeration value=&quot;single glazed&quot; /&gt;
+    &lt;xs:enumeration value=&quot;double glazed&quot; /&gt;
+  &lt;/xs:restriction&gt;
+&lt;/xs:simpleType&gt;
+</code></pre></div>
+<p>then no whitespace processing is done before the value is assessed against the enumerated values; the only values that are allowed are <code>&quot;single glazed&quot;</code> and <code>&quot;double glazed&quot;</code>. For example</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;window&gt;
+  single
+  glazed
+&lt;/window&gt;
+</code></pre></div>
+<p>would be invalid. On the other hand, if you base an enumeration on <code>xs:token</code> as in</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;xs:simpleType name=&quot;windowType&quot;&gt;
+  &lt;xs:restriction base=&quot;xs:token&quot;&gt;
+    &lt;xs:enumeration value=&quot;single glazed&quot; /&gt;
+    &lt;xs:enumeration value=&quot;double glazed&quot; /&gt;
+  &lt;/xs:restriction&gt;
+&lt;/xs:simpleType&gt;
+</code></pre></div>
+<p>then whitespace is collapsed before the value is assessed against the enumerated values, so the example above would be valid.</p>
+
+<p>Generally, when you enumerate values you do want to collapse whitespace, so you should base the type on <code>xs:token</code>. In RELAX NG, this is the default, and doing</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;choice&gt;
+  &lt;value&gt;single glazed&lt;/value&gt;
+  &lt;value&gt;double glazed&lt;/value&gt;
+&lt;/choice&gt;
+</code></pre></div>
+<p>will result in the same behaviour as basing a simple type on <code>xs:token</code>. If you don&#39;t want to strip whitespace, then you can use the <code>type</code> attribute on the <code>&lt;value&gt;</code> element to specify that the values are strings, not tokens</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;choice&gt;
+  &lt;value type=&quot;string&quot;&gt;single glazed&lt;/value&gt;
+  &lt;value type=&quot;string&quot;&gt;double glazed&lt;/value&gt;
+&lt;/choice&gt;
+</code></pre></div>
+<p>Of course one time you&#39;ll <em>really</em> want enumerated values to be based on strings is if they can consist purely of whitespace.</p>
+
+<h2>Whitespace in Document Content</h2>
+
+<p>Once you have document content (content that is targeted at human consumption, which is usually mixed content), the only applications that should touch whitespace are rendering applications. Markup languages should be designed so that processors don&#39;t have to add (or remove) whitespace to get something human readable.</p>
+
+<p>I&#39;ve been dealing with a markup language recently where this rule is broken in two ways. First, within a <code>&lt;text&gt;</code> element, processing applications have to add a space before any processing instruction or element that it contains. For example, look at:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;text&gt;The proviso to section 6(2) of the&lt;?change id=&quot;797826&quot; 
+  type=&quot;commentary&quot;?&gt;Statutory Orders (Special Procedure) 
+  Act 1945 (power to withdraw an order or submit it to 
+  Parliament for further consideration by means of a Bill for its 
+  confirmation) shall have effect in relation to compensation 
+  orders as if for the words&lt;quotation class=&quot;double&quot;&gt;&quot;may 
+  by notice given in the prescribed manner, withdraw the 
+  order or may&quot;&lt;/quotation&gt; there were substituted the 
+  word&lt;quotation class=&quot;double&quot;&gt;&quot;shall&quot;&lt;/quotation&gt;.&lt;/text&gt;
+</code></pre></div>
+<p>See how there&#39;s no space before the <code>&lt;?change?&gt;</code> PI or the <code>&lt;quotation&gt;</code> elements? In this case, spaces need to be added before them. On the other hand, if the <code>&lt;?change?&gt;</code> or <code>&lt;quotation&gt;</code> element happens to start after certain kinds of punctuation, such as quotation marks or brackets then whitespace shouldn&#39;t be added.</p>
+
+<p>Second, in this badly designed markup language, if a <code>&lt;text&gt;</code> element has element-only content, processing applications have to ignore the whitespace around them. For example:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;commentarycontent&gt;&lt;text&gt;S. 39(5)(&lt;/text&gt;
+&lt;text&gt;
+&lt;font class=&quot;italic&quot;&gt;b&lt;/font&gt;
+&lt;/text&gt;
+&lt;text&gt;) repealed by Industry Act 1980 (c. 33, SIF 64), 
+  Sch. 2&lt;/text&gt;&lt;/commentarycontent&gt;
+</code></pre></div>
+<p>In this case, the whitespace in the second <code>&lt;text&gt;</code> element can be ignored without any problems, but of course if the first <code>&lt;text&gt;</code> didn&#39;t end with a bracket, but instead with a comma or a letter, the whitespace would have to be preserved (or at least turned into a space).</p>
+
+<p>Whitespace processing of the kind illustrated here is time-consuming, hard to specify and inaccurate. The only people who really know what whitespace is needed in document-oriented content are the authors who create it, so it&#39;s really important that they have the right, and responsibility, to determine where whitespace appears.</p>
+
+<p>Rendering applications are a special case, because they have to munge whitespace to make text more readable. That often includes normalising whitespace away and adding line breaks (and hyphens) in the rendered view of the document. Different presentation-oriented markup languages use different algorithms to do this normalisation:</p>
+
+<ul>
+<li>In HTML, whitespace within a block gets collapsed, while whitespace at the beginning or end of a block gets stripped away, except in <code>&lt;pre&gt;</code> elements where all whitespace is preserved.</li>
+<li>In XSL-FO, whitespace processing depends on the <code>linefeed-treatment</code>, <code>white-space-treatment</code> and <code>white-space-collapse</code> properties, which provide practically any kind of behaviour; the default is the HTML rules.</li>
+<li>In WordML, whitespace is replaced (not collapsed); whitespace at the beginning or end of a <code>&lt;w:t&gt;</code> element is stripped away unless <code>xml:space=&quot;preserve&quot;</code> for that <code>&lt;w:t&gt;</code> element.</li>
+</ul>
+
+<p>Because every piece of human-readable text eventually makes its way into HTML, I think it&#39;s best to try to make your markup language follow the HTML rules. That means defining what the blocks are (the equivalent of paragraphs) and which ones have significant whitespace in them.</p>
+
+<h2>On <code>xml:space</code></h2>
+
+<p>As the above discussion has shown, there are at least three different kinds of whitespace normalisation that can be used on an XML document. But <code>xml:space</code> has just two values: <code>default</code> and <code>preserve</code>. So one problem with using <code>xml:space</code> is that it doesn&#39;t have any predefined semantics: in one application is might identify the distinction between collapsing and preserving, in another the distinction between replacing and preserving, in another (OOXML) the distinction between replacing-with-leading-and-trailing-whitespace-stripped and replacing.</p>
+
+<p>So my advice would be: don&#39;t use it. Instead, take the time to define explicitly how whitespace should be handled in the schema and documentation for your markup language.</p>
+
+<p>I could just about be argued into providing <code>xml:space</code> as an optional attribute on elements where the user is likely to want to change the way whitespace is processed on a case-by-case basis. But I can&#39;t actually think of any example where that might happen.</p>
+
+<hr>
+
+<p>The biggest problem with whitespace handling is not that it can&#39;t be defined, but that so many applications do it wrong. I&#39;m sure that the bad whitespace use I described above, where PIs and elements implicitly added whitespace, arose not because the markup language designer decided that it would be a good idea but because the applications the authors used either added whitespace in their WYSIWYG displays or stripped it out when it was saved. Likewise, the abysmal whitespace-stripping behaviour of MSXML has led to many a strange use of markup, like David Carlisle adding <code>xml:space=&quot;preserve&quot;</code> to his <code>&lt;html&gt;</code> elements.</p>
+
+<p>So it&#39;s the responsibility of markup language designers to specify how whitespace should be used, but it&#39;s equally the responsibility of processors to honour those specifications.</p>

@@ -1,0 +1,107 @@
+<p>A lot of people run into problems with namespaces, and most of those arise from using default namespaces (ie not giving namespaces prefixes). The transformation technology you use can have a big effect on how confusing and irritating it gets.</p>
+
+<p>Default namespaces make XML documents easier to read because they allow you to just give the local name of an element rather than using prefixes all over the place. For example, using:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;house status=&quot;For Sale&quot; xmlns=&quot;http://www.example.com/ns/house&quot;&gt;
+  &lt;askingPrice&gt;...&lt;/askingPrice&gt;
+  &lt;address&gt;...&lt;/address&gt;
+  &lt;layout&gt;...&lt;/layout&gt;
+&lt;/house&gt;
+</code></pre></div>
+<!--break-->
+
+<p>rather than:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;h:house status=&quot;For Sale&quot; xmlns:h=&quot;http://www.example.com/ns/house&quot;&gt;
+  &lt;h:askingPrice&gt;...&lt;/h:askingPrice&gt;
+  &lt;h:address&gt;...&lt;/h:address&gt;
+  &lt;h:layout&gt;...&lt;/h:layout&gt;
+&lt;/h:house&gt;
+</code></pre></div>
+<p>In some cases, specifically documents that are validated against a DTD or interpreted by non-namespace-aware applications, you might be forced to use the default namespace. The biggest example of this is (X)HTML.</p>
+
+<p>In transformation technologies, such as <a href="http://www.w3.org/Style/XSL/">XSLT</a>, <a href="http://www.w3.org/XML/Query/">XQuery</a> and <a href="http://www.xlinq.net/">XLinq in VB.NET</a>, you have to deal with at least two documents: the source documents that you are processing and the result documents that you are creating. Often, the source and result documents will use default namespaces, or at any rate you&#39;ll want to query and create the documents without using prefixes. Sometimes, the source and result documents all use the same namespace, but it&#39;s far more common that they don&#39;t.</p>
+
+<p>So transformation technologies have to support at least <em>two</em> default namespaces: one for querying and one for construction.</p>
+
+<p>In XPath 1.0, you must specify a prefix for each namespace you want to use. A path like <code>/house/layout</code> will only select <code>&lt;layout&gt;</code> elements in no namespace. In XSLT 1.0, the default namespace in the stylesheet (as declared by the <code>xmlns</code> attribute on <code>&lt;xsl:stylesheet&gt;</code>) is then free to be used for the result documents. For example, I might do</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;xsl:stylesheet version=&quot;1.0&quot;
+  xmlns:xsl=&quot;http://www.w3.org/1999/XSL/Transform&quot;
+  xmlns:h=&quot;http://www.example.com/ns/house&quot;
+  exclude-result-prefixes=&quot;h&quot;
+  xmlns=&quot;http://www.w3.org/1999/xhtml&quot;&gt;
+
+&lt;xsl:template match=&quot;h:house&quot;&gt;
+  &lt;div class=&quot;house&quot;&gt;
+    &lt;h1&gt;&lt;xsl:apply-templates select=&quot;h:askingPrice&quot; /&gt;&lt;/h1&gt;
+    ...
+  &lt;/div&gt;
+&lt;/xsl:template&gt;
+
+&lt;/xsl:stylesheet&gt;
+</code></pre></div>
+<p>[The best way to deal with multiple result documents in different default namespaces is to simply have different stylesheet documents to handle their generation, all included or imported into your main stylesheet application.]</p>
+
+<p>Users of XSLT 1.0 found it confusing that they couldn&#39;t just copy the namespace declarations (including a default namespace declaration) from a sample source document and have the paths just work. So in XPath 2.0, rather than no prefix meaning no namespace, the <strong>default element/type namespace</strong> in the context is used for element names with no prefix. If the default element/type namespace is set to <code>http://www.example.com/ns/house</code> then the path <code>/house/layout</code> will select all <code>&lt;layout&gt;</code> elements in the <code>http://www.example.com/ns/house</code> namespace. You can set this default element/type namespace in XSLT 2.0 using the <code>[xsl:]xpath-default-namespace</code> attribute, which can go anywhere but will usually be situated on the <code>&lt;xsl:stylesheet&gt;</code> element (in which case it appears without the <code>xsl:</code> prefix). The default element/type namespace can be scoped to a particular area of your stylesheet in the same way as namespace declarations.</p>
+
+<p>Otherwise, XSLT 2.0 works like XSLT 1.0 in that the default namespace in the stylesheet supplies the default namespace for created elements, so you can do:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;xsl:stylesheet version=&quot;2.0&quot;
+  xmlns:xsl=&quot;http://www.w3.org/1999/XSL/Transform&quot;
+  xmlns=&quot;http://www.w3.org/1999/xhtml&quot;
+  xpath-default-namespace=&quot;http://www.example.com/ns/house&quot;&gt;
+
+&lt;xsl:template match=&quot;house&quot;&gt;
+  &lt;div class=&quot;house&quot;&gt;
+    &lt;h1&gt;&lt;xsl:apply-templates select=&quot;askingPrice&quot; /&gt;&lt;/h1&gt;
+    ...
+  &lt;/div&gt;
+&lt;/xsl:template&gt;
+
+&lt;/xsl:stylesheet&gt;
+</code></pre></div>
+<p>By keeping the default query namespace and the default construction namespace separate, you&#39;re able to use unprefixed names in both paths and element constructors, even if the default namespaces in the two cases are different.</p>
+
+<p>XQuery and VB.NET, on the other hand, provide a single default namespace that is used for both queries and construction, and they work in slightly different ways.</p>
+
+<p>In XQuery you can declare the default namespace for the query, with</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">declare default element namespace &quot;http://www.example.com/ns/house&quot;;
+</code></pre></div>
+<p>which means that you can query the source document with paths like <code>/house/askingPrice</code> and create elements in the <code>http://www.example.com/ns/house</code> namespace with direct element constructors without prefixes, like</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;house status=&quot;For Sale&quot;&gt;
+  &lt;askingPrice&gt;...&lt;/askingPrice&gt;
+  &lt;address&gt;...&lt;/address&gt;
+  &lt;layout&gt;...&lt;/layout&gt;
+&lt;/house&gt;
+</code></pre></div>
+<p>If you then want to generate XHTML (or some other result for which you&#39;d prefer to use the default namespace), you can use a default namespace declaration on the XHTML you generate:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;div class=&quot;house&quot; xmlns=&quot;http://www.w3.org/1999/xhtml&quot;&gt;
+  &lt;h1&gt;...&lt;/h1&gt;
+  ...
+&lt;/div&gt;
+</code></pre></div>
+<p>But the default namespace declaration in the element constructor carries through into the embedded expressions, so</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">  &lt;div class=&quot;house&quot; xmlns=&quot;http://www.w3.org/1999/xhtml&quot;&gt;
+    &lt;h1&gt;{ /house/askingPrice }&lt;/h1&gt;
+    ...
+  &lt;/div&gt;
+</code></pre></div>
+<p>won&#39;t work. As a result, you end up having to use the query&#39;s default namespace declaration to set the default namespace to XHTML (or whatever the default namespace is in the result), and use prefixes in your queries (essentially the same situation as in XSLT 1.0).</p>
+
+<p>In XLinq in VB.NET, there&#39;s the same kind of pattern. The <code>Imports</code> statement allows you to declare a default namespace that&#39;s used in both queries and construction, as in:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">Imports &lt;xmlns=&quot;http://www.example.com/ns/house&quot;&gt;
+</code></pre></div>
+<p>and you can use a default namespace declaration on the XHTML you generate to provide the default namespace for the elements in the XML literal:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">houseDiv =
+  &lt;div class=&quot;house&quot; xmlns=&quot;http://www.w3.org/1999/xhtml&quot;&gt;
+    &lt;h1&gt;...&lt;/h1&gt;
+    ...
+  &lt;/div&gt;
+</code></pre></div>
+<p>But unlike in XQuery, the default XHTML namespace declaration in the <code>&lt;div&gt;</code> <em>doesn&#39;t</em> have an effect on the default namespace used in embedded expressions, which means you can still use unprefixed element names in any paths used within the XML literal, like this:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">houseDiv =
+  &lt;div class=&quot;house&quot; xmlns=&quot;http://www.w3.org/1999/xhtml&quot;&gt;
+    &lt;h1&gt;&lt;%= doc.&lt;house&gt;.&lt;askingPrice&gt; %&gt;&lt;/h1&gt;
+    ...
+  &lt;/div&gt;
+</code></pre></div>
+<p>However, if you build up your XHTML gradually, perhaps by using separate variables or methods, then every time you create a snippet of XHTML you have to specify this default namespace. Again, people will end up using the <code>Imports</code> statement to set the default namespace to the default result namespace and using prefixes in their paths.</p>
+
+<p>The other factor to consider is that sometimes no prefix really does mean no namespace. If you&#39;re querying an XML document that contains elements in no namespace, you have to set the default query namespace to no namespace. In XSLT 1.0, that&#39;s always the case anyway; in XSLT 2.0, the <code>xpath-default-namespace</code> shouldn&#39;t be set (or should be unset for those places that need to query no-namespace elements). In XQuery you can&#39;t use the query default namespace declaration and in XLinq in VB.NET you can&#39;t use the <code>Imports</code> statement. In both these cases, you better hope your result is in no namespace too. If not, the best route (to make it work at all in XQuery, and to avoid repetitive <code>xmlns</code> attributes in VB.NET) is to create a no-namespace version of your result first, and have a standard function or method that will add the right default namespace to that result.</p>

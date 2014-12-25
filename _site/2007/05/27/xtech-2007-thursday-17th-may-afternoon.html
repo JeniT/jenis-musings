@@ -1,0 +1,88 @@
+<p><strong>UPDATE:</strong> Dare Obasanjo has written <a href="http://www.25hoursaday.com/weblog/2007/06/09/WhyGDataAPPFailsAsAGeneralPurposeEditingProtocolForTheWeb.aspx" title="Why GData/APP Fails as a General Purpose Editing Protocol for the Web">an interesting critique</a> on using the <a href="http://bitworking.org/projects/atom/draft-ietf-atompub-protocol-15.html" title="Atom Publishing Protocol (v15)">Atom Publishing Protocol</a> as the basis for general purpose sharing of data in the way that the <a href="http://code.google.com/apis/gdata/index.html" title="Google Data API">Google Data API</a> does.</p>
+
+<hr>
+
+<p>Thursday afternoon had a few really interesting talks. I learned about the Google Data API (no longer called gData); Oracle&#39;s use of XLink to represent relationships between documents, and the requirements that entails; using XSLT to create JSON to use Exhibit widgets; and using XMPP to enhance instant messaging.</p>
+
+<!--break-->
+
+<h2><a href="http://2007.xtech.org/public/schedule/detail/33" title="Google Data API (Talk)">Google Data API</a></h2>
+
+<h3>Frank Mantek</h3>
+
+<p>The <a href="http://code.google.com/apis/gdata/index.html" title="Google Data API">Google Data API</a> is the unified API that Google offers to all its services, such as Google Base, Blogger, Google Calendar, Google Spreadsheets and so on.</p>
+
+<p>Frank talked about how awful SOAP/WSDL is, in particular how two services developed in different platforms can&#39;t talk to each other (which one might imagine is rather the point of Web Services). (Later, when challenged by a Microsoft guy about this claim, he revealed that he&#39;d been a major developer of the SOAP/WSDL stuff at Microsoft, so knew exactly what he was talking about from bitter experience.)</p>
+
+<p>So the Google Data API is a RESTful API, using the <a href="http://bitworking.org/projects/atom/draft-ietf-atompub-protocol-15.html" title="Atom Publishing Protocol (v15)">Atom Publishing Protocol</a> with a few additions:</p>
+
+<ul>
+<li> extra data model</li>
+<li> querying</li>
+<li> concurrency control</li>
+<li> extra authentication</li>
+</ul>
+
+<p>What this basically means is that you can query any of the Google services using HTTP, and get back an Atom document. The URI can contain queries (the precise nature of which depend on the service; <a href="http://base.google.com/" title="Google Base">Google Base</a>, for example, uses a single URI request parameter that has a complex internal query syntax), and you get back the feed with the items that you&#39;d requested. The Atom items themselves have the basic Atom elements, but then a bunch of service-specific elements that provide the extra information you need.</p>
+
+<p>Listening to this talk I finally got what <a href="http://www.tbray.org/ongoing/" title="ongoing">Tim Bray</a> was talking about at the <a href="http://www.xmlsummerschool.com/" title="XML Summer School, Oxford">XML Summer School</a> a couple of years ago: REST gives us verbs and Atom gives us objects and lists of objects. I didn&#39;t get it before, because, after all, aren&#39;t all XML documents objects? But I think the point is that Atom has a lot of the mechanics that you need for talking about objects built into it, and the extensibility necessary for adding your own information to it (which is what each of Google&#39;s services are doing).</p>
+
+<p>The really interesting part of the talk was where Frank started talking about what the problems (still) are. The problems I noted were:</p>
+
+<ul>
+<li> Atom&#39;s verbose</li>
+<li> Google have to use <code>&lt;category&gt;</code> to indicate the kind of thing they&#39;re representing (as opposed to using the document element which is what you&#39;d do with normal XML documents)</li>
+<li> the <code>rel</code> attribute is too vague</li>
+<li> they made up their own markup languages, rather than reusing existing standards</li>
+<li> they should be using <a href="http://en.wikipedia.org/wiki/HTTP_ETag" title="Wikipedia: HTTP ETags">ETags</a> for concurrency control</li>
+<li> they haven&#39;t got any versioning (eek)</li>
+<li> incremental updates are a problem; they don&#39;t want to serve the whole Atom feed (to a mobile device) when only a small amount has changed, so what they do is have several feeds, each of which reveals a different part of the information</li>
+</ul>
+
+<h2><a href="http://2007.xtech.org/public/schedule/detail/81" title="From Trees to Graphs: Evolving XML for building enterprise applications">From Trees to Graphs: Evolving XML for building enterprise applications</a></h2>
+
+<h3>Ravi Murthy</h3>
+
+<p>Ravi Murthy talked about the provision for defining links between documents in <a href="http://www.oracle.com/" title="Oracle">Oracle</a>&#39;s database, and their consequent requirements. Information Oracle&#39;s XML database has a file system abstraction (every XML &#39;object&#39; has a file path) with access control, versioning, metadata and protocol access. Within an XML &#39;object&#39; stored in the database, they use XLink to represent the relationships with other objects. When you export the XML, the XLinks get resolved to create the XML document.</p>
+
+<p>Using XLink to represent relationships between documents brings a whole new set of constraints that you might want to express in a schema language, or annotations that you can use to describe the links (depending on how you look at it):</p>
+
+<ul>
+<li> The <strong>type</strong> of the linked resource (eg the document element&#39;s name, substitution group or XSD type)</li>
+<li> The <strong>scope</strong> of a particular reference, similar to the scoping of XSD&#39;s identity constraints</li>
+<li> That a particular link is <strong>acyclic</strong> (eg, given an XPath expression, keep evaluating it and make sure you never get back to where you started)</li>
+<li> The <strong>kind</strong> of a link, one of:
+
+<ul>
+<li> <strong>hard</strong>: the target of the link must exist, and cannot be deleted while this resource exists (but can be renamed) -- these are similar to links in normal databases</li>
+<li> <strong>symbolic</strong>: trust the file path specified by the link and only resolve it on demand</li>
+<li> <strong>weak</strong>: like a hard link, except the target can be deleted, in which case the link becomes symbolic</li>
+</ul></li>
+<li> The <strong>versioning</strong> of a link, whether it points to the &quot;current&quot; version of a resource or a specific version</li>
+</ul>
+
+<p>These extra constraints are expressed as annotations on the definitions of <code>xlink:href</code> attributes in XSD schemas for the documents held in the database.</p>
+
+<p>Ravi also talked a bit about expressing decomposition rules: how an XML document should be shredded when it gets put into the database. They use XPath to specify rules that indicate that particular elements should be placed at a particular filepath.</p>
+
+<hr>
+
+<p>I was really flattered in the tea break. Chatting with a guy called <a href="http://philwilson.org/blog/" title="Phil&#39;s Blog">Phil</a> working at the University of Bath, who politely asked about my presentation, and after I&#39;d explained how it was all to do with overlapping markup and that kind of hard-core theory he said: &quot;You don&#39;t <em>look</em> like a markup geek&quot;. Me: &quot;What, because I&#39;m a girl?&quot;. Him: &quot;No, no, that&#39;s not what I meant. You just look more Web 2.0-ey.&quot; <a href="http://lapin-bleu.net/riviera/" title="Max&#39;s Blog">Max</a> was there at the time, and labelled me &quot;the Geekess of XSLT&quot;, which I think clarified things. (Actually most of the people at XTech this year were Web 2.0-ey rather than markup geeks, but I&#39;m glad I <em>looked</em> as though I fitted in.) </p>
+
+<h2><a href="http://2007.xtech.org/public/schedule/detail/155" title="XML-powered Exhibit: A Case Study of JSON &amp; XML Coexistence">XML-powered Exhibit: A Case Study of JSON &amp; XML Coexistence</a></h2>
+
+<h3><a href="http://metacognition.info/" title="Chimezie Ogbuji&#39;s Website">Chimezie Ogbuji</a></h3>
+
+<p>&quot;What&#39;s <a href="http://simile.mit.edu/wiki/Exhibit" title="Exhibit Wiki">Exhibit</a>?&quot; I hear you ask. Or maybe you&#39;re more with-it than I am, but that&#39;s what I was asking. Chimezie never really explained, but I kinda gathered that it&#39;s a funky AJAX toolset for creating views of data by importing scripts and using magical IDs and extension attributes within web pages. The other phrase that Chimezie dropped in was <a href="http://www.w3.org/TR/backplane/" title="Rich Web Application Backplane">Rich Web Application Backplane</a>, which again I hadn&#39;t heard of. Even having read the W3C Note, I still don&#39;t get it. Ho hum.</p>
+
+<p>Anyway, Chimezie made the point that while entering data using XForms is great, it&#39;s too heavy-weight for viewing that data. Exhibit gives a lot more flexibility (take a look at the <a href="http://simile.mit.edu/exhibit/examples/presidents/presidents.html" title="US Presidents in Exhibit">US presidents</a> example), which enables users to explore data more freely. In Exhibit pages, you provide a JSON schema for your data, a number of lenses/views/widgets that you can use to view the data, then you embed the widgets in the HTML page and point it at the data source. The JSON schema indicates the type of a particular property (eg &quot;country&quot;), and gives labels for it (including a plural label (&quot;countries&quot;) and a reverse label (&quot;country of&quot;)) that it uses in the widgets.</p>
+
+<p>But that requires JSON, right? Chimezie showed how easy it is (and it&#39;s <em>really</em> easy) to transform data-oriented XML into JSON using XSLT.</p>
+
+<p>You know, there are all these cool ways out there for viewing information, I just wish I had some really meaty data to use them on! <a href="http://simile.mit.edu/timeline/" title="SIMILE Timelines">Timelines</a> are one thing, but I&#39;d also love to find some data to employ in <a href="http://www.gapminder.org/" title="Gapminder">Gapminder</a> or even in an interface like the one for <a href="http://www.philipglass.com/glassengine/" title="Philip Glass Engine">the music of Philip Glass</a>. Perhaps I should just mine <a href="http://base.google.com/" title="Google Base">Google Base</a>, but I&#39;d like it to be something personally or collectively useful.</p>
+
+<h2><a href="http://2007.xtech.org/public/schedule/detail/97" title="Real-time user-to-user web with Mozilla and XMPP">Real-time user-to-user web with Mozilla and XMPP</a></h2>
+
+<h3><a href="http://blog.hyperstruct.net/" title="Massimiliano Mirra&#39;s Website">Massimiliano Mirra</a></h3>
+
+<p>This talk was strong on motivation -- the requirement to enhance basic instant messaging functionality -- and strong on demonstration, with Massimiliano chatting and playing with a pre-programmed bot, but really weak on the technical details. It was only through the post-talk questions that we learned that what we&#39;d seen was based on <a href="http://www.xmpp.org/" title="XMPP Standards Foundation">XMPP (the Extensible Messaging and Presence Protocol)</a>, which allowed DOM events to be passed between clients. Have to read the paper if you want to learn more.</p>

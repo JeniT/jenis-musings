@@ -1,0 +1,42 @@
+<p>Since there&#39;s next to no &#39;net connection at XTech 2007 (obviously the Web is not so ubiquitous as all that), I have nothing to do in the sessions but listen! Here are some thoughts about the sessions that I attended on the morning of Wednesday 16th. I haven&#39;t included the keynotes not because they weren&#39;t interesting but because I can&#39;t think of anything to say about them at the moment.</p>
+
+<!--break-->
+
+<h2><a href="http://2007.xtech.org/public/schedule/paper/60" title="XML and LINQ: What&#39;s New in Orcase and Beyond">XML and LINQ: What&#39;s New in Orcas and Beyond</a></h2>
+
+<h3><a href="http://research.microsoft.com/%7Eemeijer/" title="Erik Meijer&#39;s Website">Erik Meijer</a> (Microsoft)</h3>
+
+<p>I thought I&#39;d better go to this one because I&#39;m supposed to be talking about XML APIs at this year&#39;s <a href="http://www.xmlsummerschool.com/" title="XML Summer School, Oxford">XML Summer School</a> and LINQ, or XLINQ, is one of the hot topics. I&#39;m not a .NET developer, so it&#39;s all kinda passed me by thus far, and I&#39;m not sure I really understand it now. (I&#39;d welcome corrections and clarifications.) The three things that seemed to be important are:</p>
+
+<ol>
+<li><p>You can get at information held in objects, databases or XML using the same syntax. (Erik showed accessing XML with faulty XQuery syntax, which made me and <a href="http://www.datypic.com/" title="Priscilla Walmsley&#39;s Website">Priscilla Walmsley</a> grimace at each other.) This means you can decide how you want to actually hold your data further down the line. A big distinction between previous attempts to work across paradigms is that the <em>data</em> doesn&#39;t get converted, but the <em>queries</em> do. So you write your LINQ query in LINQ syntax and it gets mapped on to SQL to query your SQL database, or on to XQuery (I guess) to query your XML document. This all seemed to assume data-oriented information: I have no idea, yet, how or whether mixed content gets handled.</p></li>
+<li><p>XML is a &quot;first class datatype&quot; in LINQ, so to create static XML you just write XML in your program (a bit like in XQuery). The example Erik showed included an XML declaration, which is just plain weird: dunno if that was an error or it&#39;s a way of indicating what version of XML you&#39;re using, or what. To create dynamic portions of the XML, you use <code>&lt;%=...%&gt;</code> &quot;expression holes&quot; which can contain .NET code, including calls to a new API for creating XML elements and attributes (a DOM replacement).</p></li>
+<li><p>Erik talked about writing applications in .NET and then automatically refactoring them (with a click in a context menu) to work in client/server architectures, and refactoring again to work across several clients. Presumably this creates all the code necessary to make the application work with WS* messaging, so you don&#39;t have to program it. This all sounded really dodgy to me: I don&#39;t want to rely on a tool to make a language/approach/architecture usable.</p></li>
+</ol>
+
+<p>There was an amusing digression into the art of rendering triangles, and thus three-dimensional models, with zero-width, zero-height, bordered <code>&lt;div&gt;</code>s in XHTML. And a mention of the &quot;backbutton&quot; problem that you get when you spawn tabs/windows in your web browser and then go back to your original tab/window and hit submit, which made me think that perhaps a RESTful architecture would make a whole lot of complexity go away.</p>
+
+<h2><a href="http://2007.xtech.org/public/schedule/detail/159" title="Data Model Perspectives for XML Schema">Data Model Perspectives for XML Schema</a></h2>
+
+<h3><a href="http://www.ee.ethz.ch/" title="Felix Michel&#39;s Website">Felix Michel</a> (ETH Zurich), <a href="http://dret.net/netdret/" title="Erik Wilde&#39;s Website">Erik Wilde</a> (UC Berkeley)</h3>
+
+<p>Felix mentioned that I might be interested in his talk in a <a href="http://www.jenitennison.com/blog/node/2#comment-24" title="Comment: Re: XTech Preparation">comment here</a>, and sure enough I found it fascinating. He&#39;s created a single-file representation of XML Schemas (consolidating schemas that, by virtue of using different namespaces, must be in different physical documents), and a set of XSLT 2.0 user-defined functions that provide access to and queries on the XML Schema information.</p>
+
+<p>For example, you can go from an instance element in your document to its type, find out if it&#39;s an extension or restriction, go to its base type, look at the annotations on it, and so on and so on. And all this in Basic XSLT 2.0 (the functions that work on instance elements traverse the instance document and schema in parallel to locate the element declaration that applies). You could use these functions to do everything you can do in Schema-Aware XSLT 2.0, with more flexibility, at the expense of performance.</p>
+
+<p>He also mapped content models onto <code>&lt;occurrence&gt;</code> elements that encode the &quot;follow set&quot; for a particular occurrence, so you can easily answer the question &quot;what elements could come next?&quot;. I can&#39;t immediately think of a way of using that information in a stylesheet, but perhaps he can describe one.</p>
+
+<p>Anyway, I think Felix&#39;s point was not to provide XSLT programmers with a set of useful functions, but to demonstrate the kind of standard, fairly light-weight, API that we might use to access XML Schema information. There was some discussion, in the development of XPath 2.0, of providing this kind of API, but getting agreement on XDM was hard enough!</p>
+
+<p>However, my thoughts were veering off in different directions. To my mind, validation and annotation are separable processes, and the data types, element groups and linking behaviour that you might find useful on a data set are processing-specific. For example, it might make sense for one process to annotate the element <code>&lt;foo&gt;2007-05-17&lt;/foo&gt;</code> as having the type date, while for another process (such as a transformation that deletes all <code>&lt;foo&gt;</code> elements) it&#39;s unnecessary. I really don&#39;t want to have to define an XSD schema for my entire schema just to indicate that the <code>&lt;foo&gt;</code> element is of type <code>xs:date</code>.</p>
+
+<p>Just as it&#39;s better to define the links between elements using keys, rather than relying on ID annotations made by a DTD, I think type annotations and node groups (why limit it to elements?) could be defined in the stylesheet. To give an idea:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;!-- all date attributes have the type named &#39;xs:date&#39; --&gt;
+&lt;ann:type name=&quot;xs:date&quot; match=&quot;@date&quot; /&gt;
+&lt;!-- h1, h2, h3, h4, h5, h6 elements are heading elements --&gt;
+&lt;ann:group name=&quot;xhtml:heading&quot; 
+  match=&quot;xhtml:h1 | xhtml:h2 | xhtml:h3 | xhtml:h4 | xhtml:h5 | xhtml:h6&quot; /&gt;
+&lt;!-- oh, and so&#39;s the h element --&gt;
+&lt;ann:group name=&quot;xhtml:heading&quot; match=&quot;xhtml:h&quot; /&gt;
+</code></pre></div>
+<p>It&#39;d be reasonably easy to give rudimentary support for <code>ann:type($node)</code> and <code>ann:group($node)</code> user-defined functions based on these, but they&#39;d really have to be built into the XSLT processor to get full pattern support and to work with modularised stylesheets. This all requires more detail than I have time to write right now, but is it even worth pursuing?</p>

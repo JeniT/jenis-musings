@@ -1,0 +1,19 @@
+<p><a href="http://dpcarlisle.blogspot.com/" title="David Carlisle&#39;s Blog">David Carlisle</a>&#39;s posted a <a href="http://dpcarlisle.blogspot.com/2007/05/exslt-node-set-function.html" title="The EXSLT node-set function">great tip</a> on getting <a href="http://www.exslt.org/exsl/functions/node-set/index.html" title="exsl:node-set()"><code>exsl:node-set()</code></a> to work in IE:</p>
+
+<blockquote>
+<p>In the above XSL-List thread I casually suggested that an alternative would be to just always use exslt:node-set in the body of the stylesheet and use the msxsl:script extension to define exslt:node-set for IE. That turned out not to be as easy as I thought as node-set isn&#39;t a valid function name in either of the supported extension languages in msxsl (JScript or VBScript). However Julian Reschke came up with the construct needed, use associative array syntax so you can use [&#39;node-set&#39;] to define the function.</p>
+</blockquote>
+
+<!--break--> 
+
+<p>I&#39;ve been having related problems getting my <a href="http://www.jenitennison.com/xslt/utilities/unit-testing/" title="Jeni&#39;s XSLT Unit Testing Framework">XSLT unit testing framework</a> to work with XSLT 1.0 stylesheets designed to work with MSXML, and specifically to use the <code>msxsl:node-set()</code> function. The solution there was to provide an implementation of <code>msxsl:node-set()</code> using <code>&lt;xsl:function&gt;</code>:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;xsl:function name=&quot;msxsl:node-set&quot; as=&quot;document-node()&quot; override=&quot;no&quot;&gt;
+  &lt;xsl:param name=&quot;items&quot; as=&quot;item()*&quot; /&gt;
+  &lt;xsl:document&gt;
+    &lt;xsl:sequence select=&quot;$items&quot; /&gt;
+  &lt;/xsl:document&gt;
+&lt;/xsl:function&gt;
+</code></pre></div>
+<p>Note the <code>override=&quot;no&quot;</code> which marks this as an implementation to be used only when the processor doesn&#39;t support it natively. This is an issue with <code>msxsl:node-set()</code> at the moment, but in the general case if you&#39;re writing a user-defined function that mirrors a vendor&#39;s extension function then you ought to use <code>override=&quot;no&quot;</code>.</p>
+
+<p>What I <em>should</em> do is add XSLT 2.0 implementations of all the <a href="http://www.exslt.org/" title="EXSLT">EXSLT</a> functions to the unit testing framework too...</p>

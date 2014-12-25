@@ -1,0 +1,156 @@
+<p>The <a href="http://www.homeoffice.gov.uk/">Home Office</a> recently <a href="http://www.homeoffice.gov.uk/about-us/publications/non-personal-data/">opened up some of its data</a>, mostly in the form of PDF reports and Excel spreadsheets. Right after, I went on holiday and offline (!) for a week, so I set myself the task of putting together some visualisations of the data using two client-side visualisation libraries that I liked the look of:</p>
+
+<ul>
+<li><a href="http://www.omnipotent.net/jquery.sparkline/">jQuery sparklines</a> which I think look simply gorgeous and which follow the jQuery tradition of being incredibly easy to put on a page</li>
+<li><a href="http://thejit.org/">the JavaScript InfoVis Toolkit (JIT)</a> which can be used to create some very attractive and interactive visualisations for hierarchical information</li>
+</ul>
+
+<p>As a quick summary, I ended up with solutions that use an HTML page with <a href="http://code.google.com/p/rdfquery">rdfQuery</a> code that pulls in static RDF/XML files and performs queries on them to create the particular formats that the two client-side libraries require.</p>
+
+<p>The first one I&#39;m going to talk about is a <a href="http://www.jenitennison.com/visualisation/offences.html">visualisation of types of offences</a> using JIT. There&#39;s a screenshot below to give you a flavour, but you&#39;d be better off actually <a href="http://www.jenitennison.com/visualisation/offences.html">visiting the page</a> because it&#39;s interactive: mousing over and clicking on the labels enables you to navigate around the hierarchy.</p>
+
+<p><img alt="Visualisation of Criminal Damage offences" src="/blog/files/offences.jpg" width="100%" /></p>
+
+<!--break-->
+
+<p>The data for this visualisation comes from a <a href="http://www.homeoffice.gov.uk/rds/pdfs09/countnotif09.xls">spreadsheet of notifiable offences</a>, available amongst a bunch of interesting information about <a href="http://www.homeoffice.gov.uk/rds/countrules.html">counting rules for recording crime</a>. The columns are:</p>
+
+<ul>
+<li>Home Office code, which is split into a major and minor part (eg 6/4)</li>
+<li>Mode (&#39;I&#39; for indictable, &#39;E&#39; for triable-either-way or &#39;S&#39; for summary)</li>
+<li>Max sentence (eg life, 15, 3m, fine)</li>
+<li>Class (eg &quot;Violence Against The Person&quot;)</li>
+<li>Subclass (eg &quot;Endangering Railway Passengers&quot;)</li>
+<li>Offence (eg &quot;Destroying, damaging etc. a Channel Tunnel train or the Tunnel system or committing acts of violence likely to endanger safety of operation&quot;)</li>
+<li>Act(s) (eg &quot;Channel Tunnel Act 1987 Sec 1(7)&quot;)</li>
+</ul>
+
+<p>There are a couple of things that I find particularly interesting about this data.</p>
+
+<p>First, it includes references to legislation! Since my day job at <a href="http://www.tso.co.uk/">TSO</a> is currently all about publishing legislation as linked data, I find this really exciting! I haven&#39;t done anything with those links yet, but I aim to.</p>
+
+<p>Second, you would have thought that the Home Office code would be tied to a particular Subclass or Offence, but it&#39;s not. The same Subclass can have multiple codes, but two Offences can have the same Home Office code. There doesn&#39;t seem to be a natural way of identifying the Offences, except through their (often long) descriptive name. The terminology for the Offence often comes straight out of a piece of legislation, but sometimes it&#39;s simply common law.</p>
+
+<p>On the other hand, the offence Classes have reasonably short labels like &quot;Burglary&quot; and &quot;Drug Offences&quot; which can be turned into URIs like:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">http://www.jenitennison.com/data/scheme/offence/drug-offences
+</code></pre></div>
+<p>The fact that Class-Subclass-Offence defines a hierarchy of concepts led me to think that <a href="http://www.w3.org/TR/skos-primer/">SKOS</a> would be a good ontology to use to model it. The Classes and Subclasses can be plain old <code>skos:Concept</code>s but the Offences need to have their own type so that extra information, such as the maximum sentence that applies to the offence, can be associated with it.</p>
+
+<p>So if you look at <a href="http://www.jenitennison.com/data/scheme/offence/drug-offences">http://www.jenitennison.com/data/scheme/offence/drug-offences</a> you&#39;ll see RDF/XML that includes the triples:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;http://www.jenitennison.com/data/scheme/offence/drug-offences&gt;
+  a skos:Concept ;
+  skos:topConceptOf &lt;http://www.jenitennison.com/data/scheme/offence/&gt; ;
+  skos:prefLabel &quot;Drug Offences&quot;@en ;
+  skos:narrower
+    [ 
+      a skos:Concept ;
+      skos:inScheme &lt;http://www.jenitennison.com/data/scheme/offence/&gt; ;
+      skos:broader &lt;http://www.jenitennison.com/data/scheme/offence/drug-offences&gt; ;
+      skos:prefLabel &quot;Trafficking in controlled drugs&quot;@en ;
+      skos:narrower
+        [
+          a crime:Offence ;
+          skos:inScheme &lt;http://www.jenitennison.com/data/scheme/offence/&gt; ;
+          skos:prefLabel &quot;Manufacturing a scheduled substance&quot;@en ;
+          crime:maxSentence &quot;P14Y&quot;^^xsd:yearMonthDuration
+        ],
+        [
+          a crime:Offence ;
+          skos:inScheme &lt;http://www.jenitennison.com/data/scheme/offence/&gt; ;
+          skos:prefLabel &quot;Supplying a scheduled substance to another person&quot;@en ;
+          crime:maxSentence &quot;P14Y&quot;^^xsd:yearMonthDuration
+        ],
+        ...
+    ],
+    [
+      a skos:Concept ;
+      skos:inScheme &lt;http://www.jenitennison.com/data/scheme/offence/&gt; ;
+      skos:broader &lt;http://www.jenitennison.com/data/scheme/offence/drug-offences&gt; ;
+      skos:prefLabel &quot;Possession of controlled drugs&quot;@en ;
+      skos:narrower
+        ...
+    ],
+    ...
+</code></pre></div>
+<p>You&#39;ll notice that I&#39;ve used blank nodes in the above rather than constructing an identifier for each Subclass or Offence. This makes things simpler because it means I can easily publish the dataset as a few flat files. An alternative would have been to use hash URIs, I suppose, but anyway this is the way I went. The (big) disadvantage is that it means the individual offences themselves aren&#39;t referenceable. So I might work on that, especially if I migrate the data over to data.gov.uk rather than just using it to try out a visualisation.</p>
+
+<p>The URI for the concept scheme is <a href="http://www.jenitennison.com/data/scheme/offence/">http://www.jenitennison.com/data/scheme/offence/</a>. The slash on the end is entirely the result of trying to make Apache serve the static files correctly. As it is, I have one RDF/XML file for each Class of offence, plus an <code>index.rdf</code> within the same (<code>offence</code>) directory, with the <code>.htaccess</code> file:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">AddType application/rdf+xml .rdf
+DirectoryIndex index.rdf
+RewriteEngine On
+RewriteRule ^([^\.]+)$ $1.rdf [L]
+</code></pre></div>
+<p>The concept scheme file itself contains a list of the top concepts in the scheme (the Classes) and their labels. This serves as a useful entry point to the data.</p>
+
+<p>So to the code. To create the visualisation, I needed to construct a Javascript structure that adhered to the <a href="http://thejit.org/docs/files/Loader-js.html#Loader.loadJSON">JIT Input JSON Structure</a>. Basically, each &quot;node&quot; within the visualisation needed to have an <code>id</code>, a <code>name</code> and a number of <code>children</code>. This structure needed to be constructed from the RDF/XML for a particular offence Class, ie that held within a particular RDF/XML document. The RDF/XML document can be accessed using the standard <a href="http://docs.jquery.com/Ajax/jQuery.get#urldatacallbacktype"><code>$.get()</code> jQuery method</a>. This passes the DOM for the document into the callback function passed as the third argument, which can then invoke <a href="http://www.jenitennison.com/rdfquery/symbols/jQuery.rdf.html#load">rdfQuery&#39;s <code>$.rdf.load()</code> method</a> to load the triples encoded in the RDF/XML into an rdfQuery object that can then operate over those triples.</p>
+
+<p>Here&#39;s the relevant part of the code, in which <code>view</code> is the URI for the particular offence class and <code>ht</code> is a JIT HyperTree instance:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">$.get(view, null, function (rdfXml) {
+  var rdf, offences = {};
+  rdf = $.rdf()
+    .load(rdfXml)
+    .prefix(&#39;skos&#39;, &#39;http://www.w3.org/2004/02/skos/core#&#39;)
+    .prefix(&#39;crime&#39;, &#39;http://www.jenitennison.com/data/ontology/crime#&#39;);
+  rdf
+    .where(&#39;&lt;&#39; + view + &#39;&gt; skos:prefLabel ?label&#39;)
+    .each(function () {
+      offences.id = view;
+      offences.name = this.label.value;
+      offences.data = {
+        &#39;$color&#39;: &#39;#0CC&#39;,
+        &#39;type&#39;: &#39;class&#39;
+      };
+      offences.children = rdf
+        .where(&#39;&lt;&#39; + view + &#39;&gt; skos:narrower ?subclass&#39;)
+        .where(&#39;?subclass skos:prefLabel ?label&#39;)
+        .map(function () {
+          return {
+            id: this.subclass.id,
+            name: this.label.value,
+            data: {
+              &#39;type&#39;: &#39;subclass&#39;
+            },
+            children: rdf
+              .where(this.subclass + &#39; skos:narrower ?offence&#39;)
+              .where(&#39;?offence skos:prefLabel ?label&#39;)
+              .where(&#39;?offence crime:maxSentence ?sentence&#39;)
+              .map(function () {
+                var sentence;
+                if (this.sentence.datatype.toString() === &#39;http://www.w3.org/2001/XMLSchema#token&#39;) {
+                  sentence = this.sentence.value;
+                } else if (this.sentence.value &gt; 12) {
+                  sentence = this.sentence.value / 12 + &#39; years&#39;;
+                } else {
+                  sentence = this.sentence.value + &#39; months&#39;;
+                }
+                return {
+                  id: this.offence.id,
+                  name: this.label.value,
+                  data: {
+                    &#39;type&#39;: &#39;offence&#39;,
+                    &#39;sentence&#39;: sentence
+                  },
+                  children: []
+                };
+              })
+              .get()
+          };
+        })
+        .get();
+    });
+  ht.loadJSON(offences);
+  ht.refresh();
+}, &#39;xml&#39;);
+</code></pre></div>
+<p>You can look at the rest of the code simply by viewing source on <a href="http://www.jenitennison.com/visualisation/offences.html"><code>offences.html</code></a> if you want to. It&#39;s mostly the same as the <a href="http://thejit.org/Jit/Examples/Hypertree/example1.html">HyperTree animation example</a> but with a bit of refactoring particularly to add some jQuery goodness.</p>
+
+<p>Some random thoughts having done this:</p>
+
+<ul>
+<li><p>rdfQuery is really good to use, even if I do say so myself. It provides a very flexible way of creating data structures based on RDF accessed from elsewhere, particularly because you have the full power of Javascript at your fingertips.</p></li>
+<li><p>JIT itself is OK to work with, though it doesn&#39;t have the ease of use that it could have. The visualisation&#39;s reasonably attractive, but my attempts to do clever things with the size of nodes to reflect the severity of the sentence proved fruitless.</p></li>
+<li><p>The HyperTree visualisation works far better for smallish hierarchies (eg for <a href="http://www.jenitennison.com/visualisation/offences.html?offences=http%3A%2F%2Fwww.jenitennison.com%2Fdata%2Fscheme%2Foffence%2Fcriminal-damage">Criminal Damage</a>) than for large ones (eg <a href="http://www.jenitennison.com/visualisation/offences.html?offences=http%3A%2F%2Fwww.jenitennison.com%2Fdata%2Fscheme%2Foffence%2Fviolence-against-the-person">Violence Against The Person</a> or, if you have the patience, <a href="http://www.jenitennison.com/visualisation/offences.html?offences=http%3A%2F%2Fwww.jenitennison.com%2Fdata%2Fscheme%2Foffence%2Fother-offences">Other Offences</a>).</p></li>
+<li><p>The Offence hierarchy itself is a bit of a mess. There are 738 &#39;Other Offences&#39; compared with 453 offences categorised within the other Classes, some of which contain only a handful of Offences. If this visualisation shows anything, it&#39;s how disorganised the offences are. Even more so if you take into account some of the other data that&#39;s been made available which I&#39;ll post about another time and shows a completely different classification. I wonder if there&#39;s data or other visualisations that would help identify where it could be rationalised.</p></li>
+<li><p>The data is also out of date. I was surprised to see that it said that under the Piracy Act 1837 Section 2, Piracy with violence (one of the many &#39;Other Offences&#39;) still attracted a death penalty. But looking at the <a href="http://www.statutelaw.gov.uk/documents/1837/88/ukpga/c88/2">relevant Section on the Statue Law Database</a> it appears that the death penalty was replaced with life imprisonment by <a href="http://www.statutelaw.gov.uk/content.aspx?LegType=All+Legislation&amp;searchEnacted=0&amp;extentMatchOnly=0&amp;confersPower=0&amp;blanketAmendment=0&amp;sortAlpha=0&amp;PageNumber=0&amp;NavFrom=0&amp;parentActiveTextDocId=1570287&amp;ActiveTextDocId=1570337&amp;filesize=10394">Section 36 of the Crime and Disorder Act 1998</a>. Getting better links into the legislation itself might help identify similar problems with the offence data.</p></li>
+<li><p>I don&#39;t know how easy it would have been to create this visualisation if I hadn&#39;t been hosting the data myself. Danny Ayers put together a helpful post recently in which he listed the various ways of <a href="http://blogs.talis.com/n2/archives/770">getting around the restrictions in doing cross-domain Ajax</a>, which I&#39;ll no doubt draw on if and when I need to do that.</p></li>
+</ul>

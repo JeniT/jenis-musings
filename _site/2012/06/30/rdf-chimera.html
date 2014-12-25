@@ -1,0 +1,141 @@
+<p>During <a href="http://www.slideshare.net/JeniT/collisions-chimera-and-consonance-in-web-content">my keynote at XML Prague</a> (the <a href="http://www.youtube.com/watch?v=0K_CAiVyqTQ">video</a> might make more sense than the slides on their own; there are notes on the slides but Slideshare doesn&#39;t do well with Keynote), I talked about how the advantages of using chimeras created from two formats with different underlying models are seldom outweighed by the disadvantages. RDF/XML gets knocked so frequently it&#39;s not even much fun to do it any more, but I&#39;ve <a href="http://www.jenitennison.com/blog/node/149">applied the same arguments</a> to <a href="http://json-ld.org/">JSON-LD</a> in the past. My argument was that RDF, XML, JSON and HTML should each be used individually for their strengths rather than trying to find a middle ground that rarely satisfies anyone.</p>
+
+<p><a href="http://blog.ldodds.com/2012/06/12/principled-use-of-rdfxml/">Leigh Dodds&#39; post on principled use of RDF/XML</a> makes the point that RDF/XML can be useful when it is used in a regular, principled way. And in fact, I am using RDF/XML extensively in my work on <a href="http://www.nationalarchives.gov.uk/documents/expert_participation_press_release.pdf">Expert Participation</a> for <a href="http://digital.cabinetoffice.gov.uk/2012/03/30/putting-apis-first-legislation-gov-uk/">legislation.gov.uk</a>, though slightly differently from how Leigh describes. What I want to explore in this post is when and how it makes sense to use RDF/XML and how that might translate into usage of JSON versions of RDF. The key point I want to make is that RDF chimera are <em>roads</em>, not <em>destinations</em>, and when you&#39;re choosing a road you have to think about the destination you&#39;re aiming for.</p>
+
+<!--break-->
+
+<h2>My Destination</h2>
+
+<p>Within legislation.gov.uk, our primary content is stored as XML (because it&#39;s documents) and our primary toolchain is therefore based on XML: we use XSLT, XSL-FO and <a href="http://wiki.orbeon.com/forms/doc/developer-guide/xml-pipeline-language-xpl">Orbeon pipelines</a> (for historic reasons; today I&#39;d try to find something similar that supported <a href="http://www.w3.org/TR/xproc/">XProc</a>) to create the various views of legislation we have on the site.</p>
+
+<p>We store RDF content in a triplestore, and query it with SPARQL, because these are technologies designed for easy and efficient storage and querying of RDF, but when it comes to integrating that data into HTML pages, it makes sense to reuse the same core pipelines and processing tooling as we have been using thus far. If we&#39;d been using Ruby on Rails we&#39;d have wanted to use Ruby, if Django then Python, if Node.js then Javascript -- the point is that once we&#39;ve extracted the data we needed, we needed to get it into a format that we could easily process with the tooling we are using.</p>
+
+<h2>Using SPARQL Results</h2>
+
+<p>One of the nice things about SPARQL is that you can use it over HTTP and get the results of a standard <a href="http://www.w3.org/TR/sparql11-query/#select"><code>SELECT</code></a> SPARQL query in <a href="http://www.w3.org/TR/rdf-sparql-XMLres/">XML</a>, <a href="http://www.w3.org/TR/sparql11-results-json/">JSON</a> or <a href="http://www.w3.org/TR/sparql11-results-csv-tsv/">CSV/TSV</a>. Making HTTP requests is easy across programming languages, and every environment is going to be able to handle at least one of the three possible output formats. So for us, requesting an XML result to a <code>SELECT</code> query fits right into our processing pipeline. Well, to be honest, writing paths like </p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">sparql:result[sparql:binding[@name = &#39;process&#39;]/sparql:uri = $update]/sparql:binding[@name = &#39;count&#39;]/sparql:literal
+</code></pre></div>
+<p>is a little irritating, but if I cared enough it would be easy to transform the SPARQL results XML format into something I could more directly query through XPath.</p>
+
+<p>What I&#39;ve found, however, is that it is usually a lot more flexible and often more efficient to use a <code>CONSTRUCT</code> or <code>DESCRIBE</code> SPARQL query to extract a subgraph from the store to process. At that point, you need a format that can represent an RDF graph, and you need your processing chain to be able to process an RDF graph as an RDF graph. I&#39;ll come on to other languages in a second, but sticking with XML: if your processing toolchain is XML-based, you need it in XML.</p>
+
+<p>There are actually two choices here: RDF/XML or <a href="http://www.w3.org/2004/03/trix/">TriX</a>. TriX is fine, but it suffers similarly to the SPARQL XML results format when you try to use it with XPath: you have to do things like</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">$task[trix:uri[2] = $task:assignedTo]/trix:uri[3]
+</code></pre></div>
+<p>where <code>$task</code> is a sequence of <code>trix:triple</code> elements and <code>$task:assignedTo</code> is the URI of a property that I&#39;m interested in, to work out who is assigned to a particular task in the system I&#39;m building. Of course that gnarliness could be hidden behind a function call, but it means using functions <em>everywhere</em>. Using RDF/XML on the other hand can be somewhat easier and use natural XML paths <strong>but only if it is normalised</strong>.</p>
+
+<h2>Normalised RDF/XML for XML/XSLT Processing</h2>
+
+<p>The biggest problem with RDF/XML for use with XML tooling is that as a format it is too damned flexible. There are multiple ways of representing everything: resource types can be indicated by the name of the resource element or through an explicit <code>rdf:type</code> child element; literal property values can be held as attributes or elements; resource property values can be referenced or nested. All these different options for representing the same information makes the format a complete sod to work with.</p>
+
+<p>This is the thrust of Leigh&#39;s post. The question is then: how do you normalise RDF/XML into a regular format that you can process? In Leigh&#39;s post, he advises <a href="http://blog.ldodds.com/2012/06/12/principled-use-of-rdfxml/">&quot;Use all of the [RDF/XML] shortcuts&quot;</a>, which he describes as basically:</p>
+
+<ul>
+<li>using a single root resource element rather than a flat structure with a <code>rdf:RDF</code> wrapper</li>
+<li>using the element name of a resource element to indicate the type of the element</li>
+<li>using a single resource element to represent each resource</li>
+</ul>
+
+<p>(I note these aren&#39;t <em>all</em> the RDF/XML shortcuts: you can use attributes for literal properties for example. It looks like Leigh instead chooses the regularity of having all properties be represented as elements in the XML.)</p>
+
+<p>This normalisation routine gives you XML that is very close to &quot;natural&quot; XML: it will only have a few <code>rdf:about</code> and <code>rdf:resource</code> attributes here and there to give away that it can be processed as RDF/XML. However, if you are starting with RDF, it only gives you a nice, non-repetitive, regular structure if:</p>
+
+<ul>
+<li>it&#39;s easy to identify a root resource within which everything is nested within a given graph</li>
+<li>resources only have one type</li>
+<li>you don&#39;t get resources used in more than one place in the graph</li>
+</ul>
+
+<p>For the legislation.gov.uk Expert Participation work, I needed to have a normalisation routine that would work across graphs which included resources with multiple types and that were highly repetitive. I also needed a normalisation routine that I could use without it having to guess what the appropriate root node would be, or me having to feed in that decision or artificially create a root node for each graph (which would have just been extra work). The normalisation that I&#39;ve found that works for me is instead:</p>
+
+<ul>
+<li>always use a <code>rdf:RDF</code> wrapper</li>
+<li>all resource elements are directly within the <code>rdf:RDF</code> wrapper, including blank nodes</li>
+<li>all resource elements are represented by a <code>rdf:Description</code> element</li>
+<li>there&#39;s one resource element per resource</li>
+<li>all properties are represented by elements</li>
+</ul>
+
+<p>There are disadvantages to this algorithm: if you want to find all the <code>leg:Legislation</code> items in the RDF, for example, then you need to do something like <code>//rdf:Description[rdf:type/@rdf:resource = $leg:Legislation]</code> with an appropriately set <code>$leg:Legislation</code> variable, whereas under Leigh&#39;s scheme you would do <code>//leg:Legislation</code>. The thing is that in the data that I&#39;m dealing with, <code>leg:Legislation</code> resources might also be <code>leg:UnitedKingdomPublicGeneralAct</code>s or <code>leg:CommencementOrder</code>s: I can&#39;t know at normalisation time which of the various types of a given resource is the one that I&#39;ll want to easily be able to query over, and the cost of changing my mind later on would be quite high.</p>
+
+<p>Similarly, not having nesting means that I can&#39;t write simple paths like <code>$task/task:assignedTo/sioc:User/sioc:name</code> which I would have been able to do under Leigh&#39;s suggested normalisation. What I do instead is define a couple of keys that index the descriptions by their <code>rdf:about</code> or <code>rdf:nodeID</code> attributes</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;xsl:key name=&quot;descriptions&quot; match=&quot;rdf:Description&quot; use=&quot;@rdf:about&quot; /&gt;
+&lt;xsl:key name=&quot;nodeID&quot; match=&quot;rdf:Description&quot; use=&quot;@rdf:nodeID&quot; /&gt;
+</code></pre></div>
+<p>and a function that makes it easy to traverse through properties:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;xsl:function name=&quot;rdf:get&quot; as=&quot;element()*&quot;&gt;
+  &lt;xsl:param name=&quot;descriptions&quot; as=&quot;element()*&quot; /&gt;
+  &lt;xsl:param name=&quot;propertyChain&quot; as=&quot;xs:QName+&quot; /&gt;
+  &lt;xsl:variable name=&quot;properties&quot; as=&quot;element()*&quot; select=&quot;$descriptions/*[node-name(.) = $propertyChain[1]]&quot; /&gt;
+  &lt;xsl:variable name=&quot;values&quot; as=&quot;element()*&quot;&gt;
+    &lt;xsl:for-each select=&quot;$properties&quot;&gt;
+      &lt;xsl:choose&gt;
+        &lt;xsl:when test=&quot;@rdf:resource&quot;&gt;
+          &lt;xsl:sequence select=&quot;key(&#39;descriptions&#39;, @rdf:resource, root())&quot; /&gt;
+        &lt;/xsl:when&gt;
+        &lt;xsl:when test=&quot;@rdf:nodeID&quot;&gt;
+          &lt;xsl:sequence select=&quot;key(&#39;nodeID&#39;, @rdf:nodeID, root())&quot; /&gt;
+        &lt;/xsl:when&gt;
+        &lt;xsl:when test=&quot;*[@rdf:about or @rdf:nodeID]&quot;&gt;
+          &lt;xsl:sequence select=&quot;*&quot; /&gt;
+        &lt;/xsl:when&gt;
+        &lt;xsl:otherwise&gt;
+          &lt;xsl:sequence select=&quot;.&quot; /&gt;
+        &lt;/xsl:otherwise&gt;
+      &lt;/xsl:choose&gt;
+    &lt;/xsl:for-each&gt;
+  &lt;/xsl:variable&gt;
+  &lt;xsl:variable name=&quot;values&quot; as=&quot;element()*&quot; select=&quot;$values | $values&quot; /&gt;
+  &lt;xsl:choose&gt;
+    &lt;xsl:when test=&quot;exists($values) and count($propertyChain) &gt; 1&quot;&gt;
+      &lt;xsl:sequence select=&quot;rdf:get($values, subsequence($propertyChain, 2))&quot; /&gt;
+    &lt;/xsl:when&gt;
+    &lt;xsl:otherwise&gt;
+      &lt;xsl:sequence select=&quot;$values&quot; /&gt;
+    &lt;/xsl:otherwise&gt;
+  &lt;/xsl:choose&gt;
+&lt;/xsl:function&gt;
+</code></pre></div>
+<p>The normalisation I describe coupled with this bit of utility coding means that I can just use a simple path to get to the value of a (literal) property like this: <code>$task/task:assignedAt</code> and the <code>rdf:get()</code> function when I want to navigate to another resource: <code>$task/rdf:get(., xs:QName(&#39;task:assignedTo&#39;))/sioc:name</code>. In XSLT 3.0 I think I&#39;d be able to define some funky functional functions and write things like <code>$task($task:assignedTo)($sioc:name)</code>, but we&#39;re not quite there yet.</p>
+
+<h2>Another Destination</h2>
+
+<p>What I wanted to bring out is that for all its failings RDF/XML is a useful format, but to process RDF/XML using XML tooling, you need to normalise it into a regular structure that retains the semantics of the underlying RDF graph. I thought it was interesting that Leigh suggested a different normalisation algorithm from the one I use: working through it, it&#39;s clear there are different advantages and disadvantages of the different algorithms, both in terms of how easy they are to apply to given data and how easy the results are to process.</p>
+
+<p>But the other thing I wonder is whether Leigh&#39;s destination was different from mine. The goal of producing a natural-looking XML format, and one that you would want to validate using RELAX-NG, implies that Leigh was going along the RDF/XML road in another direction: basically scattering some RDF attributes around an XML format so that it could be interpreted by RDF tools. I&#39;m sure that this was the reason RDF/XML was made so flexible to begin with: if you can take some naturalistic XML and just add attributes to turn it into RDF then (the argument goes) you get the best of both worlds.</p>
+
+<p>But this is what I&#39;m really sceptical about. XML formats tend not to fit into the &quot;striped syntax&quot; of resource/property/resource/property required by RDF/XML: they miss out resource elements or they group them in wrappers, or they put references in attributes. To get an XML format to be compliant RDF/XML you really have to design it that way from the start, and this goes to the root of my objection to chimera: when you do that, you stop using XML in the way it&#39;s naturally used, and you lose (some of) its advantages. It&#39;s like putting yourself in a straitjacket. It seems a lot wiser to me to let XML be XML, and run it through a transformation to create an RDF format (TriX or RDF/XML are both easy targets here) when you want to extract the data within it as RDF.</p>
+
+<h2>JSON and RDF</h2>
+
+<p>And so I turn again to JSON and RDF, because the same arguments apply. If my destination were using RDF data in a non-XML-based toolchain, I think that I would have a very similar experience to the one described above. Getting the results of a <code>SELECT</code> SPARQL query as JSON would be great, but eventually I&#39;d need to handle an RDF graph as an RDF graph and I&#39;d want to be able to manipulate it in my programming language of choice using the idioms of that programming language.</p>
+
+<p>There are RDF processing libraries for most programming languages, of course, that make it easy to load RDF graphs into a data structure that you can then query and process &quot;naturally&quot;. If you&#39;re using one of these libraries, then the format of the data that you get back from a SPARQL query doesn&#39;t really matter, so long as it can be loaded into that data structure through the library.</p>
+
+<p>Does a JSON format for RDF help here? Well, if there isn&#39;t a library for a given programming language, or you don&#39;t like the API that any of them give you, then a JSON format for RDF is a format that you will be able to load (because every programming language supports JSON) and manipulate.</p>
+
+<p>If you&#39;re in this world, you need a regular structure that enables you do that processing in a regular way. You know the format that you&#39;re dealing with, so putting URIs into variables isn&#39;t an issue (there&#39;s no need for shorthands in the syntax itself). You want a flat and predictable structure which you can query into easily to follow links to information about other resources in the graph. You can of course use JSON-LD in this way. It might look something like:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">{
+  &quot;@graph&quot;: [{
+    &quot;@id&quot;: &quot;http://www.legislation.gov.uk/id/task/research/effects/uksi/2011/1901&quot;,
+    &quot;http://www.legislation.gov.uk/def/legislation/assignedTo&quot;: [{
+      &quot;@value&quot;: &quot;http://www.legislation.gov.uk/id/user/tso.co.uk/jeni.tennison&quot;
+    }]
+  }, {
+    &quot;@id&quot;: &quot;http://www.legislation.gov.uk/id/user/tso.co.uk/jeni.tennison&quot;,
+    &quot;http://rdfs.org/sioc/ns#name&quot;: [{
+      &quot;@value&quot;: &quot;Jeni Tennison&quot;
+    }]
+  }]
+}
+</code></pre></div>
+<p>This isn&#39;t great for navigation, at least in Javascript -- you really need to build a hash table to get quickly from the object ids to the details of the objects themselves -- but once you have that you can do things like:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">objects[task[leg.assignedTo][0].@value][sioc.name][0].@value
+</code></pre></div>
+<p>which isn&#39;t too bad. It gets nastier when you start to have multiple values for properties and want to navigate through them, but people who use these kinds of object structures are used to that.</p>
+
+<p>What about going the other direction? One of the JSON-LD raisons d&#39;être is to provide a quick and easy annotation route for adding RDF semantics on top of existing JSON formats. Just as with RDF/XML used in this way, I&#39;m really not convinced that the majority of existing JSON formats are going to be easily coercible into JSON that can be processed into sensible RDF through the JSON-LD processing rules, nor that JSON designed from scratch to be JSON-LD compatible will have the advantages of &quot;natural&quot; JSON. I can see JSON-LD as an easy-to-generate target format for people wanting to extract RDF from JSON, though given how people generate HTML and XML they might just stick with string manipulation and generate N-triples or N-quads.</p>
+
+<h2>Thoughts?</h2>
+
+<p>What do you think? Are there advantages in RDF chimeras like RDF/XML and JSON-LD <em>as destinations</em> that I&#39;m just not seeing? Are there other ways of normalising them that make them easy to process as XML or JSON?</p>

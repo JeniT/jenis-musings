@@ -1,0 +1,159 @@
+<p>I was at <a href="http://www.ukuug.org/events/opentech2009/">OpenTech</a> a couple of weekends ago, and heard a lot of great talks. I particularly enjoyed the one by <a href="http://simonwillison.net/">Simon Willison</a> in which he talked about the <a href="http://www.guardian.co.uk/news/datablog">Guardian Data Blog</a>. Essentially, the data collected by the journalists at the Guardian, that form the basis of their pretty visualisations and so forth, gets published in Google Spreadsheets.</p>
+
+<p>Looking through the data blog today, I saw that the <a href="http://www.london.gov.uk/">Greater London Authority</a> have similarly <a href="http://www.london.gov.uk/focusonlondon/datastore.jsp">released their data</a> using Google Spreadsheets.</p>
+
+<p>Now Google Spreadsheets are just fine -- they&#39;re easy for end-users to use and it&#39;s not hard for data nerds to extract data from them. They have real advantages for publishing because they are quick and easy to set up.</p>
+
+<p>But take a look through the page listing the tables of data and you can see that many of them are about the same areas. The Guardian Data Blog have actually created a <a href="http://spreadsheets.google.com/ccc?key=t3bns85prAbiChLmFhlcB1Q">new spreadsheet</a> that pulls together that information. Even with the aggregated data, in Google Spreadsheets there&#39;s no way to address the data held in each table about Sutton (say).</p>
+
+<p>Now, a few months ago, <a href="http://www.talis.com/platform/">Talis</a> announced the <a href="http://www.talis.com/platform/cc/">Talis Connected Commons</a>, which enables anyone to publish public domain data using the Talis Platform for free. It turns out that it&#39;s really easy to publish addressable data using the Talis Platform as a host.</p>
+
+<!--break-->
+
+<p>The first stage is to get hold of the data and convert it into some RDF/XML that can be loaded into Talis. You can get hold of a CSV version of a Google Spreadsheet by exporting it as CSV. Converting the CSV into RDF/XML can be done in any number of ways. Given that this is a small dataset and it has commas in some of the fields I&#39;ve used some simple reusable XSLT rather than awk. Here&#39;s <code>csv.xsl</code> for parsing the CSV:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;xsl:stylesheet xmlns:xsl=&quot;http://www.w3.org/1999/XSL/Transform&quot; 
+      xmlns:xs=&quot;http://www.w3.org/2001/XMLSchema&quot;
+      xmlns:csv=&quot;http://www.jenitennison.com/xslt/csv&quot;
+      xmlns:rdf=&quot;http://www.w3.org/1999/02/22-rdf-syntax-ns#&quot;
+      xmlns:rdfs=&quot;http://www.w3.org/2000/01/rdf-schema#&quot;
+      exclude-result-prefixes=&quot;xs csv&quot;
+      version=&quot;2.0&quot;&gt;
+
+&lt;xsl:param name=&quot;filename&quot; as=&quot;xs:string&quot; required=&quot;yes&quot; /&gt;
+
+&lt;xsl:variable name=&quot;csv&quot; as=&quot;xs:string&quot; select=&quot;unparsed-text($filename)&quot; /&gt;
+&lt;xsl:variable name=&quot;lines&quot; as=&quot;xs:string+&quot; select=&quot;tokenize($csv, &#39;\n&#39;)[normalize-space(.) != &#39;&#39;]&quot; /&gt;
+&lt;xsl:variable name=&quot;fields&quot; as=&quot;xs:string+&quot; select=&quot;csv:values($lines[1])&quot; /&gt;
+&lt;xsl:variable name=&quot;data&quot; as=&quot;xs:string+&quot; select=&quot;$lines[position() &gt; 1]&quot; /&gt;
+
+&lt;xsl:template match=&quot;/&quot; name=&quot;main&quot;&gt;
+  &lt;rdf:RDF&gt;
+    &lt;xsl:for-each select=&quot;$lines[position() &gt; 1]&quot;&gt;
+      &lt;xsl:call-template name=&quot;csv:line&quot;&gt;
+        &lt;xsl:with-param name=&quot;values&quot; select=&quot;csv:values(.)&quot; /&gt;
+      &lt;/xsl:call-template&gt;
+    &lt;/xsl:for-each&gt;
+  &lt;/rdf:RDF&gt;
+&lt;/xsl:template&gt;
+
+&lt;xsl:template name=&quot;csv:line&quot;&gt;
+  &lt;xsl:param name=&quot;values&quot; as=&quot;xs:string+&quot; required=&quot;yes&quot; /&gt;
+&lt;/xsl:template&gt;
+
+&lt;xsl:function name=&quot;csv:values&quot; as=&quot;xs:string+&quot;&gt;
+  &lt;xsl:param name=&quot;line&quot; as=&quot;xs:string&quot; /&gt;
+  &lt;xsl:analyze-string select=&quot;$line&quot; regex=&quot;(&amp;quot;([^&amp;quot;]+)&amp;quot;|([^,]+))?,&quot;&gt;
+    &lt;xsl:matching-substring&gt;
+      &lt;xsl:choose&gt;
+        &lt;xsl:when test=&quot;regex-group(2) != &#39;&#39;&quot;&gt;
+          &lt;xsl:sequence select=&quot;regex-group(2)&quot; /&gt;
+        &lt;/xsl:when&gt;
+        &lt;xsl:otherwise&gt;
+          &lt;xsl:sequence select=&quot;regex-group(3)&quot; /&gt;
+        &lt;/xsl:otherwise&gt;
+      &lt;/xsl:choose&gt;
+    &lt;/xsl:matching-substring&gt;
+    &lt;xsl:non-matching-substring&gt;
+      &lt;xsl:variable name=&quot;value&quot; as=&quot;xs:string&quot; select=&quot;normalize-space(.)&quot; /&gt;
+      &lt;xsl:choose&gt;
+        &lt;xsl:when test=&quot;starts-with($value, &#39;&amp;quot;&#39;) and ends-with($value, &#39;&amp;quot;&#39;)&quot;&gt;
+          &lt;xsl:sequence select=&quot;substring($value, 2, string-length($value) - 2)&quot; /&gt;
+        &lt;/xsl:when&gt;
+        &lt;xsl:otherwise&gt;
+          &lt;xsl:sequence select=&quot;$value&quot; /&gt;
+        &lt;/xsl:otherwise&gt;
+      &lt;/xsl:choose&gt;
+    &lt;/xsl:non-matching-substring&gt;
+  &lt;/xsl:analyze-string&gt;
+&lt;/xsl:function&gt;
+
+&lt;xsl:function name=&quot;csv:field&quot; as=&quot;xs:string&quot;&gt;
+  &lt;xsl:param name=&quot;values&quot; as=&quot;xs:string+&quot; /&gt;
+  &lt;xsl:param name=&quot;field&quot; as=&quot;xs:string&quot; /&gt;
+  &lt;xsl:sequence select=&quot;$values[index-of($fields, $field)]&quot; /&gt;
+&lt;/xsl:function&gt;
+
+&lt;/xsl:stylesheet&gt;
+</code></pre></div>
+<p>and here&#39;s the stylesheet that I&#39;ve used to create some basic RDF data about the boroughs:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;xsl:stylesheet xmlns:xsl=&quot;http://www.w3.org/1999/XSL/Transform&quot; 
+      xmlns:xs=&quot;http://www.w3.org/2001/XMLSchema&quot;
+      xmlns:csv=&quot;http://www.jenitennison.com/xslt/csv&quot;
+      exclude-result-prefixes=&quot;xs csv&quot;
+      xmlns:rdf=&quot;http://www.w3.org/1999/02/22-rdf-syntax-ns#&quot;
+      xmlns:rdfs=&quot;http://www.w3.org/2000/01/rdf-schema#&quot;
+      xmlns:data=&quot;http://www.jenitennison.com/ontology/data#&quot;
+      version=&quot;2.0&quot;&gt;
+
+&lt;xsl:import href=&quot;../csv.xsl&quot; /&gt;
+
+&lt;xsl:param name=&quot;filename&quot; select=&quot;resolve-uri(&#39;boroughs.txt&#39;, static-base-uri())&quot; /&gt;
+
+&lt;xsl:template match=&quot;/&quot; name=&quot;main&quot;&gt;
+  &lt;rdf:RDF&gt;
+    &lt;xsl:for-each select=&quot;$data&quot;&gt;
+      &lt;xsl:variable name=&quot;values&quot; as=&quot;xs:string+&quot; select=&quot;csv:values(.)&quot; /&gt;
+      &lt;xsl:variable name=&quot;borough&quot; as=&quot;xs:string&quot; select=&quot;csv:field($values, &#39;BOROUGH&#39;)&quot; /&gt;
+      &lt;xsl:variable name=&quot;maleLifeExpectancy&quot; as=&quot;xs:string&quot; 
+        select=&quot;csv:field($values, &#39;2005-07 Life expectancy at birth (years), Males&#39;)&quot; /&gt;
+      &lt;xsl:variable name=&quot;femaleLifeExpectancy&quot; as=&quot;xs:string&quot; 
+        select=&quot;csv:field($values, &#39;Life expectancy at birth (years) Females&#39;)&quot; /&gt;
+      &lt;data:LondonBorough rdf:about=&quot;http://www.jenitennison.com/data/id/london-borough/{translate(lower-case(replace($borough, &#39;&amp;amp;&#39;, &#39;and&#39;)), &#39; &#39;, &#39;-&#39;)}&quot;&gt;
+        &lt;rdfs:label&gt;&lt;xsl:value-of select=&quot;$borough&quot; /&gt;&lt;/rdfs:label&gt;
+        &lt;xsl:if test=&quot;$maleLifeExpectancy != &#39;&#39;&quot;&gt;
+          &lt;data:maleLifeExpectancy rdf:datatype=&quot;http://www.w3.org/2001/XMLSchema#integer&quot;&gt;
+            &lt;xsl:value-of select=&quot;$maleLifeExpectancy&quot; /&gt;
+          &lt;/data:maleLifeExpectancy&gt;
+        &lt;/xsl:if&gt;
+        &lt;xsl:if test=&quot;$femaleLifeExpectancy != &#39;&#39;&quot;&gt;
+          &lt;data:femaleLifeExpectancy rdf:datatype=&quot;http://www.w3.org/2001/XMLSchema#integer&quot;&gt;
+            &lt;xsl:value-of select=&quot;$femaleLifeExpectancy&quot; /&gt;
+          &lt;/data:femaleLifeExpectancy&gt;
+        &lt;/xsl:if&gt;
+      &lt;/data:LondonBorough&gt;
+    &lt;/xsl:for-each&gt;
+  &lt;/rdf:RDF&gt;
+&lt;/xsl:template&gt;
+
+&lt;/xsl:stylesheet&gt;
+</code></pre></div>
+<p>The result is some RDF/XML for each borough which looks like:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;rdf:RDF xmlns:rdf=&quot;http://www.w3.org/1999/02/22-rdf-syntax-ns#&quot;
+  xmlns:rdfs=&quot;http://www.w3.org/2000/01/rdf-schema#&quot;
+  xmlns:data=&quot;http://www.jenitennison.com/ontology/data#&quot;&gt;
+  &lt;data:LondonBorough rdf:about=&quot;http://www.jenitennison.com/data/id/london-borough/city-of-london&quot;&gt;
+    &lt;rdfs:label&gt;City of London&lt;/rdfs:label&gt;
+  &lt;/data:LondonBorough&gt;
+  &lt;data:LondonBorough
+    rdf:about=&quot;http://www.jenitennison.com/data/id/london-borough/barking-and-dagenham&quot;&gt;
+    &lt;rdfs:label&gt;Barking &amp;amp; Dagenham&lt;/rdfs:label&gt;
+    &lt;data:maleLifeExpectancy rdf:datatype=&quot;http://www.w3.org/2001/XMLSchema#integer&quot;&gt;76.3&lt;/data:maleLifeExpectancy&gt;
+    &lt;data:femaleLifeExpectancy rdf:datatype=&quot;http://www.w3.org/2001/XMLSchema#integer&gt;80.3&lt;/data:femaleLifeExpectancy&gt;
+  &lt;/data:LondonBorough&gt;
+  &lt;data:LondonBorough rdf:about=&quot;http://www.jenitennison.com/data/id/london-borough/barnet&quot;&gt;
+    &lt;rdfs:label&gt;Barnet&lt;/rdfs:label&gt;
+    &lt;data:maleLifeExpectancy rdf:datatype=&quot;http://www.w3.org/2001/XMLSchema#integer&quot;&gt;79.5&lt;/data:maleLifeExpectancy&gt;
+    &lt;data:femaleLifeExpectancy rdf:datatype=&quot;http://www.w3.org/2001/XMLSchema#integer&quot;&gt;83.6&lt;/data:femaleLifeExpectancy&gt;
+  &lt;/data:LondonBorough&gt;
+  ...
+&lt;/rdf:RDF&gt;
+</code></pre></div>
+<p>To load this into a Talis store, you have to first have one set up, which I do (primarily for experimenting with <a href="http://code.google.com/p/rdfquery">rdfQuery</a>). You can get one by filling in the form on <a href="http://www.talis.com/platform/cc/contact/">the Talis website</a>. Loading data into Talis just means a <code>POST</code> request like this:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&gt; curl -H &quot;Content-type: application/rdf+xml&quot; --digest -u username:password 
+  --data-binary @LondonBoroughs/boroughs.rdf http://api.talis.com/stores/rdfquery-dev1/meta
+</code></pre></div>
+<p>Once that&#39;s done, you can check whether the data has been successfully loaded or not by visiting the URI of the store in an ordinary browser, in this case:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">http://api.talis.com/stores/rdfquery-dev1/meta
+</code></pre></div>
+<p>You can enter the URI of a resource in the form, for example <code>http://www.jenitennison.com/data/id/london-borough/barnet</code> and indicate the format for the response. Requesting Turtle gets you something like:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;http://www.jenitennison.com/data/id/london-borough/barnet&gt;
+  &lt;http://www.w3.org/1999/02/22-rdf-syntax-ns#type&gt;
+    &lt;http://www.jenitennison.com/ontology/data#LondonBorough&gt; ;
+  &lt;http://www.w3.org/2000/01/rdf-schema#label&gt;
+    &quot;Barnet&quot; ;
+  &lt;http://www.jenitennison.com/ontology/data#femaleLifeExpectancy&gt;
+    &quot;83.6&quot;^^&lt;http://www.w3.org/2001/XMLSchema#integer&gt; ;
+  &lt;http://www.jenitennison.com/ontology/data#maleLifeExpectancy&gt;
+    &quot;79.5&quot;^^&lt;http://www.w3.org/2001/XMLSchema#integer&gt; .
+</code></pre></div>
+<p>All is well and good, but this isn&#39;t really linked data. For it to be linked data, this RDF needs to be accessible at the URI <code>http://www.jenitennison.com/data/id/london-borough/barnet</code>. So how do we do that? Tune in next time to find out.</p>

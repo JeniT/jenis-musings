@@ -1,0 +1,139 @@
+<p>There&#39;s a big push within the UK government right now, helped along by the <a href="http://blogs.cabinetoffice.gov.uk/digitalengagement/post/2009/06/09/Data-So-what-happens-now.aspx">appointment of Tim Berners-Lee</a>, to publish their data using Linked Data principles.</p>
+
+<p>One of the challenges is how to publish Linked Data in a world that sometimes, even frequently, changes. Cool URIs don&#39;t change, but departmental domain names do, as departments are split and merged and rebranded. So the URIs that are minted for things like schools and roads need to be detached from the departments that have responsibility for them, neutralised into general domains such as <code>education.data.gov.uk</code> and <code>transport.data.gov.uk</code>.</p>
+
+<p>But that&#39;s the least of the problems. Because schools and roads themselves don&#39;t remain static either. They are split and merged and rebranded. They are resources that change over time. What should their URIs look like?</p>
+
+<!--break-->
+
+<p>Some choices are (more or less) obvious. If we have an identifier for a school such as:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">http://education.data.gov.uk/id/school/109812
+</code></pre></div>
+<p>then if the school is merged, and a new school is created, this URI can redirect (<code>301 Moved Permanently</code>) to the URI for the new school. If the school is shut down, the URI can respond with a <code>410 Gone</code>.</p>
+
+<p>But what if the <a href="http://www.getbracknell.co.uk/news/s/2043401_broadmoor_primary_school_votes_on_new_name">school&#39;s name changes</a>? If we have a triple like this:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;http://education.data.gov.uk/id/school/109812&gt;
+  ed:name &quot;Broadmoor Primary School&quot; .
+</code></pre></div>
+<p>that is true up to 1st September 2009, and:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;http://education.data.gov.uk/id/school/109812&gt;
+  ed:name &quot;Wildmoor Heath School&quot;
+</code></pre></div>
+<p>that is true from 1st September 2009? Are there precautions we should be taking to ensure that these URIs will still work -- that the statements we make now about the school will remain valid -- in the face of these changes?</p>
+
+<p>I can think of two ways of handling this. (But I&#39;m sure there are others.)</p>
+
+<ol>
+<li>Having &#39;current&#39; and &#39;dated&#39; resource URIs, with the &#39;current&#39; one redirecting to an appropriate &#39;dated&#39; one.</li>
+<li>Having &#39;dated&#39; document URIs that become named graphs.</li>
+</ol>
+
+<p>Let me flesh these out a bit. </p>
+
+<h2>Current and Dated URLs</h2>
+
+<p>On the web, it&#39;s a common pattern to have URIs without dates in them meaning the &quot;current&quot; version of the resource, and URIs with dates to be used for versions on particular dates.</p>
+
+<p>So <code>http://education.data.gov.uk/id/school/19081</code> could be used for the school as it is now, whereas <code>http://education.data.gov.uk/id/school/19081/2008-09-01</code> is used for the school as it was on 1st September 2008. If you requested <code>http://education.data.gov.uk/id/school/19081</code> on 1st April 2009 you&#39;d get a <code>307 Temporary Redirect</code> response pointing you at <code>http://education.data.gov.uk/id/school/19081/2008-09-01</code>, since that was the last date that the school was updated.</p>
+
+<p>In this scheme, the eventual response you&#39;d get on 1st September 2009 would be something like:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;http://education.data.gov.uk/id/school/19081/2009-09-01&gt;
+  ed:name &quot;Wildmoor Heath School&quot; ;
+  rdfs:isDefinedBy &lt;http://education.data.gov.uk/school/19081/2009-09-01&gt; .
+
+&lt;http://education.data.gov.uk/school/19081/2009-09-01&gt;
+  dc:modified &quot;2009-09-01&quot;^^xsd:date ;
+  dct:hasVersion &lt;http://education.data.gov.uk/school/19081/2008-09-01&gt; .
+</code></pre></div>
+<p>and the same request, to <code>http://education.data.gov.uk/id/school/19081</code>, the day before would have given you:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;http://education.data.gov.uk/id/school/19081/2008-09-01&gt;
+  ed:name &quot;Broadmoor Primary School&quot; ;
+  rdfs:isDefinedBy &lt;http://education.data.gov.uk/school/19081/2008-09-01&gt; .
+
+&lt;http://education.data.gov.uk/school/19081/2008-09-01&gt;
+  dc:modified &quot;2008-09-01&quot;^^xsd:date .
+</code></pre></div>
+<p>I think there could be another set of triples in both graphs about the timeless <code>http://education.data.gov.uk/id/school/19081</code> and its relationship to the two versions. But I don&#39;t know what relationship should be used between them (<code>dct:hasVersion</code>?).</p>
+
+<p>The benefit of this approach is that the two sets of triples can be combined without the two versions of the school being merged together (although you still have to make sure you pick the most recent version when you&#39;re doing a query).</p>
+
+<p>The downside is that as time goes on and changes pile on changes, you get more and more repeated triples with differently dated subjects, because many of the properties of the school won&#39;t change. It would be possible to define triples about the unddated <code>http://education.data.gov.uk/id/school/19081</code>, but</p>
+
+<ol>
+<li>those are properties on a different resource, and therefore queries won&#39;t automatically access them;</li>
+<li>it&#39;s hubristic to think that you can identify what will and won&#39;t change about a school over its lifetime, so I think you&#39;d end up putting all the properties on the dated versions of the resource just to be on the safe side.</li>
+</ol>
+
+<p>Another problem with this approach is that it makes it harder for people to make assertions externally about the resource. If I&#39;m running my own site and want to say something about this school, I could make the statement:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;http://education.data.gov.uk/id/school/19081&gt; my:rating 5 .
+</code></pre></div>
+<p>but this would apply forevermore. Or I could make the statement:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;http://education.data.gov.uk/id/school/19081/2008-09-01&gt; my:rating 5 .
+</code></pre></div>
+<p>which would only apply to the school as on 2008-09-01. I would have to keep track of the new versions of the school as they became available, which is a lot of effort.</p>
+
+<h2>Using Dated Document URIs</h2>
+
+<p>We could use undated identifier URIs but include metadata about the document containing the RDF in that document which indicates its currency. This is along the lines of what is shown in the <a href="http://www4.wiwiss.fu-berlin.de/bizer/pub/LinkedDataTutorial/#deref">Linked Data Tutorial</a>.</p>
+
+<p>Under this approach, the identifier URI <code>http://education.data.gov.uk/id/school/19081</code> would give a <code>303 See Other</code> redirection. On 1st April 2009, it would redirect to <code>http://education.data.gov.uk/school/19081/2008-09-01</code> and would return:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;http://education.data.gov.uk/id/school/19081&gt;
+  ed:name &quot;Broadmoor Primary School&quot; ;
+  rdfs:isDefinedBy &lt;http://education.data.gov.uk/school/19081/2008-09-01&gt; .
+
+&lt;http://education.data.gov.uk/school/19081/2008-09-01&gt;
+  dc:modified &quot;2008-09-01&quot;^^xsd:date .
+</code></pre></div>
+<p>On 1st September 2009, the identifier URI <code>http://education.data.gov.uk/id/school/19081</code> would redirect to <code>http://education.data.gov.uk/school/19081/2009-09-01</code> and the RDF returned would include triples like:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;http://education.data.gov.uk/id/school/19081&gt;
+  ed:name &quot;Wildmoor Heath School&quot; ;
+  rdfs:isDefinedBy &lt;http://education.data.gov.uk/school/19081/2009-09-01&gt; .
+
+&lt;http://education.data.gov.uk/school/19081/2009-09-01&gt;
+  dc:modified &quot;2009-09-01&quot;^^xsd:date ;
+  dct:hasVersion &lt;http://education.data.gov.uk/school/19081/2008-09-01&gt; .
+</code></pre></div>
+<p>The data available about the school at any particular time would always be current, and the metadata about that data can indicate when it was last changed.</p>
+
+<p>A Linked-Data-aware triplestore that regularly scraped the site would create named graphs like:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;http://education.data.gov.uk/school/19081/2008-09-01&gt; {
+  &lt;http://education.data.gov.uk/id/school/19081&gt;
+    ed:name &quot;Broadmoor Primary School&quot; ;
+    rdfs:isDefinedBy &lt;http://education.data.gov.uk/school/19081/2008-09-01&gt; .
+
+  &lt;http://education.data.gov.uk/school/19081/2008-09-01&gt;
+    dc:modified &quot;2008-09-01&quot;^^xsd:date .
+}
+
+&lt;http://education.data.gov.uk/school/19081/2009-09-01&gt; {
+  &lt;http://education.data.gov.uk/id/school/19081&gt;
+    ed:name &quot;Wildmoor Heath School&quot; ;
+    rdfs:isDefinedBy &lt;http://education.data.gov.uk/school/19081/2009-09-01&gt; .
+
+  &lt;http://education.data.gov.uk/school/19081/2009-09-01&gt;
+    dc:modified &quot;2009-09-01&quot;^^xsd:date ;
+    dct:hasVersion &lt;http://education.data.gov.uk/school/19081/2008-09-01&gt; .
+}
+</code></pre></div>
+<p>and it would then be possible to use SPARQL to query the graphs either individually or in combination.</p>
+
+<p>What bothers me about this approach is that anything scraping the data needs to understand the interaction between the date of requesting <code>http://education.data.gov.uk/id/school/19081</code> and the value of <code>dc:modified</code> in the resource linked to through <code>rdfs:isDefinedBy</code> to tell the difference between information that <em>is</em> true and information that <em>was</em> true. A naive aggregator that regularly visited the site could easily end up with just:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;http://education.data.gov.uk/id/school/19081&gt;
+  ed:name &quot;Broadmoor Primary School&quot; ;
+  ed:name &quot;Wildmoor Heath School&quot; ;
+  rdfs:isDefinedBy &lt;http://education.data.gov.uk/school/19081/2009-09-01&gt; 
+  rdfs:isDefinedBy &lt;http://education.data.gov.uk/school/19081/2008-09-01&gt; .
+
+&lt;http://education.data.gov.uk/school/19081/2009-09-01&gt;
+  dc:modified &quot;2009-09-01&quot;^^xsd:date .
+
+&lt;http://education.data.gov.uk/school/19081/2008-09-01&gt;
+  dc:modified &quot;2008-09-01&quot;^^xsd:date .
+</code></pre></div>
+<p>with no means of telling which name is associated with which modification date.</p>
+
+<p><em>Aside: What really bothers me about named graphs is that there&#39;s no real standard. The closest is in SPARQL, which standardises how to query over a set of graphs but doesn&#39;t really say how these graphs could be created. There&#39;s nothing that I know of that says that named graphs should be created as I&#39;ve described above. The syntaxes suggested for expressing named graphs are drafts and notes and proposals.</em></p>
+
+<p><em>Without standards that define how named graphs should be created and expressed, it&#39;s hard to work out how exactly they should be used.</em></p>
+
+<p>So: what options have I missed? How should we be publishing Linked Data in a changing world?</p>

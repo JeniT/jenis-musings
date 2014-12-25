@@ -1,0 +1,113 @@
+<p>This is the third in a series of posts about using the <a href="http://www.talis.com/platform/">Talis Platform</a> as a back end for serving linked data. In the <a href="http://www.jenitennison.com/blog/node/109">first part</a>, I showed how to add data to a store. In the <a href="http://www.jenitennison.com/blog/node/110">second post</a>, I showed how to use some PHP scripts to publish the data as Linked Data, at the URLs you use as your identifiers.</p>
+
+<p>In this post, I&#39;m going to begin the process of exposing the data in a way that makes it easy to locate and reuse. One of the biggest lessons I learned after the initial publication of the <a href="http://www.london-gazette.co.uk">London Gazette</a> data as RDFa is that the publication of data and metadata about individual items is not enough. To make the data usable, you have to make it discoverable. To make it discoverable there must be an entry point from which you can locate the data. One kind of easy entry point is a list.</p>
+
+<p>In the case of the data about London Boroughs that I&#39;ve been using, there aren&#39;t currently any links to the data, so there is no way to discover it aside from me telling you the URI template (<code>http://www.jenitennison.com/data/id/london-borough/{name}</code>, where name is hyphenated and in lowercase) and you knowing the name of a London Borough that you want to look up. Discovery via a URI template that I told you relies on out-of-band information, and contradicts the RESTful tenet of &quot;hypertext as the engine of application state&quot;.</p>
+
+<p>Instead, I need to offer an entry point from which you can follow links (or fill in forms) to discover information about the various London Boroughs. Since I&#39;m dealing with a small set of information here, I&#39;m going to do this in the straight-forward way of having <code>http://www.jenitennison.com/data/london-borough</code> contain a brief description of each of the known London Boroughs, including (obviously) a link to the URI for the London Borough, from which you can get more information.</p>
+
+<!--break-->
+
+<p>I don&#39;t want to return <em>all</em> the information about each of the London Boroughs within the list, so I&#39;m going to use a <code>CONSTRUCT</code> SPARQL query to create triples that include just the type and label (if it has one) of the borough. Here&#39;s the initial query:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">CONSTRUCT { 
+  ?thing a &lt;http://www.jenitennison.com/ontology/data#LondonBorough&gt; . 
+  ?thing &lt;http://www.w3.org/2000/01/rdf-schema#label&gt; ?label . } 
+WHERE { 
+  ?thing a &lt;http://www.jenitennison.com/ontology/data#LondonBorough&gt; . 
+  OPTIONAL { ?thing &lt;http://www.w3.org/2000/01/rdf-schema#label&gt; ?label . }} 
+</code></pre></div>
+<p>Now I want to make this request a bit more generic. The type that I&#39;m looking for here is <code>http://www.jenitennison.com/ontology/data#LondonBorough</code> but if I (or you!) wanted to use it for resources of different types, you&#39;d want it to reference a different class. In addition, while the list of London Boroughs is reasonably small, lists of individuals of other types might be much larger, in which case you&#39;d want a facility to page through them.</p>
+
+<p>So in the PHP code I&#39;m going to have three variables: <code>$type</code> is the URI of the class of things that should be listed, <code>$limit</code> is the number of those things that should appear on each page, and <code>$start</code> is the first item in the page. In addition, to ensure a consistent and (hopefully) meaningful order, I&#39;m going to order the results based on their URI. So this is what the query looks like:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">CONSTRUCT { 
+  ?thing a &lt;$type&gt; . 
+  ?thing &lt;http://www.w3.org/2000/01/rdf-schema#label&gt; ?label . } 
+WHERE { 
+  ?thing a &lt;$type&gt; . 
+  OPTIONAL { ?thing &lt;http://www.w3.org/2000/01/rdf-schema#label&gt; ?label . }} 
+ORDER BY ?thing
+LIMIT $limit
+OFFSET $start
+</code></pre></div>
+<p>I&#39;m also going to rejig the PHP that I&#39;ve been using to use this query when it receives the request <code>http://www.jenitennison.com/data/london-borough</code>. First,  <code>utils.php</code> is now going to hold a <code>proxy()</code> function that performs requests based on the URI of the request or the arguments passed to it. Aside from the body of the SPARQL query, the code is pretty similar to the ASK query (it&#39;s getting close to the point where I should at least refactor, or maybe start using <a href="http://code.google.com/p/moriarty">Moriarty</a> though I&#39;d like to keep this lightweight to provide the minimum overhead for other people wanting to use this mechanism for publishing their data). Here&#39;s the function:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">function proxy($type, $limit = 10) {
+  global $store;
+  $docUri = $_SERVER[&#39;REQUEST_URI&#39;];
+
+  // URL for the RDF
+  if ($_SERVER[&#39;PATH_INFO&#39;]) {
+    // Request for a specific thing
+    $dir = dirname($_SERVER[&#39;SCRIPT_NAME&#39;]);
+    $path = substr($docUri, strlen($dir));
+    $idUri = &quot;$dir/id$path&quot;;
+    if (exists($idUri)) {
+      $domain = $_SERVER[&#39;HTTP_HOST&#39;];
+      $id = &quot;http://$domain$idUri&quot;;
+      $params = array(&#39;about&#39; =&gt; $id, &#39;output&#39; =&gt; &#39;rdf&#39;);
+      $query = http_build_query($params);
+      $rdfURL = &quot;http://api.talis.com/stores/$store/meta?$query&quot;;
+    } else {
+      error();
+      return;
+    }
+  } else {
+    // Request for a list of $limit individuals of type $type
+    $start = (int)$_GET[&#39;start&#39;];
+    $sparql = &quot;CONSTRUCT { ?thing a &lt;$type&gt; . ?thing &lt;http://www.w3.org/2000/01/rdf-schema#label&gt; ?label . } WHERE { ?thing a &lt;$type&gt; . OPTIONAL { ?thing &lt;http://www.w3.org/2000/01/rdf-schema#label&gt; ?label . }} ORDER BY ?thing LIMIT $limit OFFSET $start&quot;;
+    $params = array(&#39;query&#39; =&gt; $sparql, &#39;output&#39; =&gt; &#39;rdf&#39;);
+    $query = http_build_query($params);
+    $rdfURL = &quot;http://api.talis.com/stores/$store/services/sparql?$query&quot;;
+  }
+
+  // URL for the transformation
+  $params = array(&#39;xml-uri&#39; =&gt; $rdfURL, 
+    &#39;xsl-uri&#39; =&gt; &quot;http://api.talis.com/stores/$store/items/tidyRDF.xsl&quot;);
+  $query = http_build_query($params);
+  $txURL = &quot;http://api.talis.com/tx?$query&quot;;
+
+  $resource = fopen($txURL, &#39;rb&#39;);
+  header(&quot;Content-Type: application/rdf+xml&quot;, true);
+  header(&quot;Content-Location: $docUri.rdf&quot;, true);
+  fpassthru($resource);
+  return;
+}
+</code></pre></div>
+<p>Now I need to make sure that requests to <code>http://www.jenitennison.com/data/london-borough</code> calls this function with the correct type and limit. To do this I create a <code>london-borough.php</code> that looks like:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;?php
+  include &quot;utils.php&quot;;
+  proxy(&#39;http://www.jenitennison.com/ontology/data#LondonBorough&#39;, 50);
+?&gt;
+</code></pre></div>
+<p>and adjust <code>.htaccess</code> to redirect to this PHP script:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;IfModule mod_rewrite.c&gt;
+  RewriteEngine on
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+
+  RewriteRule ^id/(.+)$ id.php [L]
+  RewriteRule ^london-borough(/.+)? london-borough.php$1 [L,QSA]
+&lt;/IfModule&gt;
+</code></pre></div>
+<p>Note that in the <code>RewriteRule</code> for URIs starting with <code>london-borough</code>, I&#39;ve included <code>QSA</code> in the options, which means that query string parameters (such as the <code>start</code>) parameter will enable paging through the results. For example, if I were only reporting 10 London Boroughs at a time, I could use</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">http://www.jenitennison.com/data/london-borough
+</code></pre></div>
+<p>to get the first ten London Boroughs and</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">http://www.jenitennison.com/data/london-borough?start=10
+</code></pre></div>
+<p>to get the next ten.</p>
+
+<p>When you request <code>http://www.jenitennison.com/data/london-borough</code> what you get back is the neatened RDF for the London Boroughs, which looks like:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;rdf:RDF xmlns:rdfs=&quot;http://www.w3.org/2000/01/rdf-schema#&quot;
+         xmlns:rdf=&quot;http://www.w3.org/1999/02/22-rdf-syntax-ns#&quot;&gt;
+  &lt;LondonBorough xmlns=&quot;http://www.jenitennison.com/ontology/data#&quot;
+                  rdf:about=&quot;http://www.jenitennison.com/data/id/london-borough/barking-and-dagenham&quot;&gt;
+    &lt;rdfs:label&gt;Barking &amp;amp; Dagenham&lt;/rdfs:label&gt;
+  &lt;/LondonBorough&gt;
+  &lt;LondonBorough xmlns=&quot;http://www.jenitennison.com/ontology/data#&quot;
+                  rdf:about=&quot;http://www.jenitennison.com/data/id/london-borough/barnet&quot;&gt;
+    &lt;rdfs:label&gt;Barnet&lt;/rdfs:label&gt;
+  &lt;/LondonBorough&gt;
+  ...
+&lt;/rdf:RDF&gt;
+</code></pre></div>
+<p>Now this is OK, but I think the best way of serving <em>lists of things</em> is through Atom or RSS, with RSS 1.0 fitting better with the RDF world because it is RDF. Both formats provide mechanisms to give metadata about the list, including links to the next set of information, to enable pagination through the list. So what I&#39;d like to do is provide a mechanism for serving back different formats for this information. And not only for the lists, but for the data about the London Boroughs themselves: Talis supports serving data in Turtle and RDF/JSON as well as RDF/XML, so providing those formats should be cheap. This is something to come back to later.</p>

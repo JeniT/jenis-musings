@@ -1,0 +1,63 @@
+<p>In <a href="http://www.w3.org/TR/xslt20" title="XSLT 2.0 spec">XSLT 2.0</a>, functions and templates have very similar behaviour: both can accept arguments/parameters and return sequences of any kind. The difference is in how they&#39;re called: functions can be called concisely from within expressions and patterns, and arguments are passed by position; whereas templates have to be called using <a href="http://www.w3.org/TR/xslt20" title="XSLT 2.0 spec"><code>&lt;xsl:call-template&gt;</code></a>, and parameters are passed by name. Also, there&#39;s no context node for functions, but there is one for templates. I&#39;ve built up some rules of thumb about which to use when:</p>
+
+<!--break-->
+
+<ul>
+<li> Use functions to return sequences of atomic values, because their results are often used as arguments to further functions.</li>
+<li> Use functions to return sequences of existing nodes, because you can call them in the middle of a location path in order to navigate the source document.</li>
+<li> Use templates (and matching templates as much as possible) to return new nodes.</li>
+</ul>
+
+<p>There is one special situation, though, where I use templates to return atomic values or existing nodes, and that&#39;s when the value that&#39;s returned depends on a single node. In this case, I define a function that accepts the node as one of its arguments and applies templates to that node, in a mode named after the function name. Then I have a number of matching templates in that mode, returning the relevant value for the different kinds of node.</p>
+
+<p>A really simple example is a <code>xhtml:is-heading()</code> function, which returns true for <code>&lt;h1&gt;</code>, <code>&lt;h2&gt;</code>, <code>&lt;h3&gt;</code> and so on, and false otherwise. Here&#39;s the definition:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;xsl:function name=&quot;xhtml:is-heading&quot; as=&quot;xs:boolean&quot;&gt;
+  &lt;xsl:param name=&quot;element&quot; as=&quot;element()&quot; /&gt;
+  &lt;xsl:apply-templates select=&quot;$element&quot; mode=&quot;xhtml:is-heading&quot; /&gt;
+&lt;/xsl:function&gt;
+
+&lt;xsl:template match=&quot;xhtml:h1 | xhtml:h2 | xhtml:h3 | xhtml:h4 | xhtml:h5 | xhtml:h6&quot;
+  mode=&quot;xhtml:is-heading&quot; as=&quot;xs:boolean&quot;&gt;
+  &lt;xsl:sequence select=&quot;true()&quot; /&gt;
+&lt;/xsl:template&gt;
+
+&lt;xsl:template match=&quot;*&quot; mode=&quot;xhtml:is-heading&quot; as=&quot;xs:boolean&quot;&gt;
+  &lt;xsl:sequence select=&quot;false()&quot; /&gt;
+&lt;/xsl:template&gt;
+</code></pre></div>
+<p>A more complex example is this one, which gathers all the function definitions in a given namespace in a stylesheet:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">&lt;xsl:function name=&quot;xsl:function-definitions&quot; as=&quot;element(xsl:function)*&quot;&gt;
+  &lt;xsl:param name=&quot;stylesheet&quot; as=&quot;node()&quot; /&gt;
+  &lt;xsl:param name=&quot;namespace&quot; as=&quot;xs:string&quot; /&gt;
+  &lt;xsl:apply-templates select=&quot;$stylesheet&quot; mode=&quot;xsl:function-definitions&quot;&gt;
+    &lt;xsl:with-param name=&quot;namespace&quot; tunnel=&quot;yes&quot; /&gt;
+  &lt;/xsl:apply-templates&gt;
+&lt;/xsl:function&gt;
+
+&lt;xsl:template match=&quot;xsl:stylesheet | xsl:transform&quot; mode=&quot;xsl:function-definitions&quot;
+  as=&quot;element(xsl:function)*&quot;&gt;
+  &lt;xsl:apply-templates mode=&quot;xsl:function-definitions&quot; /&gt;
+&lt;/xsl:template&gt;
+
+&lt;xsl:template match=&quot;xsl:function&quot; mode=&quot;xsl:function-definitions&quot; 
+  as=&quot;element(xsl:function)*&quot;&gt;
+  &lt;xsl:param name=&quot;namespace&quot; tunnel=&quot;yes&quot; as=&quot;xs:string&quot; /&gt;
+  &lt;xsl:variable name=&quot;qname&quot; as=&quot;xs:QName&quot; select=&quot;resolve-QName(@name, .)&quot; /&gt;
+  &lt;xsl:if test=&quot;$namespace = namespace-uri-from-QName($qname)&quot;&gt;
+    &lt;xsl:sequence select=&quot;.&quot; /&gt;
+  &lt;/xsl:if&gt;
+&lt;/xsl:template&gt;
+
+&lt;xsl:template match=&quot;xsl:include | xsl:import&quot; mode=&quot;xsl:function-definitions&quot;
+  as=&quot;element(xsl:function)*&quot;&gt;
+  &lt;xsl:param name=&quot;namespace&quot; tunnel=&quot;yes&quot; as=&quot;xs:string&quot; /&gt;
+  &lt;xsl:sequence select=&quot;xsl:function-definitions(document(@href), $namespace)&quot; /&gt;
+&lt;/xsl:template&gt;
+
+&lt;xsl:template match=&quot;*&quot; mode=&quot;xsl:function-definitions&quot; /&gt;
+</code></pre></div>
+<p>(Note that this code will give you overridden definitions from imported stylesheets: if you don&#39;t want those then you need to modify the template matching <code>xsl:stylesheet | xsl:transform</code>.)</p>
+
+<p>What I like about this pattern is that it maintains the function interface for calling the code while breaking down what would otherwise be a big <code>&lt;xsl:choose&gt;</code> into pieces of code that are individually manageable and testable. Also, it means I can take advantage of some of the useful features of XSLT template matching, such as the built-in templates and priorities. And it means that the function can be customised very easily by adding or overriding templates in an importing stylesheet. On the downside, it&#39;s that much longer than the code would otherwise be, and, as always with XSLT, debugging through matching templates can be challenging.</p>
+
+<p>This pattern gives you polymorphic functions -- in the form of different templates for different node types -- at least for one node argument. There are also associations for me here with object-oriented coding (think of the function definition as an abstract method, the mode as a method name and the node as an object instance). Anyway, I thought it worth sharing.</p>

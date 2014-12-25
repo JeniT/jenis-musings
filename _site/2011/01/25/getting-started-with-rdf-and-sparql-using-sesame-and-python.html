@@ -1,0 +1,387 @@
+<p>My <a href="http://www.jenitennison.com/blog/node/152">previous post</a> talked about how to install <a href="http://4store.org/">4store</a> as a triplestore, and use the Ruby library <a href="http://rdf.rubyforge.org/">RDF.rb</a> in order to process RDF extracted from that store. This was a response to Richard Pope&#39;s <a href="http://memespring.co.uk/2011/01/linked-data-rdfsparql-documentation-challenge/">Linked Data/RDF/SPARQL Documentation Challenge</a> which asks for documentation of how to install a triplestore, load data into it, retrieve it using SPARQL and access the results as native structures using Ruby, Python or PHP.</p>
+
+<p>I quite enjoyed writing the last one, so I thought I&#39;d try again. As before, I am on Mac OS X, but this time I&#39;m going to use Python, which I have not programmed in before. I like a challenge. You might not like the results!</p>
+
+<!--break-->
+
+<h2>Sesame</h2>
+
+<p>This time, I&#39;m going to use <a href="http://www.openrdf.org/">Sesame</a>, as I was told by <a href="http://twitter.com/johnlsheridan">John Sheridan</a> that it was so easy to install that even he, a civil servant, could do it!</p>
+
+<p>Sesame needs a Java servlet container. I&#39;m using <a href="http://tomcat.apache.org/">Tomcat</a> because I have some experience with it, but you could use something like <a href="http://jetty.codehaus.org/jetty/">Jetty</a> if you prefer. I had a bit of trouble getting Tomcat 6 to install, but that might just have been because it has a lot of dependencies and I wasn&#39;t patient enough. It might be worth upgrading your existing ports and getting verbose output so you know there&#39;s activity as you install Tomcat:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">$ sudo port upgrade outdated
+$ sudo port -v install tomcat6
+</code></pre></div>
+<p>This installs Tomcat 6 in <code>/opt/local/share/java/tomcat6</code>.</p>
+
+<p>While that&#39;s happening, get Sesame from its <a href="http://sourceforge.net/projects/sesame/files/Sesame%202/">download page</a>. I got hold of <code>openrdf-sesame-2.3.2-sdk.tar.gz</code>. The files we actually need are the <code>.war</code>s so we can just extract them and put them in the <code>webapps</code> directory within Tomcat:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">$ tar -zxvf openrdf-sesame-2.3.2-sdk.tar.gz openrdf-sesame-2.3.2/war/*.war
+$ sudo cp openrdf-sesame-2.3.2/war/*.war /opt/local/share/java/tomcat6/webapps/
+</code></pre></div>
+<p>Then startup Tomcat:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">$ sudo /opt/local/share/java/tomcat6/bin/tomcatctl start
+</code></pre></div>
+<p>All being well, you should see Tomcat doing some initial setup:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">conf_setup.sh: file conf/catalina.policy is missing; copying conf/catalina.policy.sample to its place.
+conf_setup.sh: file conf/catalina.properties is missing; copying conf/catalina.properties.sample to its place.
+conf_setup.sh: file conf/server.xml is missing; copying conf/server.xml.sample to its place.
+conf_setup.sh: file conf/tomcat-users.xml is missing; copying conf/tomcat-users.xml.sample to its place.
+conf_setup.sh: file conf/web.xml is missing; copying conf/web.xml.sample to its place.
+conf_setup.sh: file conf/setenv.local is missing; copying conf/setenv.local.sample to its place.
+Starting Tomcat.... started. (pid 20064)
+</code></pre></div>
+<p>Now have a look at <code>http://localhost:8080/openrdf-sesame</code>. If you&#39;re like me, you&#39;ll get some error messages because the user that Tomcat is running under (<code>www</code>) isn&#39;t able to create or write to a logging directory that it wants to create, in my case <code>/Users/Jeni/Library/Application Support/Aduna/OpenRDF Sesame/logs</code>. This turns out to be partly caused by permissions issues and partly caused by the spaces in the filename. To get around it, create a data directory for Aduna that doesn&#39;t have spaces in the filename, and change its ownership to <code>www</code>. In my case, I chose <code>/opt/local/var/aduna</code>.</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">$ sudo mkdir -p /opt/local/var/aduna
+$ sudo chown www:www /opt/local/var/aduna
+</code></pre></div>
+<p>Then edit Tomcat&#39;s <code>setenv.local</code> file which in my environment is at <code>/opt/local/share/java/tomcat6/conf</code> and add a line that sets the <code>info.aduna.platform.appdata.basedir</code> to that directory, like this:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">export JAVA_OPTS=&#39;-Dinfo.aduna.platform.appdata.basedir=/opt/local/var/aduna&#39;
+</code></pre></div>
+<p>Restart Tomcat:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">$ sudo /opt/local/share/java/tomcat6/bin/tomcatctl restart
+</code></pre></div>
+<p>Then navigate again to <a href="http://localhost:8080/openrdf-sesame">http://localhost:8080/openrdf-sesame</a> and you should see the Welcome page:</p>
+
+<p style="text-align: center">
+  <img src="/blog/files/sesame-welcome.jpg" />
+</p>
+
+<p>As you can see, this recommends using the Workbench for managing the repositories. If you open that, at <a href="http://localhost:8080/openrdf-workbench">http://localhost:8080/openrdf-workbench</a>.</p>
+
+<p style="text-align: center">
+  <img src="/blog/files/sesame-workbench-home.jpg" />
+</p>
+
+<p>We&#39;ll use this Workbench to create a new repository for our data, which I&#39;ll call <code>reference</code>. Click on <code>New Repository</code> from the left hand navigation and fill in the form. I&#39;m just going to use the default in-memory RDF store because I&#39;m only using a little data; the other options (using MySQL or PostgreSQL stores) would be useful if I were creating something more permanent. See <a href="http://www.openrdf.org/doc/sesame2/users/ch07.html#section-rdbms-store-config">the Sesame User Guide</a> for information about those.</p>
+
+<p>So fill in the form to create a new repository with the id <code>reference</code> and whatever title you like:</p>
+
+<p style="text-align: center">
+  <img src="/blog/files/sesame-workbench-new-repository.jpg" />
+</p>
+
+<p>Click <code>Next</code> and there will be a couple more options to select; I just used the default for these:</p>
+
+<p style="text-align: center">
+  <img src="/blog/files/sesame-workbench-new-repository-2.jpg" />
+</p>
+
+<p>Click <code>Create</code> and you will see a summary of the new repository that you&#39;ve created:</p>
+
+<p style="text-align: center">
+  <img src="/blog/files/sesame-workbench-new-repository-3.jpg" />
+</p>
+
+<h2>Loading Data</h2>
+
+<p>I&#39;m going to use the same data as I did before:</p>
+
+<blockquote>
+<p><a href="http://source.data.gov.uk/data/reference/organogram-co/2010-10-31/index.rdf">http://source.data.gov.uk/data/reference/organogram-co/2010-10-31/index.rdf</a></p>
+</blockquote>
+
+<p>You can add data to a Sesame repository in a browser through the Workbench by uploading a file, pointing Sesame at a URL or pasting in some RDF that you want to load. There are also Java bindings for adding data to Sesame. But neither of those are any good to us as we need programmatic access.</p>
+
+<p>So we will use the <a href="http://www.openrdf.org/doc/sesame2/system/ch08.html#d0e304">HTTP method</a>. I want to add some statements to the <code>reference</code> repository in the graph (what Sesame calls &quot;context&quot;) <code>http://source.data.gov.uk/data/reference/organogram-co/2010-10-30</code>, which amounts to an HTTP PUT on the repository&#39;s statements with that context. </p>
+
+<p>Now I don&#39;t know much at all about Python, but it looks as though the built-in library <code>urllib2</code> doesn&#39;t support <code>PUT</code> and there&#39;s a better HTTP library available in <a href="http://code.google.com/p/httplib2/"><code>httplib2</code></a>. MacPorts supports various different packages for <code>httplib2</code> with different versions of Python. Now there only seems to be a package for rdflib, which we&#39;ll use later, for Python 2.6, so we&#39;ll go for <code>py26-httplib2</code>, which will bring in Python 2.6 with it just in case.</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">$ sudo port install py26-httplib2
+</code></pre></div>
+<p>After running this, if you want to actually use it you will need to install the <code>python_select</code> port and choose Python 2.6:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">$ sudo port install python_select
+$ sudo python_select python26
+</code></pre></div>
+<p>Then open up another Terminal window or tab (because the change won&#39;t have affected your old one) and check what version of Python you&#39;re running:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">$ python --version
+Python 2.6.6
+</code></pre></div>
+<p>With the <code>httplib2</code> library in place, it&#39;s time for a Python script (<code>load-rdf-into-sesame.py</code>) to do the PUTting:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">import urllib
+import httplib2
+
+repository = &#39;reference&#39;
+graph      = &#39;http://source.data.gov.uk/data/reference/organogram-co/2010-06-30&#39;
+filename   = &#39;/Users/Jeni/Downloads/index.rdf&#39;
+
+print &quot;Loading %s into %s in Sesame&quot; % (filename, graph)
+params = { &#39;context&#39;: &#39;&lt;&#39; + graph + &#39;&gt;&#39; }
+endpoint = &quot;http://localhost:8080/openrdf-sesame/repositories/%s/statements?%s&quot; % (repository, urllib.urlencode(params))
+data = open(filename, &#39;r&#39;).read()
+(response, content) = httplib2.Http().request(endpoint, &#39;PUT&#39;, body=data, headers={ &#39;content-type&#39;: &#39;application/rdf+xml&#39; })
+print &quot;Response %s&quot; % response.status
+print content
+</code></pre></div>
+<p>Run the script from the command line:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">$ python load-rdf-into-sesame.py
+</code></pre></div>
+<p>and you should get just get:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">Loading /Users/Jeni/Downloads/index.rdf into http://source.data.gov.uk/data/reference/organogram-co/2010-06-30 in Sesame
+Response 204
+</code></pre></div>
+<p>which isn&#39;t particularly helpful (well, the <code>204</code> response tells us it worked), but you can then check <a href="http://localhost:8080/openrdf-workbench/repositories/reference/contexts">http://localhost:8080/openrdf-workbench/repositories/reference/contexts</a> and you should see that there is a new context of <code>http://source.data.gov.uk/data/reference/organogram-co/2010-06-30</code>:</p>
+
+<p style="text-align: center">
+  <img src="/blog/files/sesame-workbench-contexts.jpg" />
+</p>
+
+<p>Click on the context and it will take you to a list of (some of) the triples in that graph:</p>
+
+<p style="text-align: center">
+  <img src="/blog/files/sesame-workbench-explore-context.jpg" />
+</p>
+
+<p>One of the nice things about Sesame is that the Workbench provides you with ways of exploring the data that you have loaded. On the left navigation bar there are ways of listing the types of the entities described in the data:</p>
+
+<p style="text-align: center">
+  <img src="/blog/files/sesame-workbench-explore-types.jpg" />
+</p>
+
+<p>from which you can find instances of that type, for example of <code>org:Organization</code>:</p>
+
+<p style="text-align: center">
+  <img src="/blog/files/sesame-workbench-explore-organization.jpg" />
+</p>
+
+<p>and then the statements about a particular instance, for example DirectGov:</p>
+
+<p style="text-align: center">
+  <img src="/blog/files/sesame-workbench-explore-directgov.jpg" />
+</p>
+
+<h2>Running a Query</h2>
+
+<p>Onto running a query directly. This is done on Sesame in exactly the same way as it was done on 4store in my last walkthrough: by HTTP POSTing a query to the SPARQL endpoint. Sesame&#39;s page for testing queries on the <code>reference</code> repository is at <a href="http://localhost:8080/openrdf-workbench/repositories/reference/query">http://localhost:8080/openrdf-workbench/repositories/reference/query</a> and we&#39;ll use the basic one that lists types of things that are described within the data:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">SELECT DISTINCT ?type 
+WHERE { 
+  ?thing a ?type .
+} 
+ORDER BY ?type
+</code></pre></div>
+<p>Paste that into the textarea that&#39;s provided on <a href="http://localhost:8080/openrdf-workbench/repositories/reference/query">http://localhost:8080/openrdf-workbench/repositories/reference/query</a> so it looks like:</p>
+
+<p style="text-align: center">
+  <img src="/blog/files/sesame-workbench-query.jpg" />
+</p>
+
+<p>and you get an HTML page:</p>
+
+<p style="text-align: center">
+  <img src="/blog/files/sesame-workbench-query-result.jpg" />
+</p>
+
+<p>That&#39;s nice for humans, but not so good for computers. When we request the results of this query programmatically, we&#39;ll want to make sure that we specifically ask for the query results in either <a href="http://www.w3.org/TR/rdf-sparql-XMLres/">XML</a> or <a href="http://www.w3.org/TR/rdf-sparql-json-res/">JSON</a>.</p>
+
+<p>I went the XML route last time, so let&#39;s mix it up a bit and try processing the JSON results of a SPARQL query this time, as it&#39;s really easy to access using the <code>json</code> module in Python. So, we need to <code>POST</code> the query, ensuring that we set the <code>Accept</code> header to <code>application/sparql-results+json</code>, and then process the results as JSON. Here is <a href="/blog/files/find-rdf-types.py"><code>find-rdf-types.py</code></a></p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">import urllib
+import httplib2
+import json
+
+query = &#39;SELECT DISTINCT ?type WHERE { ?thing a ?type . } ORDER BY ?type&#39;
+repository = &#39;reference&#39;
+endpoint = &quot;http://localhost:8080/openrdf-sesame/repositories/%s&quot; % (repository)
+
+print &quot;POSTing SPARQL query to %s&quot; % (endpoint)
+params = { &#39;query&#39;: query }
+headers = { 
+  &#39;content-type&#39;: &#39;application/x-www-form-urlencoded&#39;, 
+  &#39;accept&#39;: &#39;application/sparql-results+json&#39; 
+}
+(response, content) = httplib2.Http().request(endpoint, &#39;POST&#39;, urllib.urlencode(params), headers=headers)
+
+print &quot;Response %s&quot; % response.status
+results = json.loads(content)
+print &quot;\n&quot;.join([result[&#39;type&#39;][&#39;value&#39;] for result in results[&#39;results&#39;][&#39;bindings&#39;]])
+</code></pre></div>
+<p>Run it:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">$ python find-rdf-types.py
+</code></pre></div>
+<p>and you get:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">POSTing SPARQL query to http://localhost:8080/openrdf-sesame/repositories/reference
+Response 200
+http://purl.org/linked-data/cube#DataSet
+http://purl.org/linked-data/cube#DataStructureDefinition
+http://purl.org/linked-data/cube#Observation
+http://purl.org/net/opmv/ns#Artifact
+http://purl.org/net/opmv/ns#Process
+http://purl.org/net/opmv/types/google-refine#OperationDescription
+http://purl.org/net/opmv/types/google-refine#Process
+http://purl.org/net/opmv/types/google-refine#Project
+http://rdfs.org/ns/void#Dataset
+http://reference.data.gov.uk/def/central-government/AssistantParliamentaryCounsel
+http://reference.data.gov.uk/def/central-government/CivilServicePost
+http://reference.data.gov.uk/def/central-government/Department
+http://reference.data.gov.uk/def/central-government/DeputyDirector
+http://reference.data.gov.uk/def/central-government/DeputyParliamentaryCounsel
+http://reference.data.gov.uk/def/central-government/Director
+http://reference.data.gov.uk/def/central-government/DirectorGeneral
+http://reference.data.gov.uk/def/central-government/ParliamentaryCounsel
+http://reference.data.gov.uk/def/central-government/PermanentSecretary
+http://reference.data.gov.uk/def/central-government/PublicBody
+http://reference.data.gov.uk/def/central-government/SeniorAssistantParliamentaryCounsel
+http://reference.data.gov.uk/def/intervals/CalendarDay
+http://www.w3.org/2000/01/rdf-schema#Class
+http://www.w3.org/ns/org#Organization
+http://www.w3.org/ns/org#OrganizationalUnit
+http://xmlns.com/foaf/0.1/Person
+</code></pre></div>
+<p>This is the same set of types as that given through the HTML browse interface. Note that the JSON results themselves look like:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">{
+  &quot;head&quot;: {
+    &quot;vars&quot;: [ &quot;type&quot; ]
+  }, 
+  &quot;results&quot;: {
+    &quot;bindings&quot;: [
+      {
+        &quot;type&quot;: { &quot;type&quot;: &quot;uri&quot;, &quot;value&quot;: &quot;http:\/\/purl.org\/linked-data\/cube#DataSet&quot; }
+      }, 
+      {
+        &quot;type&quot;: { &quot;type&quot;: &quot;uri&quot;, &quot;value&quot;: &quot;http:\/\/purl.org\/linked-data\/cube#DataStructureDefinition&quot; }
+      }, 
+      {
+        &quot;type&quot;: { &quot;type&quot;: &quot;uri&quot;, &quot;value&quot;: &quot;http:\/\/purl.org\/linked-data\/cube#Observation&quot; }
+      }, 
+      ...
+    ]
+  }
+}
+</code></pre></div>
+<p>Each of the items within the <code>bindings</code> array contains a set of bindings for the variables in the SPARQL query. This closely matches the XML format.</p>
+
+<h2>Processing RDF</h2>
+
+<p>Now we get onto the part of this where we look at specific libraries for RDF support in Python. The most popular library is <a href="http://www.rdflib.net/">rdflib</a>, which you can install using MacPorts:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">$ sudo port install py26-rdflib
+</code></pre></div>
+<p>The SPARQL query we&#39;ll try this time uses a CONSTRUCT query, which creates RDF, rather than a SELECT query, which as we&#39;ve seen can create either XML or JSON. For example, try the query:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">PREFIX foaf: &lt;http://xmlns.com/foaf/0.1/&gt;
+
+CONSTRUCT {
+  ?person 
+    a foaf:Person ;
+    foaf:name ?name ;
+    ?prop ?value .
+} WHERE { 
+  ?person a foaf:Person ;
+    foaf:name ?name ;
+    ?prop ?value .
+}
+</code></pre></div>
+<p>This gets all the information in the data about the individuals for whom names have been supplied in the data, as RDF. Again, Sesame will display this as HTML when you try doing it, but you can choose a different format from the drop-down menu at the top of the Query Result display:</p>
+
+<p style="text-align: center">
+  <img src="/blog/files/sesame-workbench-query-result-rdf.jpg" />
+</p>
+
+<p>When you&#39;re not accessing using a browser, by default Sesame serves up its results in <a href="http://www4.wiwiss.fu-berlin.de/bizer/TriG/Spec/">TriG format</a>, which isn&#39;t particularly appropriate for the results of CONSTRUCT queries as we don&#39;t need multiple graphs. We&#39;ll request <a href="http://www.w3.org/TR/rdf-testcases/#ntriples">N-Triples</a> as that&#39;s something rdflib can understand. Sesame 2 uses the content type <code>text/plain</code> for N-Triples, so we can request this type by setting the <code>Accept</code> header:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">params = { &#39;query&#39;: query }
+headers = { 
+  &#39;content-type&#39;: &#39;application/x-www-form-urlencoded&#39;, 
+  &#39;accept&#39;: &#39;text/plain&#39; 
+}
+(response, content) = httplib2.Http().request(endpoint, &#39;POST&#39;, urllib.urlencode(params), headers=headers)
+</code></pre></div>
+<p>We then need to parse this Turtle response into a <a href="http://www.rdflib.net/rdflib-2.4.0/html/public/rdflib.Graph.Graph-class.html"><code>rdflib.Graph</code></a> object:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">graph = rdflib.ConjunctiveGraph()
+graph.parse(rdflib.StringInputSource(content), format=&quot;nt&quot;)
+</code></pre></div>
+<p>We then need to get information out of that graph, which rdflib isn&#39;t particularly good at. So let&#39;s use <a href="http://www.openvest.com/trac/wiki/RDFAlchemy">RDFAlchemy</a> instead. That can be installed using <a href="http://packages.python.org/distribute/easy_install.html">easy_install</a>:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">$ sudo easy_install-2.6 rdfalchemy
+</code></pre></div>
+<p>RDFAlchemy can be used to map RDF graphs onto Python object structures in a fairly straight-forward manner. Basically, you define the namespaces of the vocabularies that you want to use, then some classes for the kinds of things that you have in the data, with properties that map onto properties in the RDF. Then you set the <code>rdfSubject.db</code> to the source of the data (which can be an rdflib Graph as above) and can query on it. Here&#39;s an example:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">FOAF = rdflib.Namespace(&#39;http://xmlns.com/foaf/0.1/&#39;)
+RDF = rdflib.Namespace(&#39;http://www.w3.org/1999/02/22-rdf-syntax-ns#&#39;)
+
+class Person(rdfalchemy.rdfSubject):
+  rdf_type = FOAF.Person
+  name = rdfalchemy.rdfSingle(FOAF.name)
+  mbox = rdfalchemy.rdfSingle(FOAF.mbox)
+
+rdfalchemy.rdfSubject.db = graph
+stott = Person.get_by(name=&#39;Andrew Stott&#39;)
+print &quot;Andrew Stott&#39;s email address: %s&quot; % stott.mbox.n3()
+</code></pre></div>
+<p>RDFAlchemy adds both <code>get_by()</code> and <code>filter_by()</code> methods on the descriptor classes that you define, to get a single item that matches a query or a list of items, respectively.</p>
+
+<p>The full script for <a href="/blog/files/get-names-and-emails.py">&#39;get-names-and-emails.py&#39;</a> is:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">import urllib
+import httplib2
+import rdflib
+import rdfalchemy
+
+query = &quot;&quot;&quot;PREFIX foaf: &lt;http://xmlns.com/foaf/0.1/&gt;
+
+CONSTRUCT {
+  ?person
+    a foaf:Person ;
+    foaf:name ?name ;
+    ?prop ?value .
+} WHERE {
+  ?person a foaf:Person ;
+    foaf:name ?name ;
+    ?prop ?value .
+}&quot;&quot;&quot;
+repository = &#39;reference&#39;
+endpoint = &quot;http://localhost:8080/openrdf-sesame/repositories/%s&quot; % repository
+
+print &quot;POSTing SPARQL query to %s&quot; % endpoint
+params = { &#39;query&#39;: query }
+headers = { 
+  &#39;content-type&#39;: &#39;application/x-www-form-urlencoded&#39;, 
+  &#39;accept&#39;: &#39;text/plain&#39; 
+}
+(response, content) = httplib2.Http().request(endpoint, &#39;POST&#39;, urllib.urlencode(params), headers=headers)
+print &quot;Response %s&quot; % response.status
+
+graph = rdflib.ConjunctiveGraph()
+graph.parse(rdflib.StringInputSource(content), format=&quot;nt&quot;)
+
+print &quot;Loaded %d triples&quot; % len(graph)
+
+FOAF = rdflib.Namespace(&#39;http://xmlns.com/foaf/0.1/&#39;)
+RDF = rdflib.Namespace(&#39;http://www.w3.org/1999/02/22-rdf-syntax-ns#&#39;)
+
+class Person(rdfalchemy.rdfSubject):
+  rdf_type = FOAF.Person
+  name = rdfalchemy.rdfSingle(FOAF.name)
+  mbox = rdfalchemy.rdfSingle(FOAF.mbox)
+
+rdfalchemy.rdfSubject.db = graph
+stott = Person.get_by(name=&#39;Andrew Stott&#39;)
+print &quot;Andrew Stott&#39;s email address: %s&quot; % stott.mbox.n3()
+</code></pre></div>
+<p>Run this script with:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">$ python get-names-and-emails.py
+</code></pre></div>
+<p>and you get the result:</p>
+<div class="highlight"><pre><code class="text language-text" data-lang="text">No handlers could be found for logger &quot;rdflib.Literal&quot;
+POSTing SPARQL query to http://localhost:8080/openrdf-sesame/repositories/reference
+Response 200
+Loaded 459 triples
+Andrew Stott&#39;s email address: &lt;mailto:andrew.stott@cabinet-office.gsi.gov.uk&gt;
+</code></pre></div>
+<p>The first line is apparently a <a href="http://groups.google.com/group/rdfalchemy-dev/browse_thread/thread/44a94ec27c4c0b85">side-effect of rdflib/RDFAlchemy weirdness</a> which you don&#39;t need to worry about. The rest shows that the search was successful; the call to the <code>.n3()</code> call on the email address is only necessary because it is a resource rather than a literal, and therefore doesn&#39;t get converted to a particularly readable string otherwise.</p>
+
+<h2>Conclusions</h2>
+
+<p>So there you have it, another walkthrough of setting up a local triplestore, loading in data and accessing that data programmatically using SPARQL queries, this time using Sesame and Python rather than 4store and Ruby.</p>
+
+<p>This walkthrough took me a fair bit longer to do than the previous one, for several reasons:</p>
+
+<ul>
+<li>I&#39;ve done almost no previous programming with Python (as you can probably tell), so every little thing took ages to work out -- you know you&#39;re in trouble when you&#39;re Googling for string concatenation code! I&#39;m very happy to accept corrections and improvements, which I&#39;ll include in the above.</li>
+<li>I spent a lot of time faffing around with different Python versions, opting for the latest and then finding that the libraries that I wanted to use weren&#39;t available for that version and so on. I eventually ended up with Python 2.6; the code above may or may not work with any other versions.</li>
+<li>Setting up Sesame 2 was pretty frustrating: first Tomcat wouldn&#39;t work, then Jetty wouldn&#39;t work, and finally I did get Tomcat working and then had the issue with the log directory, as I described above. Once I&#39;d changed the data directory things worked very smoothly.</li>
+<li>I thought rdflib was going to be enough to work with RDF in Python, but really it isn&#39;t (if you want to get data <em>out</em> as well as put data <em>in</em>), so I had to find something else.</li>
+<li>The documentation for rdflib and RDFAlchemy isn&#39;t as comprehensive as the documentation for RDF.rb, especially if you&#39;re not familiar with Python, so it took me a bit longer to work out how to do things with those particular libraries.</li>
+<li>I took a lot more screenshots!</li>
+</ul>
+
+<p>Again, I haven&#39;t followed Richard&#39;s steps to the letter; in particular I haven&#39;t used a package to get data out of (or into) Sesame: I&#39;ve just done it through HTTP calls. I did it this way deliberately because I think it&#39;s a really important feature of triplestores that you can query them through a common interface: SPARQL. It means that you can take the Python code here and use it against 4store or another triplestore with only a change to the value of the endpoint variable, and similarly take the Ruby code from my previous walkthrough and use it against Sesame. Your code is not tied to a particular implementation or API; you &quot;only&quot; have to learn SPARQL and you&#39;re away.</p>
+
+<p>If you prefer something a little more tightly bound, however, RDFAlchemy does have some targeted <a href="http://www.openvest.com/trac/wiki/RDFAlchemy#Sesame">Sesame support</a>, as does <a href="http://rdf.rubyforge.org/sesame/">RDF.rb</a> for that matter. These can help with the management of the data within the repository as well as querying it.</p>
+
+<p>Another thing that&#39;s worth pointing out is that 4store and Sesame have completely different (HTTP-based) interfaces for getting data into stores, and that rdflib/RDFAlchemy and RDF.rb have completely different ways of loading data into in-memory graphs, querying it, and getting information from the results, quite aside from the obvious language-based differences that you&#39;d expect.</p>
+
+<p>On the SPARQL side, there are some efforts within the W3C to define a <a href="http://www.w3.org/TR/sparql11-http-rdf-update/">uniform HTTP protocol for managing RDF graphs</a> and of course there&#39;s <a href="http://www.w3.org/TR/sparql11-update/">SPARQL 1.1 Update</a>. There are glimmers of hope for a <a href="http://www.w3.org/QA/2010/12/new_rdf_working_group_rdfjson.html">standard RDF API</a>, as <a href="http://www.jenitennison.com/blog/node/150">I&#39;ve argued for recently</a>, but I gather that this effort will be focused on client-side developers, ie that it is really a standard RDF API <em>for Javascript</em>, which I think is a wasted opportunity: I would have been faster in this task if I&#39;d been able to use familiar methods, and I wouldn&#39;t have been so dependent on the documentation provided by the author of a particular library.</p>
+
+<p>Anyway, hopefully my tramping this path will make it easier for those who follow.</p>
